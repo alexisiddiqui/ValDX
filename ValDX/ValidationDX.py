@@ -30,6 +30,7 @@ class ValDX(Experiment):
         """
         Load HDX data and Matched Residue Segments: Experiment and Predicted.
         """
+        
         pass
 
     def load_structures(self, top_path, traj_paths:str=None, calc_name: str=None):

@@ -50,6 +50,15 @@ def segs_to_df(path: str, names=['ResStr', 'ResEnd']):
     df = pd.read_csv(path, sep='\s+', header=None, names=names)
     return df
 
+def segs_to_file(path: str, df: pd.DataFrame):
+    """Write a residue segments file from a pandas DataFrame.
+    
+    Args:
+        path: The path to the residue segments file.
+        df: A pandas DataFrame containing data for the given argument.
+    """
+    df.to_csv(path, sep='\s+', header=False, index=False)
+
 def avgfrac_to_df(path: str, names: list):
     """Read and create a pandas DataFrame using a computed deuterated fractions file.
     
@@ -60,7 +69,8 @@ def avgfrac_to_df(path: str, names: list):
     Returns:
         df: A pandas DataFrame containing data for the given argument.
     """
-    df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None, usecols=[2, 3, 4, 5], names=names)
+    cols = [col+2 for col in range(len(names))]
+    df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None, usecols=cols, names=names)
     return df
 
 def reweight_to_df(path: str, names: list):
@@ -76,3 +86,16 @@ def reweight_to_df(path: str, names: list):
     """
     df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None, names=names)
     return df
+
+
+def dfracs_to_df(path: str, names: list):
+
+    df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None)
+
+    #find number of columns
+    ncol = df.shape[1]
+
+    if ncol == len(names)+2:
+        return avgfrac_to_df(path, names)
+    if ncol == len(names):
+        return reweight_to_df(path, names)

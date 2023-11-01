@@ -6,6 +6,7 @@ import seaborn as sns
 import numpy as np  
 import pandas as pd
 import os
+import math
 import MDAnalysis as mda
 
 from ValDX.helpful_funcs import *
@@ -730,7 +731,6 @@ def plot_dfracs_compare_hist_errors(args: list, data: pd.DataFrame, times: list,
         # Plot histograms on the current axis
         ax.hist(histograms, bins=10, label=args, alpha=0.3)
 
-
         # ax.axvline(x=expt_means[idx], color='black', label='expt mean', linestyle='-')
         ax.set_title(f'HDX df empirical error from expt at time {t} min')
         ax.set_xlabel('HDX Protection Factor error')
@@ -742,3 +742,59 @@ def plot_dfracs_compare_hist_errors(args: list, data: pd.DataFrame, times: list,
             #     print("Incorrect argument given. Please choose one or more of the following: 'expt' 'pred' 'reweighted'")
     fig.text(0.5, 0.095, 'Residue', ha='center', fontsize=22)
     fig.text(0.05, 0.5, 'HDX df compare to expt', va='center', rotation='vertical', fontsize=22)
+
+
+
+
+
+def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: int=None, save=False, save_dir=None):
+    li = []
+    i, j = RW_range
+    for i in np.arange(-3, 1): # Select the range of gamma (i in j*10^i)
+        for j in np.arange(1, 10): # Select the range of gamma (j in j*10^i)
+            # Read files containing work values from the smallest to the biggest gamma
+            try:
+                work = os.path.join(RW_dir, f'{prefix}_RW_{j}x10^{i}.dat')
+                df = pd.read_csv(work, comment='#', header=None, sep='\s+')
+                li.append(df)
+            except FileNotFoundError:
+                pass
+    works = pd.concat(li, axis=0, ignore_index=True) 
+    works.columns = ['gamma', 'MSE', 'RMSE', 'work']
+    # calculate the value where the tangent of the point is at 45 degrees to the x axis
+    # this is the optimal value of gamma
+    x = works['MSE'].values.tolist()
+    y = works['work'].values.tolist()
+
+    # calculate the the angle made between each point and the next and the x axis
+    angles = []
+    for i in range(len(x)-1):
+        angles.append(np.arctan((y[i+1]-y[i])/(x[i+1]-x[i])))
+
+    # find the index of the angle closest to 45 degrees
+    closest = min(angles, key=lambda x:abs(x-math.pi/4))
+
+    # find the value of gamma at this index
+    closest_gamma = works['gamma'][angles.index(closest)]
+
+
+    plt.figure(figsize=(11, 8.5))
+    plt.plot(works['MSE'], works['work'], color='teal', linewidth=3, markersize=10, marker='o')
+
+    if gamma is not None:
+        gamma_x = works[works['gamma'] == gamma]['MSE']
+        gamma_y = works[works['gamma'] == gamma]['work']
+        plt.annotate(f"Gamma = {gamma}", xy=(gamma_x, gamma_y), xytext=(gamma_x + 0.005, gamma_y + 2.0),
+                        arrowprops=dict(facecolor='black', shrink=0.05), size=16 )
+    closest_x = works[works['gamma'] == closest_gamma]['MSE']
+    closest_y = works[works['gamma'] == closest_gamma]['work']
+    plt.annotate(f"Optimal Gamma = {closest_gamma}", xy=(closest_x, closest_y), xytext=(closest_x + 0.005, closest_y + 2.0),
+                 arrowprops=dict(facecolor='black', shrink=0.05), size=16 )
+    title = f'Decision curve for {calc_name}'
+    plt.title(title)
+    plt.xlabel('MSE to target data')
+    plt.ylabel('W$_{app}$ / kJ mol$^{-1}$')
+    # if save:
+    plt.savefig(f'{calc_name}_decision_plot.pdf', bbox_inches='tight')
+
+    return closest_gamma, works

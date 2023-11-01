@@ -8,6 +8,10 @@
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
+from ValDX.helpful_funcs import segs_to_df, dfracs_to_df, segs_to_file
+from ValDX.HDX_plots import plot_lcurve
+from HDXer.reweighting import MaxEnt
+
 import pandas as pd
 import time
 import os 
@@ -93,13 +97,17 @@ class ValDX(Experiment):
         """
         if calc_name is None:
             raise ValueError("Please provide a calculation name for the structures.")
-        rep_name = "_".join([calc_name, mode, str(rep)])        
+        if train:
+            rep_name = "_".join(["train", calc_name, str(rep)])
+        else:
+            rep_name = "_".join(["val", calc_name, str(rep)])
+
         out_dir = os.path.join(self.settings.data_dir, self.name, calc_name)
 
         calc_hdx = os.path.join(self.HDXer_path, "HDXer", "calc_hdx.py")
         top = self.paths.loc[self.paths["calc_name"] == calc_name, "top"]
         trajs = self.paths.loc[self.paths["calc_name"] == calc_name, "traj"]
-        log = os.path.join(out_dir, self.settings.logfile_name[0] + calc_name + self.settings.logfile_name[1])
+        log = os.path.join(out_dir, self.settings.logfile_name[0] + rep_name + self.settings.logfile_name[1])
         if train:
             segs = self.train_segs.loc[self.train_segs["calc_name"] == calc_name, "path"]
         else:
@@ -107,7 +115,7 @@ class ValDX(Experiment):
         out_prefix = os.path.join(out_dir, "_".join([self.settings.outname, rep_name]))
 
         if self.load_HDXer():
-
+            ### how do we add times
             calc_hdx_command = ["python",
                                 calc_hdx,
                                 "-t", trajs,
@@ -121,14 +129,70 @@ class ValDX(Experiment):
 
             subprocess.run(calc_hdx_command, env=self.HDXer_env, check=True)
 
-            ### add HDX data back into class
+            ### read HDX data into df
+            df = dfracs_to_df(out_prefix + "_segment_average_fractions.dat", names=self.settings.times)
 
-    def reweight_HDX(self, calc_name: str=None, mode: str=None, rep: int=None, train: bool=True):
-        # how do we validate the reweighting? we can compare to experimental
-        # for validation we would reweight and then compare to experimental too?
-        pass
+            self.load_intrinsic_rates(out_prefix + "_intrinsic_rates.dat", calc_name=calc_name)
+            
+            return df
+        
 
-    def evaluate_HDX(self, calc_name: str=None, mode: str=None, n_reps: int=None):
+    def reweight_HDX(self, expt_name: str=None, calc_name: str=None, gamma_range: tuple=(2,10), train: bool=True, rep: int=None):
+        """
+        Reweight HDX data from previsously predicted HDX data performed by predict_HDX().
+        """
+        if expt_name or calc_name is None:
+            raise ValueError("Please provide a Calculation AND Experimental name for the structures.")
+
+        rep_name = "_".join(["train", calc_name, str(rep)])
+
+        predictHDX_dir = os.path.join(self.settings.data_dir, self.name, rep_name)
+        expt = self.paths.loc[self.paths["calc_name"] == expt_name, "HDX"]
+        rates = self.paths.loc[self.paths["calc_name"] == calc_name, "rates"]
+        times = self.settings.times
+        exponent = self.settings.RW_exponent
+
+        # how do we do this for validation data? I guess this is is simply a procedure - does it 
+        if train:
+            for r in range(gamma_range):
+                reweight_object = MaxEnt(do_reweight=self.settings.RW_do_reweighting, 
+                                         do_params=self.settings.RW_do_params, 
+                                         stepfactor=self.settings.RW_stepfactor)
+                
+                reweight_object.run(gamma=self.settings.RW_basegamma*r, 
+                                    data_folders=predictHDX_dir, 
+                                    kint_file=rates, 
+                                    exp_file=expt, 
+                                    times=times, 
+                                    restart_interval=self.settings.RW_restart_interval, 
+                                    out_prefix=self.settings.RW_outprefix+f"{r}x10^{exponent}")
+                
+            # plot L-curve return closest gamma value
+            return plot_lcurve(calc_name=rep_name, RW_range=gamma_range, dir=predictHDX_dir, prefix=self.settings.RW_outprefix)
+        
+
+    def train_HDX(self, calc_name: str=None, expt_name: str=None, mode: str=None, n_reps: int=None, random_seeds: list=None):
+        ### need to rethink how to do train - val split for the names - each train rep needs to be in its own folder - reweighting uses an entire directory
+
+        if random_seeds is None:
+            random_seeds = [i for i in range(self.settings.random_seed, self.settings.random_seed + n_reps)]
+
+        train_name = "_".join(["train", calc_name])
+
+
+        for rep in range(n_reps):
+            seed = random_seeds[rep]
+
+            rep_name = self.split_segments(calc_name=calc_name, random_seed=seed, train_frac=self.settings.train_frac, rep=rep)
+            self.predict_HDX(calc_name=calc_name, mode=mode, rep=rep, train=True)
+            self.reweight_HDX(expt_name=expt_name, calc_name=calc_name, train=True)
+
+
+
+
+
+
+    def evaluate_HDX(self, calc_name: str=None, mode: str=None, n_reps: int=None, gamma: float=None):
         # compare both training and validation data to the experimental data
         # show the averages and the distributions of the errors
         pass
@@ -136,7 +200,11 @@ class ValDX(Experiment):
     ### Dont need to mess with this for now
     def load_intrinsic_rates(self, path, calc_name: str=None):
         """
-        Load intrinsic rates: intrinsic rates from HDXer. Optional.
-        Otherwise default values are used.
+        Load intrinsic rates: intrinsic rates from HDXer.
         """
-        pass
+        if calc_name is None:
+            raise ValueError("Please provide a calculation name for the structures.")
+
+        paths_to_add = pd.DataFrame({"int_rates": [path], "calc_name": [calc_name]})
+        self.paths = pd.concat([self.paths, paths_to_add], ignore_index=True)
+

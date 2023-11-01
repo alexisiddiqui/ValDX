@@ -21,7 +21,7 @@ class Experiment(ABC):
             self.name = "ABC"
         self.calc_names = []
         self.paths = pd.DataFrame()
-        self.
+        self.rates = pd.DataFrame()
         self.structures = pd.DataFrame()
         self.train_segs = pd.DataFrame()
         self.val_segs = pd.DataFrame()
@@ -84,8 +84,8 @@ class Experiment(ABC):
         val_segs["calc_name"] = calc_name
 
         # save to file
-        train_segs_name = "_".join(["train",self.settings.segs_name[0], calc_name_ext, self.settings.segs_name[1]])
-        val_segs_name = "_".join(["val",self.settings.segs_name[0], calc_name_ext, self.settings.segs_name[1]])
+        train_segs_name = "_".join(["train",self.settings.segs_name[0], calc_name_ext, self.settings.segs_name[1]])+".txt"
+        val_segs_name = "_".join(["val",self.settings.segs_name[0], calc_name_ext, self.settings.segs_name[1]])+".txt"
 
         train_segs_path = os.path.join(self.settings.data_dir, self.name, calc_name, train_segs_name)
         val_segs_path = os.path.join(self.settings.data_dir, self.name, calc_name, val_segs_name)

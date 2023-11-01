@@ -32,5 +32,18 @@ class Settings:
         self.segs_name = ("residue_segs_", ".txt")
         self.outname = "out_"
         self.HDXer_mopt = "{ 'save_detailed' : True }"
+
+
+        # reweighting
+        self.RW_exponent = -3
+        self.RW_basegamma = 10**self.exponent
+        self.RW_do_reweighting = True
+        self.RW_do_params = False
+        self.RW_stepfactor = 0.00001
+        self.RW_outprefix = "reweighting_gamma_"
+        self.RW_restart_interval = 100
+
+
+
     
             

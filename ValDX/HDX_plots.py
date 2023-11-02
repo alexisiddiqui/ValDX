@@ -470,7 +470,7 @@ def plot_dfracs_error(args: list, data: pd.DataFrame, RMSF: list or np.ndarray, 
         abs (bool): whether to plot absolute error or not
     """
     if 'expt' == args:
-        return ValueError('expt must be included in args')
+        raise ValueError('expt must be included in args')
     
     expt = data[args[expt_index]].copy()
 
@@ -531,8 +531,7 @@ def plot_dfracs_error(args: list, data: pd.DataFrame, RMSF: list or np.ndarray, 
 
 
 
-def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0):
-        
+def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0):   
     """Plot HDX deuterated fractions for each time point.
     
     Args:
@@ -745,6 +744,59 @@ def plot_dfracs_compare_hist_errors(args: list, data: pd.DataFrame, times: list,
 
 
 
+def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0):
+    """Plot HDX deuterated fractions for each time point.
+    
+    Args:
+        *args: 
+            'expt' - experimental HDX deuterated fractions
+            'pred' - computed HDX deuterated fractions
+            'reweighted' - reweighted HDX deuterated fractions
+    """
+    if 'expt' == args:
+        return ValueError('expt must be included in args')
+    
+    expt = data[args[expt_index]].copy()
+    fig, axes = plt.subplots(nrows=len(times), ncols=1, figsize=(12 , 6* (len(times)-1)))
+
+    # Assuming times is a predefined list of time points
+    for i, t in enumerate(times):
+        
+        # Extracting experimental data for the current time point
+        expt_values = expt.iloc[:, i]
+        
+        # Creating pairwise plots for the current time
+        
+        for j, arg in enumerate(args):
+            ax = axes[i]
+
+            if arg == 'expt':
+                # plot line y=x for reference
+                ax.plot(expt_values, expt_values, label='expt', linestyle='--', color='black')
+
+            
+            # Extracting data for the current argument
+            arg_values = data[arg].iloc[:, i]
+
+            # calculate pearson correlation coefficient R^2
+            R = np.corrcoef(expt_values, arg_values)[0,1]
+            print(R)
+            
+            # Plotting on the corresponding axis
+            ax.scatter(arg_values, expt_values, label=f'{arg} vs. {args[expt_index]}, R={R:.2f}')
+            ax.set_xlabel('Predicted Values')
+            ax.set_ylabel('Experimental Values')
+            ax.legend()
+            ax.set_title(f'Pairwise comparison at time {t} min')
+        
+    plt.tight_layout()
+    plt.show()
+
+    fig.text(0.5, 0.04, 'Experimental Value', ha='center', fontsize=22)
+    fig.text(0.04, 0.5, 'Value', va='center', rotation='vertical', fontsize=22)
+
+
+
 
 
 def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: int=None, save=False, save_dir=None):
@@ -789,7 +841,7 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: int
     closest_x = works[works['gamma'] == closest_gamma]['MSE']
     closest_y = works[works['gamma'] == closest_gamma]['work']
     plt.annotate(f"Optimal Gamma = {closest_gamma}", xy=(closest_x, closest_y), xytext=(closest_x + 0.005, closest_y + 2.0),
-                 arrowprops=dict(facecolor='black', shrink=0.05), size=16 )
+                 arrowprops=dict(facecolor='red', shrink=0.05), size=16 )
     title = f'Decision curve for {calc_name}'
     plt.title(title)
     plt.xlabel('MSE to target data')
@@ -798,3 +850,15 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: int
     plt.savefig(f'{calc_name}_decision_plot.pdf', bbox_inches='tight')
 
     return closest_gamma, works
+
+def plot_gamma_distribution(train_gammas: list, val_gammas: list, calc_name: str, save=False, save_dir=None):
+    plt.figure(figsize=(11, 8.5))
+    plt.hist(train_gammas, bins=5, alpha=0.5, label='train')
+    plt.hist(val_gammas, bins=5, alpha=0.5, label='val')
+    plt.legend(loc='upper right')
+    plt.title(f'Gamma distribution for {calc_name}')
+    plt.xlabel('Gamma')
+    plt.ylabel('Count')
+    # if save:
+    #     plt.savefig(f'{calc_name}_gamma_distribution.pdf', bbox_inches='tight')
+

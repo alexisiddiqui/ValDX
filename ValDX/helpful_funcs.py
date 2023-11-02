@@ -48,6 +48,7 @@ def segs_to_df(path: str, names=['ResStr', 'ResEnd']):
         names: A list of column names for the DataFrame. (ResStr, ResEnd)
     """
     df = pd.read_csv(path, sep='\s+', header=None, names=names)
+    df["peptide"] = df.index
     return df
 
 def segs_to_file(path: str, df: pd.DataFrame):
@@ -57,7 +58,10 @@ def segs_to_file(path: str, df: pd.DataFrame):
         path: The path to the residue segments file.
         df: A pandas DataFrame containing data for the given argument.
     """
-    df.to_csv(path, sep='\s+', header=False, index=False)
+    # remove peptide column if present make sure we dont overwrite the df in memory.
+    if "peptide" in df.columns:
+        to_write = df.drop(columns=["peptide"])
+    to_write.to_csv(path, sep='\s+', header=False, index=False)
 
 def avgfrac_to_df(path: str, names: list):
     """Read and create a pandas DataFrame using a computed deuterated fractions file.
@@ -71,6 +75,8 @@ def avgfrac_to_df(path: str, names: list):
     """
     cols = [col+2 for col in range(len(names))]
     df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None, usecols=cols, names=names)
+    df["peptide"] = df.index
+
     return df
 
 def reweight_to_df(path: str, names: list):
@@ -85,13 +91,15 @@ def reweight_to_df(path: str, names: list):
         df: A pandas DataFrame containing data for the given argument.
     """
     df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None, names=names)
+    df["peptide"] = df.index
     return df
 
 
 def dfracs_to_df(path: str, names: list):
 
     df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None)
-
+    #add peptide numbers
+    df["peptide"] = df.index
     #find number of columns
     ncol = df.shape[1]
 

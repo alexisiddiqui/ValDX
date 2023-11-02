@@ -23,11 +23,12 @@ class Experiment(ABC):
         self.paths = pd.DataFrame()
         self.rates = pd.DataFrame()
         self.structures = pd.DataFrame()
+        self.segs = pd.DataFrame()
         self.train_segs = pd.DataFrame()
         self.val_segs = pd.DataFrame()
         self.HDX_data = pd.DataFrame()
 
-    def prepare_HDX_data(self, calc_name: str=None):
+    def prepare_HDX_data(self, calc_name: str=None): 
         """
         Prepares dataframes of HDX data from paths
         """
@@ -47,15 +48,14 @@ class Experiment(ABC):
             ### do we need this line??
             new_segs_data['calc_name'] = calc_name
             ###
-            self.train_segs = pd.concat([self.train_segs, new_segs_data], ignore_index=True)
-            self.val_segs = pd.concat([self.val_segs, new_segs_data], ignore_index=True)
+            self.segs = pd.concat([self.segs, new_segs_data], ignore_index=True)
         except:
             new_segs_data = None
             raise Warning(f"No residue segments found for {calc_name}.")
         
         return new_HDX_data, new_segs_data
 
-    def split_segments(self, calc_name: str=None, mode: str='r', random_seed: int=None, train_frac: float=None, rep: int=None):
+    def split_segments(self, seg_name: str=None, calc_name: str=None, mode: str='r', random_seed: int=None, train_frac: float=None, rep: int=None):
         """
         splits segments into train and validation sets
         various modes:
@@ -65,43 +65,57 @@ class Experiment(ABC):
         x - spatial split across Xture
         R - Redundancy aware split
         ###
+        seg_name is the name of the segments dir to split loaded by load_HDX -> prepare_HDX_data
+        calc_name is the name of the calculation that the segments are being used for
         """
         if random_seed is None:
             random_seed = self.settings.random_seed
         if train_frac is None:
             train_frac = self.settings.train_frac
+        if seg_name is None:
+            seg_name = calc_name
+
+        rep_name = "_".join([calc_name, str(rep)])
+        train_rep_name = "_".join(["train", rep_name])
+        val_rep_name = "_".join(["val", rep_name])
+
 
         if mode == 'r':
-            train_segs = self.train_segs.sample(frac=train_frac, random_state=random_seed, axis=0)
-            val_segs = self.train_segs.drop(train_segs.index)
+            train_segs = self.segs.loc[self.segs['calc_name'] == seg_name].sample(frac=train_frac, random_state=random_seed)
+            val_segs = self.segs.loc[self.segs['calc_name'] == seg_name].drop(train_segs.index)
         else:
             raise ValueError(f"Mode {mode} not implemented yet.")
 
-        calc_name_ext = "_".join([calc_name, str(rep)])
-        calc_name = "_".join([calc_name, calc_name_ext])
+        # calc_name_ext = "_".join([calc_name, str(rep)])
+        # calc_name = "_".join([calc_name, calc_name_ext])
         
         train_segs["calc_name"] = calc_name
         val_segs["calc_name"] = calc_name
 
         # save to file
-        train_segs_name = "_".join(["train",self.settings.segs_name[0], calc_name_ext, self.settings.segs_name[1]])+".txt"
-        val_segs_name = "_".join(["val",self.settings.segs_name[0], calc_name_ext, self.settings.segs_name[1]])+".txt"
+        train_segs_name = "_".join(["train",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])+".txt"
+        val_segs_name = "_".join(["val",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])+".txt"
 
-        train_segs_path = os.path.join(self.settings.data_dir, self.name, calc_name, train_segs_name)
-        val_segs_path = os.path.join(self.settings.data_dir, self.name, calc_name, val_segs_name)
+        _, train_segs_dir = self.generate_directory_structure(calc_name=train_rep_name, overwrite=True)
+        _, val_segs_dir = self.generate_directory_structure(calc_name=val_rep_name, overwrite=True)
+
+        train_segs_path = os.path.join(train_segs_dir, train_segs_name)
+        val_segs_path = os.path.join(val_segs_dir, val_segs_name)
 
         train_segs["path"] = train_segs_path
         val_segs["path"] = val_segs_path
         
         segs_to_file(train_segs_path, train_segs)
         print(f"Saved train {calc_name} segments to {train_segs_path}")
+        print(f"Train Peptide numbers: {train_segs['peptide'].values}")
         segs_to_file(val_segs_path, val_segs)
         print(f"Saved val {calc_name} segments to {val_segs_path}")
+        print(f"Val Peptide numbers: {val_segs['peptide'].values}")
 
         self.train_segs = pd.concat([self.train_segs, train_segs], ignore_index=True)
         self.val_segs = pd.concat([self.val_segs, val_segs], ignore_index=True)
 
-        return calc_name
+        return calc_name, train_rep_name, val_rep_name
 
     def prepare_structures(self, calc_name: str=None):
         """
@@ -125,10 +139,12 @@ class Experiment(ABC):
         return top, traj
 
 
-    def generate_directory_structure(self, calc_name: str=None, overwrite=False):
+    def generate_directory_structure(self, calc_name: str=None, overwrite=False, gen_only=False):
         """
-        Generates directory structure for the experiment. 
-        This is for the outputs of the experiment.
+        Generates directory structure for the experiment.
+        Used during init with no calc_name to generate the experiment directory. Overwrite = False.
+        Used during predict HDX to gen_only the path. Overwrite = False.
+        Used during split segements to create the train and val segments directories per replicate. Overwrite = True.
         """
         if calc_name is None:
             name = self.name
@@ -160,7 +176,7 @@ class Experiment(ABC):
                 os.removedirs(calc_dir)
                 os.makedirs(calc_dir)
     
-            elif exists:
+            elif exists and not gen_only:
                 raise ValueError(f"Calculation {calc_name} already exists. Please choose a different name.")
             
             calc_dir = os.path.join(self.settings.data_dir, self.name, calc_name)

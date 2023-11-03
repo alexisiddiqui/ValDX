@@ -8,7 +8,9 @@ import os
 import MDAnalysis as mda
 
 class Experiment(ABC):
-    def __init__(self,settings: Settings, name=None):
+    def __init__(self,
+                 settings: Settings, 
+                 name=None):
         super().__init__(settings, name)
         self.settings = settings
         self.HDXer_path = self.settings.HDXer_path
@@ -28,7 +30,8 @@ class Experiment(ABC):
         self.val_segs = pd.DataFrame()
         self.HDX_data = pd.DataFrame()
 
-    def prepare_HDX_data(self, calc_name: str=None): 
+    def prepare_HDX_data(self, 
+                         calc_name: str=None): 
         """
         Prepares dataframes of HDX data from paths
         """
@@ -55,7 +58,11 @@ class Experiment(ABC):
         
         return new_HDX_data, new_segs_data
 
-    def split_segments(self, seg_name: str=None, calc_name: str=None, mode: str='r', random_seed: int=None, train_frac: float=None, rep: int=None):
+    def split_segments(self, 
+                       seg_name: str=None, 
+                       calc_name: str=None, 
+                       mode: str='r', 
+                       random_seed: int=None, train_frac: float=None, rep: int=None):
         """
         splits segments into train and validation sets
         various modes:
@@ -117,7 +124,8 @@ class Experiment(ABC):
 
         return calc_name, train_rep_name, val_rep_name
 
-    def prepare_structures(self, calc_name: str=None):
+    def prepare_structures(self, 
+                           calc_name: str=None):
         """
         Prepares MDA Universe object from topology and trajectory files.
         """

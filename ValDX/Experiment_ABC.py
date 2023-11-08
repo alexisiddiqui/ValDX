@@ -4,14 +4,16 @@ from abc import ABC, abstractmethod
 from ValDX.VDX_Settings import Settings
 from ValDX.helpful_funcs import segs_to_df, dfracs_to_df, segs_to_file
 import pandas as pd
+import numpy as np
 import os
+import shutil
 import MDAnalysis as mda
 
 class Experiment(ABC):
     def __init__(self,
                  settings: Settings, 
                  name=None):
-        super().__init__(settings, name)
+        super().__init__()
         self.settings = settings
         self.HDXer_path = self.settings.HDXer_path
         self.HDXer_env = self.settings.HDXer_env
@@ -35,8 +37,10 @@ class Experiment(ABC):
         """
         Prepares dataframes of HDX data from paths
         """
+        print(f"Preparing HDX data for {calc_name}")
         try:
-            new_HDX_data = dfracs_to_df(self.paths.loc[self.paths['calc_name'] == calc_name, 'HDX'], 
+            path = self.paths.loc[self.paths['calc_name'] == calc_name]['HDX'].values[0]
+            new_HDX_data = dfracs_to_df(path, 
                                         names=self.times)
             ### do we need this line??
             new_HDX_data['calc_name'] = calc_name
@@ -47,7 +51,8 @@ class Experiment(ABC):
             raise Warning(f"No HDX data found for {calc_name}.")
         
         try:
-            new_segs_data = segs_to_df(self.paths.loc[self.paths['calc_name'] == calc_name, 'SEG'])
+            path = self.paths.loc[self.paths['calc_name'] == calc_name]['SEG'].values[0]
+            new_segs_data = segs_to_df(path)
             ### do we need this line??
             new_segs_data['calc_name'] = calc_name
             ###
@@ -100,9 +105,8 @@ class Experiment(ABC):
         val_segs["calc_name"] = calc_name
 
         # save to file
-        train_segs_name = "_".join(["train",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])+".txt"
-        val_segs_name = "_".join(["val",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])+".txt"
-
+        train_segs_name = "_".join(["train",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])
+        val_segs_name = "_".join(["val",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])
         _, train_segs_dir = self.generate_directory_structure(calc_name=train_rep_name, overwrite=True)
         _, val_segs_dir = self.generate_directory_structure(calc_name=val_rep_name, overwrite=True)
 
@@ -112,15 +116,20 @@ class Experiment(ABC):
         train_segs["path"] = train_segs_path
         val_segs["path"] = val_segs_path
         
+        # print("train_segs")
+        # print(train_segs.head())
+
         segs_to_file(train_segs_path, train_segs)
         print(f"Saved train {calc_name} segments to {train_segs_path}")
-        print(f"Train Peptide numbers: {train_segs['peptide'].values}")
+        print(f"Train Peptide numbers: {np.sort(train_segs['peptide'].values)}")
         segs_to_file(val_segs_path, val_segs)
         print(f"Saved val {calc_name} segments to {val_segs_path}")
-        print(f"Val Peptide numbers: {val_segs['peptide'].values}")
+        print(f"Val Peptide numbers: {np.sort(val_segs['peptide'].values)}")
 
         self.train_segs = pd.concat([self.train_segs, train_segs], ignore_index=True)
         self.val_segs = pd.concat([self.val_segs, val_segs], ignore_index=True)
+
+        
 
         return calc_name, train_rep_name, val_rep_name
 
@@ -130,10 +139,13 @@ class Experiment(ABC):
         Prepares MDA Universe object from topology and trajectory files.
         """
         # do we need iloc[0]??? only one top per calc name
-        top = mda.Universe(self.structures.loc[self.structures['calc_name'] == calc_name, 'top'])
+        top_path = self.paths.loc[self.paths['calc_name'] == calc_name, 'top'].values[0]
+        top = mda.Universe(top_path)
         # ensure that the traj unpacks all paths in the list
-        traj = mda.Universe(topology=self.structures.loc[self.structures['calc_name'] == calc_name, 'top'],
-                            trajectory=self.structures.loc[self.structures['calc_name'] == calc_name, 'traj']) 
+        traj_paths = self.paths.loc[self.paths['calc_name'] == calc_name, 'traj'].values[0]
+        traj = mda.Universe(top_path,
+                            *traj_paths)
+                             
                             
 
         structures_to_add = pd.DataFrame({"top": [top], "traj": [traj], "calc_name": [calc_name]})
@@ -141,8 +153,9 @@ class Experiment(ABC):
         self.structures = pd.concat([self.structures, structures_to_add], ignore_index=True)
 
         print(f"Structures loaded {calc_name}: ")
-        print(f"Topology: {top}")
-        print(f"Trajectory: {traj}")
+        print(f"{calc_name} Topology: {top}")
+        print(f"{calc_name} Trajectory: {traj}")
+        print(f"{calc_name} Traj: no frames {traj.trajectory.n_frames}")
 
         return top, traj
 
@@ -160,14 +173,19 @@ class Experiment(ABC):
 
             exists = os.path.isdir(exp_dir)
             if overwrite:
-                os.removedirs(exp_dir)
-                os.makedirs(exp_dir)
+                try:
+                    os.removedirs(exp_dir)
+                    print(f"Removing contents {exp_dir}")
+                except:
+                    pass
+                
     
             count = 0
             while exists:
                 name = self.name + str(count)
                 print(f"Experiment name {self.name} already exists. Attempting to change name to {name}")
-
+                count += 1
+                exists = os.path.isdir(os.path.join(self.settings.data_dir, name))
             # when doesnt exist - set self.name to name
             self.name = name
             exp_dir = os.path.join(self.settings.data_dir, self.name)
@@ -180,20 +198,24 @@ class Experiment(ABC):
             calc_dir = os.path.join(self.settings.data_dir, self.name, name)
 
             exists = os.path.isdir(calc_dir)
-            if overwrite:
-                os.removedirs(calc_dir)
-                os.makedirs(calc_dir)
+            if overwrite and exists:
+                shutil.rmtree(calc_dir)
+                print(f"Removing contents {calc_dir}")
+                # except:
+                #     pass
     
             elif exists and not gen_only:
                 raise ValueError(f"Calculation {calc_name} already exists. Please choose a different name.")
-            
-            calc_dir = os.path.join(self.settings.data_dir, self.name, calc_name)
-            os.makedirs(calc_dir)
 
+            calc_dir = os.path.join(self.settings.data_dir, self.name, calc_name)
+            if exists and gen_only:
+                return calc_name, calc_dir
+            
+            os.makedirs(calc_dir)
             return calc_name, calc_dir
             
 
-    @abstractmethod
+    # @abstractmethod
     def prepare_config(self):
         """
         Prepares the configuration...for the environment setup.
@@ -203,10 +225,10 @@ class Experiment(ABC):
 
 
 
-    @abstractmethod
+    # @abstractmethod
     def save_experiment(self):
         pass
 
-    @abstractmethod
+    # @abstractmethod
     def load_experiment(self):
         pass

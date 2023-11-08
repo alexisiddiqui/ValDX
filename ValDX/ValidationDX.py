@@ -12,12 +12,13 @@ import pickle
 import glob
 import subprocess
 import numpy as np
+import concurrent.futures
 
 from HDXer.reweighting import MaxEnt
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
-from ValDX.helpful_funcs import segs_to_df, dfracs_to_df, segs_to_file
+from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt
 from ValDX.HDX_plots import plot_lcurve, plot_gamma_distribution, plot_dfracs_compare, plot_paired_errors
 
 
@@ -26,18 +27,18 @@ class ValDXer(Experiment):
     def __init__(self, 
                  settings: Settings, 
                  name=None):
-        super().__init__(settings, name)
+        super().__init__(settings, name=None)
         if name is not None:
                 self.name = name
         else:
              self.name = self.settings.name
- 
+        self.settings.data_dir = os.path.join(os.getcwd(), self.settings.data_dir)
         self.load_HDXer()
         self.generate_directory_structure(overwrite=False)
     
     def load_HDX_data(self, 
-                      HDX_path=None, 
-                      SEG_path=None, 
+                      HDX_path:str=None, 
+                      SEG_path:str=None, 
                       calc_name: str=None, 
                       experimental=False):
         """
@@ -64,15 +65,14 @@ class ValDXer(Experiment):
                                          "experimental": [experimental]})
         
         self.paths = pd.concat([self.paths, paths_to_add], ignore_index=True)
-
         hdx, segs  = self.prepare_HDX_data(calc_name=calc_name)
 
-        if hdx and segs is None:
+        if hdx is None and segs is None:
             raise ValueError(f"Unable to prepare any HDX data for {calc_name}.")
 
     def load_structures(self, 
                         top_path, 
-                        traj_paths:str=None, 
+                        traj_paths: str=None, 
                         calc_name: str=None):
         """
         Load structures: topology and trajectories (Optional).
@@ -84,14 +84,16 @@ class ValDXer(Experiment):
         if traj_paths is None:
             traj_paths = top_path
 
-        paths_to_add = pd.DataFrame({"top": [top_path], "traj": [traj_paths], "calc_name": [calc_name]})
+        paths_to_add = pd.DataFrame({"top": [top_path], 
+                                     "traj": [traj_paths], 
+                                     "calc_name": [calc_name]})
         self.paths = pd.concat([self.paths, paths_to_add], ignore_index=True)
-
+        print(self.paths)
         top, traj = self.prepare_structures(calc_name=calc_name)
 
     def load_HDXer(self, 
-                   HDXer_env=None, 
-                   HDXer_path=None):
+                   HDXer_env: dict=None, 
+                   HDXer_path: str=None):
         """
         Load HDXer: HDXer environment and HDXer executable.
         """
@@ -102,10 +104,17 @@ class ValDXer(Experiment):
         elif HDXer_path is not None:
             self.HDXer_path = HDXer_path
 
-        test_HDX_command = ['python', self.HDXer_path, '-h']
+        calc_hdx = os.path.join(self.HDXer_path, "HDXer", "calc_hdx.py")
 
+
+        test_HDX_command = ['python', calc_hdx, '-h']
+
+        env_path = conda_to_env_dict(self.HDXer_env)
         try:
-            subprocess.run(test_HDX_command, env=self.HDXer_env, check=True)
+            _ = subprocess.run(test_HDX_command, 
+                           env=env_path, 
+                           check=True,
+                           capture_output=True)
             return True
         except subprocess.CalledProcessError:
             print("HDXer failed to run. Check the HDXer environment and executable path.")
@@ -114,7 +123,7 @@ class ValDXer(Experiment):
 
     def predict_HDX(self, 
                     calc_name: str=None, 
-                    mode: str=None, 
+                    # mode: str=None, 
                     rep: int=None, 
                     train: bool=True):
         """
@@ -133,55 +142,72 @@ class ValDXer(Experiment):
         # folder should exist
         _, out_dir = self.generate_directory_structure(calc_name=rep_name, 
                                                        gen_only=True)
-
+        print(out_dir)
         calc_hdx = os.path.join(self.HDXer_path, "HDXer", "calc_hdx.py")
-        top = self.paths.loc[self.paths["calc_name"] == calc_name, "top"]
-        trajs = self.paths.loc[self.paths["calc_name"] == calc_name, "traj"]
+        print(calc_name)
+        top = self.paths.loc[self.paths["calc_name"] == calc_name, "top"].dropna().values[0]
+        trajs = self.paths.loc[self.paths["calc_name"] == calc_name, "traj"].dropna().values[0]
         log = os.path.join(out_dir, self.settings.logfile_name[0] + rep_name + self.settings.logfile_name[1])
         if train:
-            segs = self.train_segs.loc[self.train_segs["calc_name"] == calc_name, "path"]
+            segs = self.train_segs.loc[self.train_segs["calc_name"] == calc_name, "path"].dropna().values[0]
         else:
-            segs = self.val_segs.loc[self.val_segs["calc_name"] == calc_name, "path"]
+            segs = self.val_segs.loc[self.val_segs["calc_name"] == calc_name, "path"].dropna().values[0]
         out_prefix = os.path.join(out_dir, "_".join([self.settings.outname, rep_name]))
-
+        print(out_prefix)
         if self.load_HDXer():
             ### how do we add times
             calc_hdx_command = ["python",
                                 calc_hdx,
-                                "-t", trajs,
+                                "-t", *trajs,
                                 "-p", top,
                                 "-m", self.settings.HDX_method,
                                 "-log", log,
-                                "-out", out_prefix,
-                                "-segs", segs,
+                                "-out", out_prefix, 
+                                "-seg", segs,
                                 "-mopt", self.settings.HDXer_mopt]
                                 
+            calc_hdx_command  =  " ".join(calc_hdx_command)
+            # calc_hdx_command.extend(["-t", traj] for traj in trajs)
+            print(calc_hdx_command)
+            # print(" ".join(calc_hdx_command))
+            env_path = conda_to_env_dict(self.HDXer_env)
 
-            subprocess.run(calc_hdx_command, env=self.HDXer_env, check=True)
+            subprocess.run(calc_hdx_command, 
+                           env=env_path, 
+                           shell=True,
+                           check=True,
+                           cwd=out_dir)
 
             ### read HDX data into df
-            df = dfracs_to_df(out_prefix + "_segment_average_fractions.dat", 
+
+            df = dfracs_to_df(out_prefix + "segment_average_fractions.dat", 
                               names=self.settings.times)
 
             df["calc_name"] = [rep_name for i in range(len(df))]
-
-            self.load_intrinsic_rates(out_prefix + "_intrinsic_rates.dat", 
+            out_prefix = os.path.join(os.getcwd(), out_prefix)
+            self.load_intrinsic_rates(out_prefix + "Intrinsic_rates.dat", 
                                       calc_name=calc_name)
             
             return df, rep_name
         
 
+
+    
+
     def reweight_HDX(self, 
                      expt_name: str=None, 
                      calc_name: str=None, 
-                     gamma_range: tuple=(2,10), 
+                     gamma_range: tuple=None, 
                      train: bool=True, 
                      rep: int=None, 
                      train_gamma: float=None):
         """
         Reweight HDX data from previsously predicted HDX data performed by predict_HDX().
         """
-        if expt_name or calc_name is None:
+        print(expt_name, calc_name, train, rep)
+        if gamma_range is None:
+            gamma_range = self.settings.gamma_range
+        if (expt_name or calc_name) is None:
             raise ValueError("Please provide a Calculation AND Experimental name for the structures.")
         if not train and train_gamma is None:
             raise ValueError("If validating, must provide a gamma to from a previous training run")
@@ -192,86 +218,114 @@ class ValDXer(Experiment):
             rep_name = "_".join(["val", calc_name, str(rep)])
 
         predictHDX_dir = os.path.join(self.settings.data_dir, self.name, rep_name)
-        expt = self.paths.loc[self.paths["calc_name"] == expt_name, "HDX"]
-        rates = self.paths.loc[self.paths["calc_name"] == calc_name, "rates"]
+        expt = self.paths.loc[self.paths["calc_name"] == expt_name, "HDX"].dropna().values[0]
+        rates = self.paths.loc[self.paths["calc_name"] == calc_name, "int_rates"].dropna().values[0]
+        print(expt)
+        print(predictHDX_dir)
+        print(rates)
         times = self.settings.times
         exponent = self.settings.RW_exponent
 
+        # package all args except gamma into a dictionary
+        args = {
+            "do_reweight": self.settings.RW_do_reweighting, 
+            "do_params": self.settings.RW_do_params, 
+            "stepfactor": self.settings.RW_stepfactor, 
+            "basegamma": self.settings.RW_basegamma, 
+            "predictHDX_dir": [predictHDX_dir], 
+            "kint_file": rates, 
+            "exp_file": expt, 
+            "times": times, 
+            "restart_interval": self.settings.RW_restart_interval,
+            "out_prefix": os.path.join(predictHDX_dir, self.settings.RW_outprefix),
+            "exponent": exponent,
+            }
+
+
         # how do we do this for validation data? I guess this is is simply a procedure - does it 
-        if train:
-            for r in range(gamma_range):
-                reweight_object = MaxEnt(do_reweight=self.settings.RW_do_reweighting, 
-                                         do_params=self.settings.RW_do_params, 
-                                         stepfactor=self.settings.RW_stepfactor)
-                
-                reweight_object.run(gamma=self.settings.RW_basegamma*r, 
-                                    data_folders=predictHDX_dir, 
-                                    kint_file=rates, 
-                                    exp_file=expt, 
-                                    times=times, 
-                                    restart_interval=self.settings.RW_restart_interval, 
-                                    out_prefix=self.settings.RW_outprefix+f"{r}x10^{exponent}")
-                
+        if train is not None:
+            
+            try:
+                print("Trying concurrent.futures")
+                args_r = [(args, r) for r in range(*gamma_range)]
+                with concurrent.futures.ProcessPoolExecutor() as executor:
+                    executor.map(run_MaxEnt, args_r)
+
+            except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
+                for r in range(*gamma_range):
+                    print(f"Reweighting {rep_name} with gamma = {r}x10^{args['exponent']}")
+                    ### concurrent.futures
+                    run_MaxEnt(args_r)
+                    ### cnocurrent.futures       
+
             # plot L-curve - return closest gamma value
-            opt_gamma =  plot_lcurve(calc_name=rep_name, 
+            opt_gamma, _ =  plot_lcurve(calc_name=rep_name, 
                                      RW_range=gamma_range, 
                                      gamma=train_gamma, 
                                      RW_dir=predictHDX_dir, 
                                      prefix=self.settings.RW_outprefix)
+            print(f"Optimal gamma for {rep_name} is {opt_gamma}x10^{exponent}")
             # read in reweighted data using opt_gamma if train
             if train:
                 RW_path = os.path.join(predictHDX_dir, 
-                                       self.settings.RW_outprefix+f"{opt_gamma}x10^{exponent}_reweighted_segment_average_fractions.dat")
+                                       self.settings.RW_outprefix+f"{opt_gamma}x10^{exponent}final_segment_fractions.dat")
             elif train_gamma is not None:
                 RW_path = os.path.join(predictHDX_dir, 
-                                       self.settings.RW_outprefix+f"{train_gamma}x10^{exponent}_reweighted_segment_average_fractions.dat")
-
+                                       self.settings.RW_outprefix+f"{train_gamma}x10^{exponent}final_segment_fractions.dat")
+            print(RW_path)
             reweighted_df = dfracs_to_df(path=RW_path, 
                                          names=self.settings.times)
-            reweighted_df["calc_name"] = [rep_name for i in range(len(reweighted_df))]
+            print(reweighted_df)
+            reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
+            print(reweighted_df)
 
             return opt_gamma, reweighted_df
+        
 
 
     def run_VDX(self, 
                 calc_name: str=None, 
                 expt_name: str=None, 
-                mode: str=None, 
+                mode: str=None, # not implemented yet
                 n_reps: int=None, 
                 random_seeds: list=None):
         
+        if n_reps is None:
+            n_reps = self.settings.replicates
         if random_seeds is None:
-            random_seeds = [i for i in range(self.settings.random_seed, self.settings.random_seed + n_reps)]
+            random_seeds = [self.settings.random_seed+i for i in range(n_reps)]
+
 
         train_gammas = []
         val_gammas = []
 
-        train_dfs = pd.DataFrame()
-        val_dfs = pd.DataFrame()
+        train_dfs = []
+        val_dfs = []
 
         ## change functions to export dataframes which are then passed into evaulate HDX
-        for rep in range(n_reps):
+        for rep in range(1,n_reps+1):
 
-            _, train_rep_name, val_rep_name = self.split_segments(calc_name=calc_name, 
+            _, train_rep_name, val_rep_name = self.split_segments(seg_name=expt_name,
+                                                                  calc_name=calc_name, 
                                                                   rep=rep, 
-                                                                  random_seed=random_seeds[rep])
+                                                                  random_seed=random_seeds[rep-1])
 
             # train HDX
-            train_opt_gamma, train_df = self.train_HDX(calc_name=train_rep_name, 
+            train_opt_gamma, train_df = self.train_HDX(calc_name=calc_name, 
                                                        expt_name=expt_name, 
                                                        mode=mode, rep=rep)
             train_gammas.append(train_opt_gamma)
 
             # validation HDX
-            val_opt_gamma, val_df = self.validate_HDX(calc_name=val_rep_name, 
+            val_opt_gamma, val_df = self.validate_HDX(calc_name=calc_name, 
                                                       expt_name=expt_name, 
                                                       mode=mode, 
                                                       rep=rep, 
                                                       train_gamma=train_opt_gamma)
             val_gammas.append(val_opt_gamma)  
 
-            train_dfs = pd.concat([train_dfs, train_df], ignore_index=True)
-            val_dfs = pd.concat([val_dfs, val_df], ignore_index=True)
+            train_dfs.append(train_df)
+            val_dfs.append(val_df)
 
         # evaluate HDX train vs val - how do we actually compare both? I guess we just take the average across the reps - how do we account for peptides?
         self.evaluate_HDX(train_dfs=train_dfs, 
@@ -297,18 +351,17 @@ class ValDXer(Experiment):
         # for rep in range(n_reps):
 
         rep_df, _ = self.predict_HDX(calc_name=calc_name, 
-                                     mode=mode, 
                                      rep=rep, 
                                      train=True)
 
         # add df to HDX_data
-        self.HDX_data = pd.concat([self.HDX_data, rep_df], ignore_index=True)
 
         gamma, df = self.reweight_HDX(expt_name=expt_name, 
                                       calc_name=calc_name, 
                                       train=True, 
                                       rep=rep)
 
+        self.HDX_data = pd.concat([self.HDX_data, df], ignore_index=True)
         # train_opt_gammas.append(gamma)
 
         # mean_opt_gamma = np.mean(train_opt_gammas)
@@ -329,11 +382,10 @@ class ValDXer(Experiment):
         # for rep in range(n_reps):
 
         rep_df, _ = self.predict_HDX(calc_name=calc_name, 
-                                     mode=mode, rep=rep, 
+                                     rep=rep, 
                                      train=False)
 
         # add df to HDX_data
-        self.HDX_data = pd.concat([self.HDX_data, rep_df], ignore_index=True)
 
         gamma, df = self.reweight_HDX(expt_name=expt_name, 
                                       calc_name=calc_name, 
@@ -341,6 +393,7 @@ class ValDXer(Experiment):
                                       rep=rep, 
                                       train_gamma=train_gamma)
 
+        self.HDX_data = pd.concat([self.HDX_data, df], ignore_index=True)
             # val_opt_gammas.append(gamma)
 
         # val_mean_opt_gamma = np.mean(val_opt_gammas)
@@ -349,8 +402,8 @@ class ValDXer(Experiment):
     
 
     def evaluate_HDX(self, 
-                     train_dfs: list(pd.DataFrame), 
-                     val_dfs: list(pd.DataFrame), 
+                     train_dfs: list[pd.DataFrame], 
+                     val_dfs: list[pd.DataFrame], 
                      data: pd.DataFrame=None, 
                      expt_name: str=None, 
                      calc_name: str=None, 
@@ -365,9 +418,10 @@ class ValDXer(Experiment):
                                 val_gammas=val_gammas)
 
         # plot the individual runs from train and val
-        train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(n_reps)]
-        val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(n_reps)]
-
+        train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+        val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+        print(train_rep_names)
+        print(val_rep_names)
         args = [expt_name, *train_rep_names]
         plot_dfracs_compare(args, 
                             data=self.HDX_data, 
@@ -385,35 +439,58 @@ class ValDXer(Experiment):
         # first we just group them together and compare overall distributions
         
         # set all calc names in train and val dfs to be calc_name
-        train_merge_df = pd.concat(train_dfs, ignore_index=True)
-        train_merge_df["calc_name"] = "_".join(["train", calc_name, "all"])
-        val_merge_df = pd.concat(val_dfs, ignore_index=True)
-        val_merge_df["calc_name"] = "_".join(["val", calc_name, "all"])
+        # train_merge_df = pd.concat(train_dfs, ignore_index=True)
+        # print(train_merge_df)
+        # train_merge_df["calc_name"] = ["_".join(["train", calc_name, "all"])] * len(train_merge_df)
+        # print(train_merge_df)
+        # val_merge_df = pd.concat(val_dfs, ignore_index=True)
+        # print(val_merge_df)
+        # val_merge_df["calc_name"] = ["_".join(["val", calc_name, "all"])] * len(val_merge_df)
+        # print(val_merge_df)
 
-        avg_df = pd.concat([train_merge_df, val_merge_df], ignore_index=True)
+        # avg_df = pd.concat([train_merge_df, val_merge_df], ignore_index=True)
+        # print(avg_df)
+        # args = [expt_name, train_avg_name,  val_avg_name]
+        # this doesnt work - we need to either line up the peptides or just plot the averages
+        # plot_dfracs_compare(args, 
+        #                     data=avg_df, 
+        #                     times=self.settings.times)
 
-        args = [expt_name, train_avg_name,  val_avg_name]
-        plot_dfracs_compare(args, 
-                            data=avg_df, 
-                            times=self.settings.times)
+        expt_segs = self.segs[self.segs["calc_name"] == expt_name]
 
-        expt_segs = self.segs[["calc_name"] == expt_name]
+        # for r in range(n_reps):
+        #     train_segs_df = self.train_segs.loc[self.train_segs["calc_name"] == train_rep_names[r]]
+        #     val_segs_df = self.val_segs.loc[self.val_segs["calc_name"] == val_rep_names[r]]
 
-        for r in range(n_reps):
-            train_segs_df = self.train_segs.loc[self.train_segs["calc_name"] == train_rep_names[r]]
-            val_segs_df = self.val_segs.loc[self.val_segs["calc_name"] == val_rep_names[r]]
-
-            # add correct (original) peptide numbers to train and val data df
-            train_dfs[r]["peptide"] = train_segs_df["peptide"]
-            val_dfs[r]["peptide"] = val_segs_df["peptide"]
+        #     # add correct (original) peptide numbers to train and val data df
+        #     train_dfs[r]["peptide"] = train_segs_df["peptide"]
+        #     val_dfs[r]["peptide"] = val_segs_df["peptide"]
 
         train_dfs = pd.concat(train_dfs, ignore_index=True)
         val_dfs = pd.concat(val_dfs, ignore_index=True)
 
-        train_avg_df = train_dfs.groupby(["peptide", "time"]).mean()
-        train_avg_df["calc_name"] = [train_avg_name]*len(train_avg_df)
-        val_avg_df = val_dfs.groupby(["peptide", "time"]).mean()
-        val_avg_df["calc_name"] = [val_avg_name]*len(val_avg_df)
+        train_avg_dfs = []
+        val_avg_dfs = []
+        print(train_dfs)
+        for t in self.settings.times:
+            # t = str(t)
+            print(t)
+            t_df = train_dfs[[t, "peptide"]]
+            v_df = val_dfs[[t, "peptide"]]
+            t_avg = t_df.groupby([t, "peptide"]).mean().reset_index()
+            v_avg = v_df.groupby([t, "peptide"]).mean().reset_index()
+            t_avg["calc_name"] = [train_avg_name for i in range(len(t_avg))]
+            v_avg["calc_name"] = [val_avg_name for i in range(len(v_avg))]
+            print(t_avg)
+            print(v_avg)
+            train_avg_dfs.append(t_avg)
+            val_avg_dfs.append(v_avg)
+
+        train_avg_df = pd.concat(train_avg_dfs, ignore_index=True)
+        val_avg_df = pd.concat(val_avg_dfs, ignore_index=True)
+        print(train_avg_df)
+        print(val_avg_df)
+
 
         train_peptides = set(train_avg_df["peptide"].values)
         val_peptides = set(val_avg_df["peptide"].values)
@@ -443,13 +520,16 @@ class ValDXer(Experiment):
 
 
 # rates are required for reweighting???
-    def load_intrinsic_rates(self, path, calc_name: str=None):
+# should add a method to add rates to the df
+    def load_intrinsic_rates(self, path, calc_name: str=None, experimental=False):
         """
         Load intrinsic rates: intrinsic rates from HDXer.
         """
         if calc_name is None:
             raise ValueError("Please provide a calculation name for the structures.")
 
-        paths_to_add = pd.DataFrame({"int_rates": [path], "calc_name": [calc_name]})
-        self.paths = pd.concat([self.paths, paths_to_add], ignore_index=True)
+        paths_to_add = pd.DataFrame({"int_rates": [path], "calc_name": [calc_name], "experimental": [experimental]})
+        self.paths = pd.concat([self.paths, paths_to_add], ignore_index=True,)
 
+
+     

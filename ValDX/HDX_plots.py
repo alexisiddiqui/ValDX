@@ -250,7 +250,7 @@ def plot_heatmap_errors(args: list, data: pd.DataFrame, top: mda.Universe, segs:
     plt.show()
 
 
-def plot_peptide_dfracs(args: list, data: pd.DataFrame, times: list, segs: pd.DataFrame, save=False, save_dir=None):
+def plot_peptide_dfracs(args: list, data: pd.DataFrame, times: list, top: mda.Universe, segs: pd.DataFrame, save=False, save_dir=None):
         
     residues = segs
     # print(residues)
@@ -531,7 +531,7 @@ def plot_dfracs_error(args: list, data: pd.DataFrame, RMSF: list or np.ndarray, 
 
 
 
-def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0):   
+def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0, key: str='calc_name'):   
     """Plot HDX deuterated fractions for each time point.
     
     Args:
@@ -546,26 +546,34 @@ def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False,
         expt_index (int): index of expt in args
 
     """
-    expt = data[args[expt_index]].copy()
-
+    # expt = data[args[expt_index]].copy()
+    expt = data.loc[data[key]==args[expt_index]].copy()
+    print(expt)
     all_diff_data = []
     # plt.figure(figsize=(12, 6))
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
 
     expt_means = []  # List to store mean experimental values at each time step
-
+    print("ARGUMENTS")
+    print(args)
+    print(data.columns)
+    print(data[key].values)
+    print(data)
     for i, t in enumerate(times):
         expt_mean_at_t = np.mean(expt.iloc[:, i])
         expt_means.append(expt_mean_at_t)
-        for arg in args:
 
-            df = data[arg].copy()
+        for arg in args:
+            print(arg)
+            df = data.loc[data[key]==arg].copy()
             xs = np.arange(0, df.iloc[:, 1].shape[0])
-            ys = df.iloc[:, i]
-            # print(ys)
-            # Calculate absolute difference between ys and expt at each residue
-            difference = np.abs(ys - expt.iloc[:, i])
-            
+            ys = df.iloc[:, i].to_list()
+            exs = expt.iloc[:, i].to_list()
+            print(exs)
+            difference = [np.abs(y - ex) for y, ex in zip(ys, exs)]
+            print(difference)
+            print(ys)
+
             # Storing differences with corresponding time and argument in the DataFrame
             for j, d in enumerate(difference):
                 all_diff_data.append({'time': t, 'difference': d, 'type': arg, 'values': ys[j]})
@@ -806,50 +814,99 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: int
         for j in np.arange(1, 10): # Select the range of gamma (j in j*10^i)
             # Read files containing work values from the smallest to the biggest gamma
             try:
-                work = os.path.join(RW_dir, f'{prefix}_RW_{j}x10^{i}.dat')
-                df = pd.read_csv(work, comment='#', header=None, sep='\s+')
+                work_path = os.path.join(RW_dir, f'{prefix}{j}x10^{i}work.dat')
+                df = pd.read_csv(work_path, comment='#', header=None, sep='\s+')
+                print(f"Reading {work_path} ...")
                 li.append(df)
             except FileNotFoundError:
                 pass
+    print(li)
     works = pd.concat(li, axis=0, ignore_index=True) 
     works.columns = ['gamma', 'MSE', 'RMSE', 'work']
     # calculate the value where the tangent of the point is at 45 degrees to the x axis
     # this is the optimal value of gamma
     x = works['MSE'].values.tolist()
     y = works['work'].values.tolist()
-
+    print("MSE, work", x, y)
     # calculate the the angle made between each point and the next and the x axis
+
+    ### Optimiser ###
+    # TODO change this to a more robust method - change this to find the kink in the curve
+    # instead of calcing angle - rotate the curve and find the point where the gradient is 1
+    # 
     angles = []
     for i in range(len(x)-1):
         angles.append(np.arctan((y[i+1]-y[i])/(x[i+1]-x[i])))
 
     # find the index of the angle closest to 45 degrees
     closest = min(angles, key=lambda x:abs(x-math.pi/4))
+    ###
+
+    # compute regressionline
+    m, b = np.polyfit(x, y, 1)
+
+
+    dists = []
+    for i in range(len(x)):
+        regression_coord = (m*x[i] + b, x[i])
+        curve_coord = (y[i], x[i])
+        # calculate the displacement between the regression line and the curve
+        dist = math.dist(curve_coord,regression_coord)
+        print(dist)
+        # deternine if the displacement is positive or negative
+        if y[i] < (m*x[i] + b):
+            dist = dist * -1
+
+        dists.append(dist)
+
+    print(dists)
+    # remove positive values
+    dists = [d if d < 0 else 0 for d in dists]
+    print(dists)
+    dists= [abs(d) for d in dists]
+    print(dists)
+    # find the index of the largest absolute value
+    closest = max(dists)
+
+    print(closest)
 
     # find the value of gamma at this index
-    closest_gamma = works['gamma'][angles.index(closest)]
-
+    # closest_gamma = works['gamma'][angles.index(closest)]
+    closest_gamma = works['gamma'][dists.index(closest)]
+    print(closest_gamma)
 
     plt.figure(figsize=(11, 8.5))
-    plt.plot(works['MSE'], works['work'], color='teal', linewidth=3, markersize=10, marker='o')
+    plt.plot(x, m*np.array(x) + b, color='black', linewidth=3, markersize=10)
+    plt.plot(x, y, color='teal', linewidth=3, markersize=10, marker='o')
 
     if gamma is not None:
-        gamma_x = works[works['gamma'] == gamma]['MSE']
-        gamma_y = works[works['gamma'] == gamma]['work']
-        plt.annotate(f"Gamma = {gamma}", xy=(gamma_x, gamma_y), xytext=(gamma_x + 0.005, gamma_y + 2.0),
+        gamma = gamma * 10**-3
+        gamma_x = works[works['gamma'] == gamma]['MSE'].values[0]
+        gamma_y = works[works['gamma'] == gamma]['work'].values[0]
+        print(gamma_x, gamma_y)
+        plt.annotate(f"Gamma = {gamma}", xy=(gamma_x, gamma_y), xytext=(gamma_x, gamma_y),
                         arrowprops=dict(facecolor='black', shrink=0.05), size=16 )
-    closest_x = works[works['gamma'] == closest_gamma]['MSE']
-    closest_y = works[works['gamma'] == closest_gamma]['work']
-    plt.annotate(f"Optimal Gamma = {closest_gamma}", xy=(closest_x, closest_y), xytext=(closest_x + 0.005, closest_y + 2.0),
+    closest_x = works[works['gamma'] == closest_gamma]['MSE'].values[0]
+    closest_y = works[works['gamma'] == closest_gamma]['work'].values[0]
+    print("Closest x y: ", closest_x, closest_y)
+    plt.annotate(f"Optimal Gamma = {closest_gamma}", xy=(closest_x, closest_y), xytext=(closest_x, closest_y),
                  arrowprops=dict(facecolor='red', shrink=0.05), size=16 )
     title = f'Decision curve for {calc_name}'
     plt.title(title)
     plt.xlabel('MSE to target data')
     plt.ylabel('W$_{app}$ / kJ mol$^{-1}$')
+    plt.show()
     # if save:
-    plt.savefig(f'{calc_name}_decision_plot.pdf', bbox_inches='tight')
+    #     plt.savefig(f'{calc_name}_decision_plot.pdf', bbox_inches='tight')
 
-    return closest_gamma, works
+    # TODO convert closest gamma float to integer exponent and coefficient
+
+    # for now just multiply by 10^3
+    # 
+    closest_gamma = closest_gamma * 10**3    
+    
+
+    return int(closest_gamma), works
 
 def plot_gamma_distribution(train_gammas: list, val_gammas: list, calc_name: str, save=False, save_dir=None):
     plt.figure(figsize=(11, 8.5))

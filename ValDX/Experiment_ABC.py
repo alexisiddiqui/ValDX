@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from ValDX.VDX_Settings import Settings
-from ValDX.helpful_funcs import segs_to_df, dfracs_to_df, segs_to_file
+from ValDX.helpful_funcs import segs_to_df, dfracs_to_df, segs_to_file, HDX_to_file
 import pandas as pd
 import numpy as np
 import os
@@ -31,6 +31,9 @@ class Experiment(ABC):
         self.train_segs = pd.DataFrame()
         self.val_segs = pd.DataFrame()
         self.HDX_data = pd.DataFrame()
+        self.train_HDX_data = pd.DataFrame()
+        self.val_HDX_data = pd.DataFrame()
+
 
     def prepare_HDX_data(self, 
                          calc_name: str=None): 
@@ -101,8 +104,8 @@ class Experiment(ABC):
         # calc_name_ext = "_".join([calc_name, str(rep)])
         # calc_name = "_".join([calc_name, calc_name_ext])
         
-        train_segs["calc_name"] = calc_name
-        val_segs["calc_name"] = calc_name
+        train_segs["calc_name"] = train_rep_name
+        val_segs["calc_name"] = val_rep_name
 
         # save to file
         train_segs_name = "_".join(["train",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])
@@ -130,6 +133,47 @@ class Experiment(ABC):
         self.val_segs = pd.concat([self.val_segs, val_segs], ignore_index=True)
 
         
+        ### split HDX data based on segments
+        train_HDX_data = self.HDX_data.loc[self.HDX_data['calc_name'] == seg_name].iloc[train_segs.index]
+        val_HDX_data = self.HDX_data.loc[self.HDX_data['calc_name'] == seg_name].iloc[val_segs.index]
+
+        train_HDX_data["calc_name"] = [train_rep_name]*len(train_HDX_data)
+        val_HDX_data["calc_name"] = [val_rep_name]*len(val_HDX_data)
+
+        train_HDX_name = "_".join([train_rep_name, "expt_dfracs.dat"])
+        val_HDX_name = "_".join([val_rep_name, "expt_dfracs.dat"])
+
+        train_HDX_path = os.path.join(train_segs_dir, train_HDX_name)
+        val_HDX_path = os.path.join(val_segs_dir, val_HDX_name)
+
+        train_HDX_data["path"] = train_HDX_path
+        val_HDX_data["path"] = val_HDX_path
+
+        # print(train_HDX_data.head())
+        # print(val_HDX_data.path)
+
+        # # sort by peptide number
+        # train_HDX_data = train_HDX_data.sort_values(by=['peptide'])
+        # val_HDX_data = val_HDX_data.sort_values(by=['peptide'])
+
+        train_segs = train_segs.drop(columns=["calc_name", "path"]).copy()
+        val_segs = val_segs.drop(columns=["calc_name", "path"]).copy()
+
+        # merge segs and HDX on peptide number
+        train_HDX_data = pd.merge(train_HDX_data, train_segs, on=['peptide'])
+        val_HDX_data = pd.merge(val_HDX_data, val_segs, on=['peptide'])
+
+        # reorder columns
+        train_HDX_data = train_HDX_data[['ResStr','ResEnd', *self.settings.times, 'peptide', 'calc_name', 'path']]
+        val_HDX_data = val_HDX_data[['ResStr','ResEnd', *self.settings.times, 'peptide', 'calc_name', 'path']]
+
+        HDX_to_file(train_HDX_path, train_HDX_data)
+        print(f"Saved train {calc_name} HDX data to {train_HDX_path}")
+        HDX_to_file(val_HDX_path, val_HDX_data)
+        print(f"Saved val {calc_name} HDX data to {val_HDX_path}")
+
+        self.train_HDX_data = pd.concat([self.train_HDX_data, train_HDX_data], ignore_index=True)
+        self.val_HDX_data = pd.concat([self.val_HDX_data, val_HDX_data], ignore_index=True)
 
         return calc_name, train_rep_name, val_rep_name
 

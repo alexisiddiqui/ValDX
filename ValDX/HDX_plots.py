@@ -546,6 +546,8 @@ def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False,
         expt_index (int): index of expt in args
 
     """
+    print("plot_dfracs_compare")
+    print(data)
     # expt = data[args[expt_index]].copy()
     expt = data.loc[data[key]==args[expt_index]].copy()
     print(expt)
@@ -568,18 +570,29 @@ def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False,
             df = data.loc[data[key]==arg].copy()
             xs = np.arange(0, df.iloc[:, 1].shape[0])
             ys = df.iloc[:, i].to_list()
+            peptides = df['peptide'].values.astype(int)
+            print(*peptides)
+
+            print(ys)
             exs = expt.iloc[:, i].to_list()
+            exs = [exs[pep] for pep in peptides]
             print(exs)
+            # need to account for nan values
             difference = [np.abs(y - ex) for y, ex in zip(ys, exs)]
+
+
+
             print(difference)
             print(ys)
-
+            print(len(ys))
+            print(len(difference))
+            print(len(peptides))
             # Storing differences with corresponding time and argument in the DataFrame
             for j, d in enumerate(difference):
                 all_diff_data.append({'time': t, 'difference': d, 'type': arg, 'values': ys[j]})
 
     # Convert list of dictionaries to DataFrame
-    df_differences = pd.DataFrame(all_diff_data)
+    df_differences = pd.DataFrame(all_diff_data).dropna()
     print(df_differences)
     # Plotting the violin plot
     sns.boxplot(x='time', y='values', hue='type', data=df_differences)
@@ -752,7 +765,7 @@ def plot_dfracs_compare_hist_errors(args: list, data: pd.DataFrame, times: list,
 
 
 
-def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0):
+def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0, key: str='calc_name'):
     """Plot HDX deuterated fractions for each time point.
     
     Args:
@@ -761,37 +774,68 @@ def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, 
             'pred' - computed HDX deuterated fractions
             'reweighted' - reweighted HDX deuterated fractions
     """
-    if 'expt' == args:
-        return ValueError('expt must be included in args')
-    
-    expt = data[args[expt_index]].copy()
+    # if 'expt' == args:
+    #     return ValueError('expt must be included in args')
+    print("plotting paired errors")
+    print(data)
+    expt = data.loc[data[key]==args[expt_index]].copy()
     fig, axes = plt.subplots(nrows=len(times), ncols=1, figsize=(12 , 6* (len(times)-1)))
 
     # Assuming times is a predefined list of time points
     for i, t in enumerate(times):
         
         # Extracting experimental data for the current time point
-        expt_values = expt.iloc[:, i]
-        
+        expt_values = expt.iloc[:, i].copy().to_list()
+        print("expt values")
+        print(expt_values)
         # Creating pairwise plots for the current time
         
         for j, arg in enumerate(args):
             ax = axes[i]
+            df = data.loc[data[key]==arg].copy()
 
-            if arg == 'expt':
-                # plot line y=x for reference
-                ax.plot(expt_values, expt_values, label='expt', linestyle='--', color='black')
-
-            
             # Extracting data for the current argument
-            arg_values = data[arg].iloc[:, i]
+            arg_values = data.loc[data[key]==arg].iloc[:, i].copy()
+            peptides = df["peptide"].values.astype(int)
+
+            print(f"{arg} values")
+            print(arg_values)
+            
+            # indexes = peptides.values.astype(int)
+
+            print(peptides)
+
+            arg_expt_values = [expt_values[index]for index in peptides]
+
+
+            assert len(arg_values) == len(arg_expt_values)
+            
+            # go over values and remove from both lists if either nan
+            R_expt_values = []
+            R_arg_values = []
+
+            for expt_value, arg_value in zip(arg_expt_values, arg_values):
+                if not np.isnan(expt_value) and not np.isnan(arg_value):
+                    R_expt_values.append(expt_value)
+                    R_arg_values.append(arg_value)
+            print("Values to compute R values")
+            print(R_expt_values)
+            print(R_arg_values)
+
+            assert len(R_expt_values) == len(R_arg_values)
 
             # calculate pearson correlation coefficient R^2
-            R = np.corrcoef(expt_values, arg_values)[0,1]
+            R = np.corrcoef(R_expt_values, R_arg_values)[0,1]
             print(R)
             
+            if arg == args[expt_index]:
+                # plot line y=x for reference
+                ax.plot(expt_values, expt_values, label='expt', linestyle='--', color='black')
+                ax.scatter(arg_values, expt_values, label=f'{arg} vs. {args[expt_index]}, R={R:.2f}', color='grey')
+            else:
+                ax.scatter(R_arg_values, R_expt_values, label=f'{arg} vs. {args[expt_index]}, R={R:.2f}')
+            
             # Plotting on the corresponding axis
-            ax.scatter(arg_values, expt_values, label=f'{arg} vs. {args[expt_index]}, R={R:.2f}')
             ax.set_xlabel('Predicted Values')
             ax.set_ylabel('Experimental Values')
             ax.legend()

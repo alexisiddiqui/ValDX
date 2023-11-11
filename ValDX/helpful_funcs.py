@@ -5,7 +5,12 @@ import pandas as pd
 import subprocess
 from HDXer.reweighting import MaxEnt
 
+
+
 def conda_to_env_dict(env_name):
+    """
+    Get the environment variables for a given conda environment.
+    """
     # Run the command 'conda env list' and get the output
     result = subprocess.run(['conda', 'env', 'list'], stdout=subprocess.PIPE)
     
@@ -112,6 +117,30 @@ def segs_to_file(path: str, df: pd.DataFrame):
         df = df.drop(columns=["path"])
     df.to_csv(path, sep='\t', header=False, index=False)
 
+def HDX_to_file(path: str, df: pd.DataFrame):
+    """
+    Write a HDX deuterated fractions file from a pandas DataFrame.
+    Args:
+        path: The path to the HDX deuterated fractions file.
+        df: A pandas DataFrame containing data for the given argument.
+    """
+    df = df.copy()
+    print(df)
+    # remove peptide column if present make sure we dont overwrite the df in memory.
+    if "peptide" in df.columns:
+        df = df.drop(columns=["peptide"])
+    if "calc_name" in df.columns:
+        df = df.drop(columns=["calc_name"])
+    if "path" in df.columns:
+        df = df.drop(columns=["path"])
+
+    header = "\t".join(["#",*[str(col) for col in df.columns]," times/min"])+"\n"
+    print(header)
+    with open(path, "w") as f:
+        f.write(header)
+    df.to_csv(path, sep='\t', header=False, index=False, mode="a")
+
+
 def avgfrac_to_df(path: str, names: list):
     """Read and create a pandas DataFrame using a computed deuterated fractions file.
     
@@ -183,3 +212,154 @@ def run_MaxEnt(args: tuple[dict, int]):
                         times=args["times"], 
                         restart_interval=args["restart_interval"], 
                         out_prefix=out_prefix)
+    
+
+def restore_trainval_peptide_nos(calc_name: str, 
+                                 expt_name: str,
+                                 train_dfs: list[pd.DataFrame],
+                                 val_dfs: list[pd.DataFrame],
+                                 n_reps: int,
+                                 times: list,
+                                 train_segs: pd.DataFrame,
+                                 val_segs: pd.DataFrame,
+                                 expt_segs: pd.DataFrame,
+                                 ) -> pd.DataFrame:
+    """
+    Restores the peptide numbers for the train and validation dataframes for a given calculation and experiment name.
+    The function takes in the calculation name, experiment name, train and validation dataframes, number of replicates,
+    times, train, validation and experiment segments dataframes. It then iterates through the replicates and adds the 
+    correct peptide numbers to the train and validation dataframes. It then merges the replicates together and merges 
+    the train and validation dataframes together. Finally, it checks that each replicate has the same number of peptides 
+    between the train and validation data and returns the merged dataframe.
+    
+    Parameters:
+    -----------
+    calc_name : str
+        The name of the calculation.
+    expt_name : str
+        The name of the experiment.
+    train_dfs : list[pd.DataFrame]
+        A list of dataframes containing the training data.
+    val_dfs : list[pd.DataFrame]
+        A list of dataframes containing the validation data.
+    n_reps : int
+        The number of replicates.
+    times : list
+        A list of times.
+    train_segs : pd.DataFrame
+        A dataframe containing the training segments.
+    val_segs : pd.DataFrame
+        A dataframe containing the validation segments.
+    expt_segs : pd.DataFrame
+        A dataframe containing the experiment segments.
+        
+    Returns:
+    --------
+    merge_df : pd.DataFrame
+        A merged dataframe containing the train and validation data.
+    """
+    # create the replicate names
+    train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+    val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+
+    # iterate through the reps and add the correct peptide numbers to the train and val dfs
+    for r in range(n_reps):
+        train_rep, val_rep = train_rep_names[r], val_rep_names[r]
+                    # 
+        train_rep_peptides = train_segs.loc[train_segs["calc_name"] == train_rep, "peptide"].copy()
+        val_rep_peptides = val_segs.loc[val_segs["calc_name"] == val_rep, "peptide"].copy()
+
+        train_dfs[r]["peptide"] = train_rep_peptides
+        val_dfs[r]["peptide"] = val_rep_peptides
+
+    # merge the reps together
+    train_merge_df = pd.concat(train_dfs, ignore_index=True)
+    val_merge_df = pd.concat(val_dfs, ignore_index=True)
+
+    # merge the train and val dfs together
+    merge_df = pd.concat([train_merge_df, val_merge_df], ignore_index=True)
+
+    print("manual merge df")
+    print(merge_df)
+
+    # make sure that each rep has the same number of peptides between the train and val data
+    for r in range(n_reps):
+        train_rep_name, val_rep_name = train_rep_names[r], val_rep_names[r]
+
+        train_rep_peptides = train_segs.loc[train_segs["calc_name"] == train_rep_name, "peptide"].values
+        val_rep_peptides = val_segs.loc[val_segs["calc_name"] == val_rep_name, "peptide"].values
+
+        rep_peptides = [*train_rep_peptides, *val_rep_peptides]
+        rep_peptides = sorted(rep_peptides)
+        print("train segs", train_segs.loc[train_segs["calc_name"] == train_rep_name, "peptide"].values)
+        print("val segs", val_segs.loc[val_segs["calc_name"] == val_rep_name, "peptide"].values)
+
+        if not np.array_equal(rep_peptides, expt_segs["peptide"].values):
+            print("rep_peptides", rep_peptides)
+            print("expt_segs", expt_segs["peptide"].values)
+            raise ValueError("Peptides not equal between tran/val and expt")
+
+    return merge_df
+
+
+def add_nan_values(merge_df: pd.DataFrame,
+                   calc_name: str,
+                   n_reps: int,
+                   times: list,
+                   expt_segs: pd.DataFrame,
+                   ) -> pd.DataFrame:
+    """
+    Adds nan values to the train and validation dataframes for a given calculation and experiment name.
+
+    Args:
+    - merge_df (pd.DataFrame): The dataframe to add nan values to.
+    - calc_name (str): The name of the calculation to add nan values for.
+    - n_reps (int): The number of replicates to add nan values for.
+    - times (list): A list of column names to add nan values for.
+    - expt_segs (pd.DataFrame): The dataframe containing the experiment segments.
+
+    Returns:
+    - pd.DataFrame: The dataframe with added nan values.
+    """
+
+    train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+    val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+    
+
+    empty_df = pd.DataFrame(columns=[*times, "peptide", "calc_name"])
+    empty_df["peptide"] = expt_segs["peptide"].values
+
+    nan_df = pd.DataFrame()
+
+    # add nan values to train dfs
+    for r in range(n_reps):
+        train_rep, val_rep = train_rep_names[r], val_rep_names[r]
+
+        train_df = merge_df[merge_df["calc_name"] == train_rep].copy()
+        val_df = merge_df[merge_df["calc_name"] == val_rep].copy()
+        # set all values to nan
+        # for all values in columns in *times
+        for t in times:
+            val_df[t] = [np.nan]*len(val_df)
+
+        # switch the calc_name
+        val_df["calc_name"] = [train_rep]*len(val_df)
+
+        train_df = pd.concat([train_df, val_df], ignore_index=True)
+        nan_df = pd.concat([nan_df, train_df], ignore_index=True)
+
+    for r in range(n_reps):
+        train_rep, val_rep = train_rep_names[r], val_rep_names[r]
+        # add nan values to val dfs
+        train_df = merge_df[merge_df["calc_name"] == train_rep].copy()
+        val_df = merge_df[merge_df["calc_name"] == val_rep].copy()
+        # set all values to nan
+        for t in times:
+            train_df[t] = [np.nan]*len(train_df)
+        # switch the calc_name
+        train_df["calc_name"] = [val_rep]*len(train_df)
+
+        val_df = pd.concat([train_df, val_df], ignore_index=True)
+        nan_df = pd.concat([nan_df, val_df], ignore_index=True)
+
+    return nan_df

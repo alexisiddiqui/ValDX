@@ -26,7 +26,7 @@ class Settings:
 
         self.random_seed = 42
         self.train_frac = 0.8
-        self.replicates = 2
+        self.replicates = 5
         self.HDX_method = "BestVendruscolo"
         self.logfile_name = ("calc_hdx_", ".log")
         self.segs_name = ("residue_segs_", ".txt")
@@ -42,7 +42,7 @@ class Settings:
         self.RW_stepfactor = 0.00001
         self.RW_outprefix = "reweighting_gamma_"
         self.RW_restart_interval = 100
-        self.gamma_range = (3,6)
+        self.gamma_range = (2,10)
 
 
 

@@ -18,7 +18,7 @@ from HDXer.reweighting import MaxEnt
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
-from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt
+from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values
 from ValDX.HDX_plots import plot_lcurve, plot_gamma_distribution, plot_dfracs_compare, plot_paired_errors
 
 
@@ -149,9 +149,9 @@ class ValDXer(Experiment):
         trajs = self.paths.loc[self.paths["calc_name"] == calc_name, "traj"].dropna().values[0]
         log = os.path.join(out_dir, self.settings.logfile_name[0] + rep_name + self.settings.logfile_name[1])
         if train:
-            segs = self.train_segs.loc[self.train_segs["calc_name"] == calc_name, "path"].dropna().values[0]
+            segs = self.train_segs.loc[self.train_segs["calc_name"] == rep_name, "path"].dropna().values[0]
         else:
-            segs = self.val_segs.loc[self.val_segs["calc_name"] == calc_name, "path"].dropna().values[0]
+            segs = self.val_segs.loc[self.val_segs["calc_name"] == rep_name, "path"].dropna().values[0]
         out_prefix = os.path.join(out_dir, "_".join([self.settings.outname, rep_name]))
         print(out_prefix)
         if self.load_HDXer():
@@ -186,7 +186,7 @@ class ValDXer(Experiment):
             df["calc_name"] = [rep_name for i in range(len(df))]
             out_prefix = os.path.join(os.getcwd(), out_prefix)
             self.load_intrinsic_rates(out_prefix + "Intrinsic_rates.dat", 
-                                      calc_name=calc_name)
+                                      calc_name=rep_name)
             
             return df, rep_name
         
@@ -218,8 +218,13 @@ class ValDXer(Experiment):
             rep_name = "_".join(["val", calc_name, str(rep)])
 
         predictHDX_dir = os.path.join(self.settings.data_dir, self.name, rep_name)
-        expt = self.paths.loc[self.paths["calc_name"] == expt_name, "HDX"].dropna().values[0]
-        rates = self.paths.loc[self.paths["calc_name"] == calc_name, "int_rates"].dropna().values[0]
+        # change this to use the training HDX data
+        # expt = self.paths.loc[self.paths["calc_name"] == expt_name, "HDX"].dropna().values[0]
+        if train:
+            expt = self.train_HDX_data.loc[self.train_HDX_data["calc_name"] == rep_name, "path"].dropna().values[0]
+        else:
+            expt = self.val_HDX_data.loc[self.val_HDX_data["calc_name"] == rep_name, "path"].dropna().values[0]
+        rates = self.paths.loc[self.paths["calc_name"] == rep_name, "int_rates"].dropna().values[0]
         print(expt)
         print(predictHDX_dir)
         print(rates)
@@ -257,6 +262,15 @@ class ValDXer(Experiment):
                     ### concurrent.futures
                     run_MaxEnt(args_r)
                     ### cnocurrent.futures       
+
+            if args["do_reweight"] is False:
+                RW_path = os.path.join(predictHDX_dir,
+                                        self.settings.RW_outprefix+f"{gamma_range[0]}x10^{exponent}final_segment_fractions.dat")
+                reweighted_df = dfracs_to_df(path=RW_path,
+                                            names=self.settings.times)
+                reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
+                opt_gamma = 0
+                return opt_gamma, reweighted_df
 
             # plot L-curve - return closest gamma value
             opt_gamma, _ =  plot_lcurve(calc_name=rep_name, 
@@ -313,7 +327,8 @@ class ValDXer(Experiment):
             # train HDX
             train_opt_gamma, train_df = self.train_HDX(calc_name=calc_name, 
                                                        expt_name=expt_name, 
-                                                       mode=mode, rep=rep)
+                                                       mode=mode, 
+                                                       rep=rep)
             train_gammas.append(train_opt_gamma)
 
             # validation HDX
@@ -386,7 +401,6 @@ class ValDXer(Experiment):
                                      train=False)
 
         # add df to HDX_data
-
         gamma, df = self.reweight_HDX(expt_name=expt_name, 
                                       calc_name=calc_name, 
                                       train=False, 
@@ -412,6 +426,7 @@ class ValDXer(Experiment):
                      val_gammas: float=None, 
                      n_reps: int=None):
         
+        times = self.settings.times
 
         plot_gamma_distribution(calc_name=calc_name, 
                                 train_gammas=train_gammas, 
@@ -423,6 +438,8 @@ class ValDXer(Experiment):
         print(train_rep_names)
         print(val_rep_names)
         args = [expt_name, *train_rep_names]
+
+
         plot_dfracs_compare(args, 
                             data=self.HDX_data, 
                             times=self.settings.times)
@@ -432,64 +449,111 @@ class ValDXer(Experiment):
                             data=self.HDX_data, 
                             times=self.settings.times)
 
-        # average replicate data together - then plot
+    
+        # 
+        expt_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
+
+        # train_val_segs = pd.concat([self.train_segs, self.val_segs], ignore_index=True)
+
+        # segs = pd.merge(expt_segs, train_val_segs, on=["ResStr", "ResEnd"], how="outer")
+
+        merge_df = restore_trainval_peptide_nos(calc_name=calc_name,
+                                    expt_name=expt_name,
+                                    train_dfs=train_dfs,
+                                    val_dfs=val_dfs,
+                                    train_segs=self.train_segs,
+                                    val_segs=self.val_segs,
+                                    n_reps=n_reps,
+                                    times=self.settings.times,
+                                    expt_segs=expt_segs)
+
+
+        expt_df = self.HDX_data[self.HDX_data["calc_name"] == expt_name]
+        merge_df = pd.concat([expt_df, merge_df], ignore_index=True)
+        # print(merge_df)
+        args = [expt_name, *train_rep_names,  *val_rep_names]
+        try:
+            plot_dfracs_compare(args, 
+                            data=merge_df, 
+                            times=self.settings.times)
+        except UserWarning:
+            print("Unable to plot compare plot for merge_df")
+        ####
+
+
+        try:    
+            plot_paired_errors(args,
+                            data=merge_df, 
+                            times=self.settings.times)
+        except UserWarning:
+            print("Unable to plot paired errors for nan_df")
+
+        # return
+
+        # Currently df contains values for the peptides in each train/val split 
+        # we need to add nan values to the peptides which are not present in either split
+        
+        # first create df with all peptides
+
+        nan_df = add_nan_values(calc_name=calc_name,
+                                merge_df=merge_df,
+                                n_reps=n_reps,
+                                times=self.settings.times,
+                                expt_segs=expt_segs)
+            
+        print("nan_df")
+        print(nan_df)
+
+        # add expt_df to nan_df
+        nan_df = pd.concat([nan_df, expt_df], ignore_index=True)
+        print("nan_df + expt_df")
+        print(nan_df)
+
+        # return
+
+
+        args = [expt_name, *train_rep_names,  *val_rep_names]
+        # this doesnt work - we need to either line up the peptides or just plot the averages
+        try:
+            plot_dfracs_compare(args, 
+                            data=nan_df, 
+                            times=self.settings.times)
+        except UserWarning:
+            print("Unable to plot compare plot for nan_df")
+        ####
+
+
+        try:    
+            plot_paired_errors(args,
+                            data=nan_df, 
+                            times=self.settings.times)
+        except UserWarning:
+            print("Unable to plot paired errors for nan_df")
+
+        # return
+    
+        expt_segs = self.segs[self.segs["calc_name"] == expt_name]
+
         train_avg_name = "_".join(["train", calc_name, "avg"])
         val_avg_name = "_".join(["val", calc_name, "avg"])
 
-        # first we just group them together and compare overall distributions
+        train_df = merge_df[merge_df["calc_name"].isin(train_rep_names)]
+        val_df = merge_df[merge_df["calc_name"].isin(val_rep_names)]
+
+        train_avg_df = train_df.drop(columns="calc_name").groupby([*times,"peptide"]).mean().reset_index()
+        val_avg_df = val_df.drop(columns="calc_name").groupby([*times,"peptide"]).mean().reset_index()
+
+        train_avg_df["calc_name"] = [train_avg_name]*len(train_avg_df)
+        val_avg_df["calc_name"] = [val_avg_name]*len(val_avg_df)
+
+        avg_df = pd.concat([expt_df, train_avg_df, val_avg_df], ignore_index=True)
         
-        # set all calc names in train and val dfs to be calc_name
-        # train_merge_df = pd.concat(train_dfs, ignore_index=True)
-        # print(train_merge_df)
-        # train_merge_df["calc_name"] = ["_".join(["train", calc_name, "all"])] * len(train_merge_df)
-        # print(train_merge_df)
-        # val_merge_df = pd.concat(val_dfs, ignore_index=True)
-        # print(val_merge_df)
-        # val_merge_df["calc_name"] = ["_".join(["val", calc_name, "all"])] * len(val_merge_df)
-        # print(val_merge_df)
+        # # return 
 
-        # avg_df = pd.concat([train_merge_df, val_merge_df], ignore_index=True)
-        # print(avg_df)
-        # args = [expt_name, train_avg_name,  val_avg_name]
-        # this doesnt work - we need to either line up the peptides or just plot the averages
-        # plot_dfracs_compare(args, 
-        #                     data=avg_df, 
-        #                     times=self.settings.times)
-
-        expt_segs = self.segs[self.segs["calc_name"] == expt_name]
-
-        # for r in range(n_reps):
-        #     train_segs_df = self.train_segs.loc[self.train_segs["calc_name"] == train_rep_names[r]]
-        #     val_segs_df = self.val_segs.loc[self.val_segs["calc_name"] == val_rep_names[r]]
-
-        #     # add correct (original) peptide numbers to train and val data df
-        #     train_dfs[r]["peptide"] = train_segs_df["peptide"]
-        #     val_dfs[r]["peptide"] = val_segs_df["peptide"]
-
-        train_dfs = pd.concat(train_dfs, ignore_index=True)
-        val_dfs = pd.concat(val_dfs, ignore_index=True)
-
-        train_avg_dfs = []
-        val_avg_dfs = []
-        print(train_dfs)
-        for t in self.settings.times:
-            # t = str(t)
-            print(t)
-            t_df = train_dfs[[t, "peptide"]]
-            v_df = val_dfs[[t, "peptide"]]
-            t_avg = t_df.groupby([t, "peptide"]).mean().reset_index()
-            v_avg = v_df.groupby([t, "peptide"]).mean().reset_index()
-            t_avg["calc_name"] = [train_avg_name for i in range(len(t_avg))]
-            v_avg["calc_name"] = [val_avg_name for i in range(len(v_avg))]
-            print(t_avg)
-            print(v_avg)
-            train_avg_dfs.append(t_avg)
-            val_avg_dfs.append(v_avg)
-
-        train_avg_df = pd.concat(train_avg_dfs, ignore_index=True)
-        val_avg_df = pd.concat(val_avg_dfs, ignore_index=True)
-        print(train_avg_df)
-        print(val_avg_df)
+        # train_avg_df = pd.concat(train_avg_dfs, ignore_index=True)
+        # val_avg_df = pd.concat(val_avg_dfs, ignore_index=True)
+        # print(train_avg_df)
+        # print(val_avg_df)
 
 
         train_peptides = set(train_avg_df["peptide"].values)
@@ -506,16 +570,22 @@ class ValDXer(Experiment):
         print(f"Val coverage: {val_coverage:.2f}")
         
         # add to HDX_data
-        self.HDX_data = pd.concat([self.HDX_data, train_avg_df, val_avg_df], ignore_index=True)
+        # avg_df = pd.concat([expt, train_avg_df, val_avg_df], ignore_index=True)
         # plot train and val against expt data with compare plot
         args = [expt_name, train_avg_name, val_avg_name]
-        plot_dfracs_compare(args,
-                             data=self.HDX_data, 
+        try:
+            plot_dfracs_compare(args,
+                             data=avg_df, 
                              times=self.settings.times)
+        except UserWarning:
+            print("Unable to plot compare plot for avg_df")
         # plot train and val averages against expt data with paired plot
-        plot_paired_errors(args, 
-                           data=self.HDX_data, 
+        try:
+            plot_paired_errors(args, 
+                           data=avg_df, 
                            times=self.settings.times)
+        except UserWarning:
+            print("Unable to plot paired errors for avg_df")
 
 
 

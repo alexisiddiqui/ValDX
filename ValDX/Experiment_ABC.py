@@ -6,6 +6,9 @@ from ValDX.helpful_funcs import segs_to_df, dfracs_to_df, segs_to_file, HDX_to_f
 import pandas as pd
 import numpy as np
 import os
+import time
+import glob
+import pickle
 import shutil
 import MDAnalysis as mda
 
@@ -270,9 +273,61 @@ class Experiment(ABC):
 
 
     # @abstractmethod
-    def save_experiment(self):
-        pass
+    def save_experiment(self, save_name=None):
+        """
+        Writes the settings of the experiment (contents of class) to a pickle file. Logs???
+        """
+        if save_name is None:
+            save_name = self.name
+        unix_time = int(time.time())
+        if save_name is not None:
+            save_name = save_name+"_"+str(unix_time)+".pkl"
+            save_path = os.path.join(self.settings.logs_dir, save_name)
+
+            with open(save_path, 'wb') as f:
+                pickle.dump(self, f)
+                print("Saving experiment to: ", save_path)
+                return save_path
 
     # @abstractmethod
-    def load_experiment(self):
-        pass
+    # add something to select by name?
+    def load_experiment(self, load_path=None, latest=False, idx=None):
+        """
+        Loads the settings of the experiment from a pickle file.
+        """
+        if load_path is not None:
+            print("Attempting to load experiment from: ", load_path)
+            with open(load_path, 'rb') as f:
+                print("Loading experiment from: ", load_path)
+                return pickle.load(f)
+            # print("Loaded object type:", type(loaded_obj))
+
+            # return deepcopy(loaded_obj)
+
+
+        # If no explicit path is provided
+        search_dir = self.settings.logs_dir
+        print("Searching for experiment files in: ", search_dir)
+
+        pkl_files = glob.glob(os.path.join(search_dir, "*.pkl"))
+        print("Found files: ", pkl_files)
+
+        if not pkl_files:
+            print("No experiment files found.")
+            raise FileNotFoundError
+        pkl_files = sorted(pkl_files, key=os.path.getctime)
+        if latest is True:
+            print("Loading latest experiment.")
+            file = pkl_files[-1]
+        elif idx is not None:
+            print(f"Loading {idx} experiment.")
+            file = pkl_files[idx]
+        else:
+            print("Loading first experiment.")
+            file = pkl_files[0]
+
+        
+        load_path = file    
+        print("Loading experiment from: ", load_path)
+        with open(load_path, 'rb') as f:
+            return pickle.load(f)

@@ -18,6 +18,7 @@ class Settings:
         self.data_dir = 'data'
         self.results_dir = 'results'
         self.plot_dir = 'plots'
+        self.logs_dir = 'logs'
 
         if name is not None:
             self.name = name
@@ -26,7 +27,7 @@ class Settings:
 
         self.random_seed = 42
         self.train_frac = 0.8
-        self.replicates = 5
+        self.replicates = 2
         self.HDX_method = "BestVendruscolo"
         self.logfile_name = ("calc_hdx_", ".log")
         self.segs_name = ("residue_segs_", ".txt")

@@ -13,13 +13,14 @@ import glob
 import subprocess
 import numpy as np
 import concurrent.futures
+import MDAnalysis as mda
 
 from HDXer.reweighting import MaxEnt
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
 from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values
-from ValDX.HDX_plots import plot_lcurve, plot_gamma_distribution, plot_dfracs_compare, plot_paired_errors
+from ValDX.HDX_plots import plot_lcurve, plot_gamma_distribution, plot_dfracs_compare, plot_paired_errors, plot_heatmap_trainval_compare, plot_heatmap_trainval_compare_error, plot_R_agreement_trainval
 
 
 
@@ -343,7 +344,8 @@ class ValDXer(Experiment):
             val_dfs.append(val_df)
 
         # evaluate HDX train vs val - how do we actually compare both? I guess we just take the average across the reps - how do we account for peptides?
-        self.evaluate_HDX(train_dfs=train_dfs, 
+        try:
+            self.evaluate_HDX(train_dfs=train_dfs, 
                           val_dfs=val_dfs, 
                           expt_name=expt_name, 
                           calc_name=calc_name, 
@@ -351,7 +353,10 @@ class ValDXer(Experiment):
                           val_gammas=val_gammas,
                           n_reps=n_reps)
         # plot optimal gamma distributions
-
+        except UserWarning:
+            print("Unable to evaluate HDX")
+        finally:
+            return train_dfs, val_dfs, train_gammas, val_gammas
         
 
     def train_HDX(self, 
@@ -486,8 +491,41 @@ class ValDXer(Experiment):
                             data=merge_df, 
                             times=self.settings.times)
         except UserWarning:
-            print("Unable to plot paired errors for nan_df")
+            print("Unable to plot paired errors for merge_df")
 
+
+
+        top_path = self.paths.loc[self.paths["calc_name"] == calc_name, "top"].dropna().values[0]
+        top = mda.Universe(top_path)
+
+        expt_names = [expt_name] * n_reps
+        train_names = train_rep_names
+        val_names = val_rep_names
+        
+        # plot_heatmap_trainval_compare(expt_names=expt_names, 
+        #                             train_names=train_names, 
+        #                             val_names=val_names, 
+        #                             expt_segs=expt_segs,
+        #                             data=merge_df, 
+        #                             times=self.settings.times, 
+        #                             top=top)
+
+        # plot_heatmap_trainval_compare_error(expt_names=expt_names, 
+        #                             train_names=train_names, 
+        #                             val_names=val_names, 
+        #                             expt_segs=expt_segs,
+        #                             data=merge_df, 
+        #                             times=self.settings.times, 
+        #                             top=top)
+
+    
+        plot_R_agreement_trainval(expt_name=expt_name, 
+                                train_names=train_names, 
+                                val_names=val_names, 
+                                expt_segs=expt_segs,
+                                data=merge_df, 
+                                times=self.settings.times, 
+                                top=top)
         # return
 
         # Currently df contains values for the peptides in each train/val split 
@@ -509,7 +547,6 @@ class ValDXer(Experiment):
         print("nan_df + expt_df")
         print(nan_df)
 
-        # return
 
 
         args = [expt_name, *train_rep_names,  *val_rep_names]
@@ -586,6 +623,24 @@ class ValDXer(Experiment):
                            times=self.settings.times)
         except UserWarning:
             print("Unable to plot paired errors for avg_df")
+
+        # plot_heatmap_trainval_compare(expt_names=[expt_name], 
+        #                             train_names=[train_avg_name], 
+        #                             val_names=[val_avg_name], 
+        #                             expt_segs=expt_segs,
+        #                             data=avg_df, 
+        #                             times=self.settings.times, 
+        #                             top=top)
+
+        # plot_heatmap_trainval_compare_error(expt_names=[expt_name], 
+        #                             train_names=[train_avg_name], 
+        #                             val_names=[val_avg_name], 
+        #                             expt_segs=expt_segs,
+        #                             data=avg_df, 
+        #                             times=self.settings.times, 
+        #                             top=top)
+
+
 
 
 

@@ -120,7 +120,7 @@ def plot_heatmap_compare(args: list, data: pd.DataFrame, top: mda.Universe, segs
         # convert to long format
         df = df.melt(id_vars=["Residue"], var_name="Time", value_name=arg)
         # print(df)
-        plot_df = pd.merge(plot_df, df)
+        plot_df = pd.concat([plot_df, df], ignore_index=True, axis=1)
             
         print(plot_df)
 
@@ -960,6 +960,582 @@ def plot_gamma_distribution(train_gammas: list, val_gammas: list, calc_name: str
     plt.title(f'Gamma distribution for {calc_name}')
     plt.xlabel('Gamma')
     plt.ylabel('Count')
+    plt.xlim(2,10)
     # if save:
     #     plt.savefig(f'{calc_name}_gamma_distribution.pdf', bbox_inches='tight')
+
+
+# def plot_heatmap_trainval_compare(expt_names: list, 
+#                                   expt_segs: pd.DataFrame,
+#                                   top: mda.Universe,
+#                                   train_names:list,
+#                                   val_names:list,
+#                                   times: list, 
+#                                   data: pd.DataFrame, 
+#                                   save:bool=False, save_dir:str=None,
+#                                   key:str='calc_name'
+#                                   ):
+#     # def plot_peptide_dfracs(args: list, data: pd.DataFrame, times: list, top: mda.Universe, segs: pd.DataFrame, save=False, save_dir=None):
+        
+#     residues = expt_segs
+#     print(residues)
+#     peptides = residues['peptide'].to_list()
+#     # convert residue start and end to list of residues contained
+#     residues["Residue"] = residues.apply(lambda x: tuple(range(x.ResStr, x.ResEnd+1)), axis=1)
+#     # # print(residues)
+#     all_resis = []
+#     for resis in residues['Residue']:
+#         all_resis.extend(resis)
+
+#     # residues["Residue"] = residues['resis']
+#     # print(residues)
+
+#     # residues= residues.drop(columns=["resis"])
+#     print(residues)
+#     # print(all_resis)
+#     expt_resis = set(all_resis)
+#     # must ensure that the topology numbers match EXACTLY with the experimental data
+#     resnums = [resi.resid for resi in top.residues]
+
+#     # fig, axs = plt.subplots(1, len(args), figsize=(12*len(args), 24))
+#     # plot df contains the product of all possible combinations of residue and time
+#     args = [expt_names[0], *train_names, *val_names]
+
+#     data = pd.merge(data, residues.drop(columns=[key, "ResStr", "ResEnd"]), on='peptide')
+#     print(data)
+
+#     # plot_df = pd.DataFrame([([residue,residue], time, p) for residue in expt_resis for time in times for p in peptides], columns=['Residue', 'Time', 'peptide'])
+#     plot_df = pd.DataFrame(columns=["peptide", "Residue" "Time"])
+
+#     for arg in args:
+#         print(arg)
+
+#         df = data[data[key]==arg].copy()
+#         print(df)
+#         df = df.drop(columns=[key])
+#         df = df.explode("Residue")
+
+#         # convert to long format
+#         df = df.melt(id_vars=["peptide","Residue"], var_name="Time", value_name=arg)
+#         print(df)
+
+#         # plot_df= pd.concat([plot_df, df],ignore_index=True,axis=1)
+#         # plot_df= pd.merge(plot_df, df, on=["peptide", "Time"])
+#         plot_df= pd.concat([plot_df, df], ignore_index=True, keys=["peptide", "Time", "Residue"])
+# # 
+#         print(plot_df)
+
+#     # merge residue numbers in 
+
+#     # plot_df = pd.merge(plot_df, residues.drop(columns=[key, "ResStr", "ResEnd"]))
+#     print("plotting df")
+#     print(plot_df.to_string())
+#     # plot_df = pd.merge(plot_df, residues.drop(columns=[key, "ResStr", "ResEnd"]), on='peptide')
+#     # print(plot_df)
+
+#     # find missing residues
+#     missing_resis = set(resnums) - expt_resis
+
+#     # pep_nos = residues["peptide"].to_list()
+#     # missing_df = pd.DataFrame([(residue, time, p, np.nan) for residue in missing_resis for time in times for p in pep_nos], columns=['Residue', 'Time', 'Peptide', 'nan'])
+
+#     # plot_df = pd.concat([plot_df, missing_df])
+
+#     # print(missing_df.values)
+
+#     nan_cmap = ListedColormap(['#808080', 'none'])
+
+#     compare_cmaps = ('Greys', 'crest', 'flare')
+    
+
+#     args = list(zip(expt_names, train_names, val_names)) # zipped list of replicates to plot together
+
+#     for i, arg in enumerate(args):
+
+#         fig, axes = plt.subplots(len(times), len(arg), figsize=(8*len(arg), 12))
+
+#         for idx, a in enumerate(arg):
+#             for j, t in enumerate(times):
+
+#                 ax = axes[j, idx]
+#                 # select values for which a is not nan
+#                 a_df = plot_df[plot_df[a].notna()]
+#                 print(a_df)
+#                 peptides = set(a_df["peptide"].to_list())
+#                 print(peptides)
+#                 residues = set(a_df["Residue"].to_list())
+#                 print(residues)
+#                 a_df = plot_df[plot_df[a].notna() & (plot_df['Time'] == t)]
+#                 a_df['Residue'] = a_df['Residue'].astype(int)  # Ensure Residue is int type
+
+
+#                 print(arg, a)
+#                 # for p in peptides:
+#                 #     a_df = a_df[a_df["peptide"] == p]
+#                 #     print(a_df)
+#                         # print(ax)
+#                 # print(plot_df)
+#                 # data = a_df[a_df['Time'] == t].pivot(index="peptide", columns="Residue", values=a)
+#                 heatmap_data = a_df.pivot(index="peptide", columns="Residue", values=a)
+
+#                 print(heatmap_data)
+#                 # data = data.pivot(index="Peptide", columns="Residue", values=arg)
+#                 sns.heatmap(heatmap_data, ax=ax, cmap=compare_cmaps[idx], vmin=0, vmax=1)
+
+
+#                 ax.set_title(f'{a} Df at {t} min')
+#                 ax.set_xlabel('Residue Number')
+#                 ax.set_ylabel('Peptide Number')
+#                 ax.set_xticks(sorted(resnums))
+
+#                 print(sorted(resnums))
+#                 print(min(resnums), max(resnums))            
+#                 ax.set_xlim(min(resnums), max(resnums))
+#                 ax.set_yticks(sorted(peptides, reverse=True))
+
+#                 print(sorted(peptides, reverse=True))
+#                 print(min(peptides), max(peptides))
+#                 ax.set_ylim(min(peptides), max(peptides))
+
+#                 ax.set_xticklabels(resnums, rotation=90, fontsize=5)
+#                 ax.set_yticklabels(peptides, rotation=0, fontsize=5)
+
+#         plt.suptitle('BPTI HDX deuterated fractions heatmap', fontsize=22)
+#         plt.tight_layout()
+#         plt.show()
+
+def plot_R_agreement_trainval(expt_name: str, 
+                                  expt_segs: pd.DataFrame,
+                                  top: mda.Universe,
+                                  train_names:list,
+                                  val_names:list,
+                                  times: list, 
+                                  data: pd.DataFrame, 
+                                  save:bool=False, save_dir:str=None,
+                                  key:str='calc_name'
+                                  ):
+    
+    residues = expt_segs
+    peptides = residues['peptide'].to_list()
+    # convert residue start and end to list of residues contained
+    residues["Residue"] = residues.apply(lambda x: tuple(range(x.ResStr, x.ResEnd+1)), axis=1)
+    # # print(residues)
+    all_resis = [resi for sublist in residues['Residue'] for resi in sublist]
+    expt_resis = set(all_resis)
+    resnums = [resi.resid for resi in top.residues]
+
+    args = [*train_names, *val_names]
+
+    print("plotting paired trainval agreement")
+    print(data)
+    expt = data[data[key]==expt_name].copy()
+    df = pd.DataFrame(columns=["Time", "R", "calc_name"])
+
+    # Assuming times is a predefined list of time points
+    for i, t in enumerate(times):
+        
+        # Extracting experimental data for the current time point
+        expt_values = expt.iloc[:, i].copy().to_list()
+        print("expt values")
+        print(expt_values)
+        # Creating pairwise plots for the current time
+        
+        for j, arg in enumerate(args):
+
+            j_df = data.loc[data[key]==arg].copy()
+
+            # Extracting data for the current argument
+            arg_values = data.loc[data[key]==arg].iloc[:, i].copy()
+            peptides = j_df["peptide"].values.astype(int)
+
+            print(f"{arg} values")
+            print(arg_values)
+            
+            # indexes = peptides.values.astype(int)
+
+            print(peptides)
+
+            arg_expt_values = [expt_values[index]for index in peptides]
+
+
+            assert len(arg_values) == len(arg_expt_values)
+            
+            # go over values and remove from both lists if either nan
+            R_expt_values = []
+            R_arg_values = []
+
+            for expt_value, arg_value in zip(arg_expt_values, arg_values):
+                if not np.isnan(expt_value) and not np.isnan(arg_value):
+                    R_expt_values.append(expt_value)
+                    R_arg_values.append(arg_value)
+            print("Values to compute R values")
+            print(R_expt_values)
+            print(R_arg_values)
+
+            assert len(R_expt_values) == len(R_arg_values)
+
+            # calculate pearson correlation coefficient R^2
+            R = np.corrcoef(R_expt_values, R_arg_values)[0,1]
+            print(R)
+            
+            df = pd.concat([df, pd.DataFrame([[t, R, arg]], columns=["Time", "R", "calc_name"])])
+
+    # plot as box
+    print("df")
+    print(df)
+    plot_df = pd.DataFrame(columns=["Time", "Type", "R"])
+
+    for t in times:
+        for train, val in zip(train_names, val_names):
+            print(train, val)
+            print(t)
+            # Extracting R values for the current train and val at time t
+            train_R = df.loc[(df["calc_name"] == train) & (df["Time"] == t)]
+            val_R = df.loc[(df["calc_name"] == val) & (df["Time"] == t)]
+            train_R = train_R["R"].values
+            val_R = val_R["R"].values
+            print(train_R)
+            print(val_R)
+            # concat to plot_df
+            plot_df = pd.concat([plot_df, pd.DataFrame({"Time": t, "Type": "Train", "R": train_R})], ignore_index=True)
+            plot_df = pd.concat([plot_df, pd.DataFrame({"Time": t, "Type": "Val", "R": val_R})], ignore_index=True)
+    print("plot_df")
+    plot_df = plot_df.dropna()
+    print(plot_df)
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    sns.boxplot(data=plot_df, x="Time", y="R", hue="Type")
+    plt.title("R Value Distributions for Train and Val Over Time")
+    plt.xlabel("Time")
+    plt.ylabel("R Value")
+    plt.yticks(np.arange(-0.1, 1.05, 0.1))
+    plt.ylim(-0.2, 1.1)
+    if save:
+        plt.savefig(f"{save_dir}/R_value_distributions.png")
+
+    plt.show()
+
+
+def plot_heatmap_trainval_compare(expt_names: list, 
+                                  expt_segs: pd.DataFrame,
+                                  top: mda.Universe,
+                                  train_names:list,
+                                  val_names:list,
+                                  times: list, 
+                                  data: pd.DataFrame, 
+                                  save:bool=False, save_dir:str=None,
+                                  key:str='calc_name'
+                                  ):
+    residues = expt_segs
+    peptides = residues['peptide'].to_list()
+    residues["Residue"] = residues.apply(lambda x: tuple(range(x.ResStr, x.ResEnd+1)), axis=1)
+    all_resis = [resi for sublist in residues['Residue'] for resi in sublist]
+    expt_resis = set(all_resis)
+    resnums = [resi.resid for resi in top.residues]
+
+    args = [expt_names[0], *train_names, *val_names]
+    data = pd.merge(data, residues.drop(columns=[key, "ResStr", "ResEnd"]), on='peptide')
+
+    plot_df = pd.DataFrame(columns=["peptide", "Residue", "Time"])
+    for arg in args:
+        df = data[data[key] == arg].copy()
+        df = df.drop(columns=[key])
+        df = df.explode("Residue")
+        df = df.melt(id_vars=["peptide", "Residue"], var_name="Time", value_name=arg)
+        plot_df = pd.concat([plot_df, df], ignore_index=True)
+
+    missing_resis = set(resnums) - expt_resis
+    nan_cmap = ListedColormap(['#808080', 'none'])
+    compare_cmaps = ('cividis_r', 'crest', 'flare')
+    args = list(zip(expt_names, train_names, val_names))
+
+    fig, axes = plt.subplots(len(train_names)*len(times), len(args[0]), figsize=(8*len(args[0]), 3*len(times)*len(train_names)))
+    for i, arg in enumerate(args):
+        
+        for idx, a in enumerate(arg):
+            for j, t in enumerate(times):
+                z= (i*len(times)) + j
+                ax = axes[z, idx]
+                a_df = plot_df[plot_df[a].notna() & (plot_df['Time'] == t)]
+                #average over peptides
+                a_df['Residue'] = a_df.loc[:, 'Residue'].astype(int)
+                a_df["peptide"] = a_df.loc[:, "peptide"].astype(int)
+                print(a_df.to_string())
+                print(a_df.peptide.value_counts())
+                # Pivot and plot heatmap
+            # try:
+                # heatmap_data = a_df.pivot(index="peptide", columns="Residue", vaes=a)   
+            # except UserWarning:          
+                print("Averaging over peptides and resiudes")
+                a_df = a_df.groupby(["peptide", "Residue"]).mean().reset_index()
+                heatmap_data = a_df.pivot(index="peptide", columns="Residue", values=a)
+            # finally:
+                heatmap_data = heatmap_data.reindex(index=peptides, columns=resnums)
+
+                print(heatmap_data)
+                sns.heatmap(heatmap_data, ax=ax, cmap=compare_cmaps[idx], vmin=0, vmax=1)
+
+
+                # Prepare and plot the overlay
+                overlay_data = pd.DataFrame(np.nan, index=heatmap_data.index, columns=heatmap_data.columns)
+                for missing in missing_resis:
+                    if missing in overlay_data.columns:
+                        overlay_data[missing] = 1
+
+                print(overlay_data)
+                sns.heatmap(overlay_data, cmap=nan_cmap, cbar=False, ax=ax)
+
+                # Set numerical ticks
+                ax.set_xticks(range(len(resnums)))
+                ax.set_xticklabels(resnums, rotation=90, fontsize=5)
+                ax.set_yticks(range(len(peptides)))
+                ax.set_yticklabels(peptides, rotation=0, fontsize=5)
+
+                ax.set_title(f'{a} Df at {t} min')
+                ax.set_xlabel('Residue Number')
+                ax.set_ylabel('Peptide Number')
+
+    plt.suptitle('BPTI HDX deuterated fractions heatmap', fontsize=22)
+    plt.tight_layout()
+    plt.show()
+
+
+
+def plot_heatmap_trainval_compare_error(expt_names: list, 
+                                  expt_segs: pd.DataFrame,
+                                  top: mda.Universe,
+                                  train_names:list,
+                                  val_names:list,
+                                  times: list, 
+                                  data: pd.DataFrame, 
+                                  save:bool=False, save_dir:str=None,
+                                  key:str='calc_name'
+                                  ):
+    # def plot_peptide_dfracs(args: list, data: pd.DataFrame, times: list, top: mda.Universe, segs: pd.DataFrame, save=False, save_dir=None):
+        
+#     residues = expt_segs
+#     print(residues)
+#     peptides = residues['peptide'].to_list()
+#     # convert residue start and end to list of residues contained
+#     residues["Residue"] = residues.apply(lambda x: tuple(range(x.ResStr, x.ResEnd+1)), axis=1)
+#     # # print(residues)
+#     all_resis = []
+#     for resis in residues['Residue']:
+#         all_resis.extend(resis)
+
+#     # residues["Residue"] = residues['resis']
+#     # print(residues)
+
+#     # residues= residues.drop(columns=["resis"])
+#     print(residues)
+#     # print(all_resis)
+#     expt_resis = set(all_resis)
+#     # must ensure that the topology numbers match EXACTLY with the experimental data
+#     resnums = [resi.resid for resi in top.residues]
+
+#     # fig, axs = plt.subplots(1, len(args), figsize=(12*len(args), 24))
+#     # plot df contains the product of all possible combinations of residue and time
+#     expt_data = data[data[key]==expt_names[0]].copy()
+    
+#     args = [*train_names, *val_names]
+
+#     data = pd.merge(data, residues.drop(columns=[key, "ResStr", "ResEnd"]), on='peptide')
+#     print(data)
+
+#     # plot_df = pd.DataFrame([([residue,residue], time, p) for residue in expt_resis for time in times for p in peptides], columns=['Residue', 'Time', 'peptide'])
+#     plot_df = pd.DataFrame(columns=["peptide", "Residue" "Time"])
+
+#     for arg in args:
+#         print(arg)
+
+#         df = data[data[key]==arg].copy()
+#         print(df)
+#         arg_peptides = df["peptide"].values.astype(int)
+#         # calculate absolute difference between ys and expt at each residue
+#         for t in times:
+#             expt_t = expt_data[t].to_list()
+#             df_t = df[t].to_list()
+
+#             expt_t = [expt_t[pep] for pep in arg_peptides]
+
+#             difference = [(ex-y) for ex, y in zip(expt_t, df_t)]
+
+#             print(difference)
+#             # add difference to df
+#             df[t] = difference
+
+
+
+
+#         df = df.drop(columns=[key])
+#         df = df.explode("Residue")
+
+#         # convert to long format
+#         df = df.melt(id_vars=["peptide","Residue"], var_name="Time", value_name=arg)
+#         print(df)
+
+#         # plot_df= pd.concat([plot_df, df],ignore_index=True,axis=1)
+#         # plot_df= pd.merge(plot_df, df, on=["peptide", "Time"])
+#         plot_df= pd.concat([plot_df, df], ignore_index=True, keys=["peptide", "Time", "Residue"])
+# # 
+#         print(plot_df)
+
+#     # merge residue numbers in 
+
+#     # plot_df = pd.merge(plot_df, residues.drop(columns=[key, "ResStr", "ResEnd"]))
+#     print("plotting df")
+#     print(plot_df.to_string())
+#     # plot_df = pd.merge(plot_df, residues.drop(columns=[key, "ResStr", "ResEnd"]), on='peptide')
+#     # print(plot_df)
+
+#     # find missing residues
+#     missing_resis = set(resnums) - expt_resis
+
+#     # pep_nos = residues["peptide"].to_list()
+#     # missing_df = pd.DataFrame([(residue, time, p, np.nan) for residue in missing_resis for time in times for p in pep_nos], columns=['Residue', 'Time', 'Peptide', 'nan'])
+
+#     # plot_df = pd.concat([plot_df, missing_df])
+
+#     # print(missing_df.values)
+
+#     nan_cmap = ListedColormap(['#808080', 'none'])
+
+#     compare_cmaps = ('RdBu', 'PRGn')
+    
+
+#     args = list(zip(train_names, val_names)) # zipped list of replicates to plot together
+
+#     for i, arg in enumerate(args):
+
+#         fig, axes = plt.subplots(len(times), len(arg), figsize=(8*len(arg), 12))
+
+#         for idx, a in enumerate(arg):
+#             for j, t in enumerate(times):
+
+#                 ax = axes[j, idx]
+#                 # select values for which a is not nan
+#                 a_df = plot_df[plot_df[a].notna()]
+#                 print(a_df)
+                
+                
+#                 print(arg, a)
+#                     # print(ax)
+#                 # print(plot_df)
+#                 data = a_df[a_df['Time'] == t].pivot(index="peptide", columns="Residue", values=a)
+#                 print(data)
+#                 # data = data.pivot(index="Peptide", columns="Residue", values=arg)
+#                 sns.heatmap(data, ax=ax, cmap=compare_cmaps[idx])
+
+#                 # add grey values for all residues in msising_resis
+
+#                 # Prepare and plot the overlay
+#                 overlay_data = pd.DataFrame(np.nan, index=data.index, columns=data.columns)
+#                 for missing in missing_resis:
+#                     if missing in overlay_data.columns:
+#                         overlay_data[missing] = 1
+#                 sns.heatmap(overlay_data, cmap=nan_cmap, cbar=False, ax=ax)
+
+
+
+#                 ax.set_title(f'{a} Df at {t} min')
+#                 ax.set_xlabel('Residue Number')
+#                 ax.set_ylabel('Peptide Number')
+#                 ax.set_xticks(resnums)
+
+#         plt.suptitle(f'BPTI HDX deuterated fractions error from {expt_names[0]} heatmap', fontsize=22)
+#         plt.tight_layout()
+#         plt.show()
+
+
+
+
+
+
+
+    residues = expt_segs
+    peptides = residues['peptide'].to_list()
+    residues["Residue"] = residues.apply(lambda x: tuple(range(x.ResStr, x.ResEnd+1)), axis=1)
+    all_resis = [resi for sublist in residues['Residue'] for resi in sublist]
+    expt_resis = set(all_resis)
+    resnums = [resi.resid for resi in top.residues]
+    expt_data = data[data[key]==expt_names[0]].copy()
+
+    args = [expt_names[0], *train_names, *val_names]
+    data = pd.merge(data, residues.drop(columns=[key, "ResStr", "ResEnd"]), on='peptide')
+
+    plot_df = pd.DataFrame(columns=["peptide", "Residue", "Time"])
+    for arg in args:
+        df = data[data[key] == arg].copy()
+
+        arg_peptides = df["peptide"].values.astype(int)
+        # calculate absolute difference between ys and expt at each residue
+        for t in times:
+            expt_t = expt_data[t].to_list()
+            df_t = df[t].to_list()
+            expt_t = [expt_t[pep] for pep in arg_peptides]
+            difference = [(ex-y) for ex, y in zip(expt_t, df_t)]
+            print(difference)
+            # add difference to df
+            df[t] = difference
+
+
+        df = df.drop(columns=[key])
+        df = df.explode("Residue")
+        df = df.melt(id_vars=["peptide", "Residue"], var_name="Time", value_name=arg)
+        plot_df = pd.concat([plot_df, df], ignore_index=True)
+
+    missing_resis = set(resnums) - expt_resis
+    nan_cmap = ListedColormap(['#808080', 'none'])
+    compare_cmaps = ('RdBu', 'PRGn')
+    args = list(zip(train_names, val_names))
+    fig, axes = plt.subplots(len(train_names)*len(times), len(args[0]), figsize=(8*len(args[0]), 3*len(times)*len(train_names)))
+
+    for i, arg in enumerate(args):
+        # fig, axes = plt.subplots(len(times), len(arg), figsize=(8*len(arg), 12))
+
+        for idx, a in enumerate(arg):
+            for j, t in enumerate(times):
+                z= (i*len(times)) + j
+                ax = axes[z, idx]
+                a_df = plot_df[plot_df[a].notna() & (plot_df['Time'] == t)]
+                a_df['Residue'] = a_df.loc[:, 'Residue'].astype(int)
+                a_df["peptide"] = a_df.loc[:, "peptide"].astype(int)
+                print(a_df)
+                # Pivot and plot heatmap
+            # try:
+                # heatmap_data = a_df.pivot(index="peptide", columns="Residue", values=a)   
+            # except UserWarning:          
+                print("Averaging over peptides and resiudes")
+                a_df = a_df.groupby(["peptide", "Residue"]).mean().reset_index()
+                heatmap_data = a_df.pivot(index="peptide", columns="Residue", values=a)
+            # finally:
+                heatmap_data = heatmap_data.reindex(index=peptides, columns=resnums)
+
+                print(heatmap_data)
+                sns.heatmap(heatmap_data, ax=ax, cmap=compare_cmaps[idx], vmin=-1, center=0, vmax=1)
+
+
+                # Prepare and plot the overlay
+                overlay_data = pd.DataFrame(np.nan, index=heatmap_data.index, columns=heatmap_data.columns)
+                for missing in missing_resis:
+                    if missing in overlay_data.columns:
+                        overlay_data[missing] = 1
+
+                print(overlay_data)
+                sns.heatmap(overlay_data, cmap=nan_cmap, cbar=False, ax=ax)
+
+                # Set numerical ticks
+                ax.set_xticks(range(len(resnums)))
+                ax.set_xticklabels(resnums, rotation=90, fontsize=5)
+                ax.set_yticks(range(len(peptides)))
+                ax.set_yticklabels(peptides, rotation=0, fontsize=5)
+
+                ax.set_title(f'{a} Df at {t} min')
+                ax.set_xlabel('Residue Number')
+                ax.set_ylabel('Peptide Number')
+
+    plt.suptitle('BPTI HDX deuterated fractions heatmap', fontsize=22)
+    plt.tight_layout()
+    plt.show()
 

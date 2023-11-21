@@ -10,6 +10,13 @@ from HDXer.reweighting import MaxEnt
 def conda_to_env_dict(env_name):
     """
     Get the environment variables for a given conda environment.
+
+    Parameters:
+    env_name (str): The name of the conda environment to get the variables for.
+
+    Returns:
+    dict: A dictionary containing the environment variables for the specified conda environment.
+    If the environment is not found, returns None.
     """
     # Run the command 'conda env list' and get the output
     result = subprocess.run(['conda', 'env', 'list'], stdout=subprocess.PIPE)
@@ -262,12 +269,18 @@ def restore_trainval_peptide_nos(calc_name: str,
     train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
     val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
 
+    print("train_rep_names", train_rep_names)
+    print("val_rep_names", val_rep_names)
     # iterate through the reps and add the correct peptide numbers to the train and val dfs
     for r in range(n_reps):
         train_rep, val_rep = train_rep_names[r], val_rep_names[r]
                     # 
-        train_rep_peptides = train_segs.loc[train_segs["calc_name"] == train_rep, "peptide"].copy()
-        val_rep_peptides = val_segs.loc[val_segs["calc_name"] == val_rep, "peptide"].copy()
+        train_rep_peptides = train_segs.loc[train_segs["calc_name"] == train_rep, "peptide"].copy().to_list()
+        val_rep_peptides = val_segs.loc[val_segs["calc_name"] == val_rep, "peptide"].copy().to_list()
+
+        print("train_rep_peptides", train_rep_peptides)
+        print("val_rep_peptides", val_rep_peptides)
+
 
         train_dfs[r]["peptide"] = train_rep_peptides
         val_dfs[r]["peptide"] = val_rep_peptides

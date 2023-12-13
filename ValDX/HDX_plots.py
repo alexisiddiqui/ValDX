@@ -779,7 +779,9 @@ def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, 
     print("plotting paired errors")
     print(data)
     expt = data.loc[data[key]==args[expt_index]].copy()
-    fig, axes = plt.subplots(nrows=len(times), ncols=1, figsize=(12 , 6* (len(times)-1)))
+    fig, axes = plt.subplots(nrows=len(times), ncols=1, figsize=(8 , 8* (len(times)-1)))
+    # give each arg a different matplotlib marker
+    markers = ['o', 's', 'v', 'D', 'P', 'X', 'd', 'p', 'h', '8', '1', '2', '3', '4']
 
     # Assuming times is a predefined list of time points
     for i, t in enumerate(times):
@@ -830,14 +832,14 @@ def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, 
             
             if arg == args[expt_index]:
                 # plot line y=x for reference
-                ax.plot(expt_values, expt_values, label='expt', linestyle='--', color='black')
-                ax.scatter(arg_values, expt_values, label=f'{arg} vs. {args[expt_index]}, R={R:.2f}', color='grey')
+                ax.plot(expt_values, expt_values, label='Identity line', linestyle='--', color='grey', alpha=0.1)
+                ax.scatter(expt_values, arg_values, label=f'{arg} vs. {args[expt_index]}, R={R:.2f}', color='grey', marker="*")
             else:
-                ax.scatter(R_arg_values, R_expt_values, label=f'{arg} vs. {args[expt_index]}, R={R:.2f}')
+                ax.scatter(R_expt_values, R_arg_values, label=f'{arg} vs. {args[expt_index]}, R={R:.2f}', marker=markers[j], alpha=0.5)
             
             # Plotting on the corresponding axis
-            ax.set_xlabel('Predicted Values')
-            ax.set_ylabel('Experimental Values')
+            ax.set_xlabel('Experimental Values')
+            ax.set_ylabel('Predicted Values')
             ax.legend()
             ax.set_title(f'Pairwise comparison at time {t} min')
         

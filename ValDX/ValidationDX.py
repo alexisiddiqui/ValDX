@@ -34,6 +34,8 @@ class ValDXer(Experiment):
         else:
              self.name = self.settings.name
         self.settings.data_dir = os.path.join(os.getcwd(), self.settings.data_dir)
+        self.HDXer_path = os.environ["HDXER_PATH"]
+        self.HDXer_env = self.settings.HDXer_env
         self.load_HDXer()
         self.generate_directory_structure(overwrite=False)
     

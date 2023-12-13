@@ -13,7 +13,6 @@ class Settings:
         self.times: np.ndarray = [0.167, 1, 10, 120] 
 
         self.HDXer_env = "HDXER_ENV"
-        self.HDXer_path = os.environ["HDXER_PATH"]
 
         self.data_dir = 'data'
         self.results_dir = 'results'

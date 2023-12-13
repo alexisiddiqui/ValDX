@@ -18,8 +18,6 @@ class Experiment(ABC):
                  name=None):
         super().__init__()
         self.settings = settings
-        self.HDXer_path = self.settings.HDXer_path
-        self.HDXer_env = self.settings.HDXer_env
         self.times = self.settings.times
 
         if name is not None:
@@ -225,7 +223,15 @@ class Experiment(ABC):
                     print(f"Removing contents {exp_dir}")
                 except:
                     pass
-                
+                try:
+                    os.rmdir(exp_dir)
+                    print(f"Removing contents {exp_dir}")
+                except:
+                    pass
+                exp_dir = os.path.join(self.settings.data_dir, self.name)
+                os.makedirs(exp_dir, exist_ok=True)
+
+                return self.name, exp_dir
     
             count = 0
             while exists:

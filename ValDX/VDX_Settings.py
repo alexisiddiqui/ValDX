@@ -9,10 +9,14 @@ import numpy as np
 class Settings:
     """Settings for the Val HDX project"""
 
-    def __init__(self, name=None):
+    def __init__(self, name=None, hdxer_path=None):
         self.times: np.ndarray = [0.167, 1, 10, 120] 
 
         self.HDXer_env = "HDXER_ENV"
+        if hdxer_path is not None:
+            self.HDXer_path = hdxer_path
+        elif hdxer_path is None:
+            self.HDXer_path = os.environ["HDXER_PATH"]
 
         self.data_dir = 'data'
         self.results_dir = 'results'

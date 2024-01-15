@@ -48,7 +48,7 @@ def conda_to_env_dict(env_name):
     else:
         print(f"Path to '{env_name}' environment: {path}")
 
-                # Get a copy of the current environment variables
+        # Get a copy of the current environment variables
         env_vars = os.environ.copy()
         # Update the PATH to include the bin directory of the conda environment
         env_vars['PATH'] = env_path + os.pathsep + env_vars['PATH']

@@ -67,11 +67,16 @@ class Experiment(ABC):
         
         return new_HDX_data, new_segs_data
 
+
+
+
     def split_segments(self, 
                        seg_name: str=None, 
                        calc_name: str=None, 
                        mode: str='r', 
-                       random_seed: int=None, train_frac: float=None, rep: int=None):
+                       random_seed: int=None, 
+                       train_frac: float=None, 
+                       rep: int=None):
         """
         splits segments into train and validation sets
         various modes:

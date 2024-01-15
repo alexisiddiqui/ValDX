@@ -34,7 +34,7 @@ class ValDXer(Experiment):
         else:
              self.name = self.settings.name
         self.settings.data_dir = os.path.join(os.getcwd(), self.settings.data_dir)
-        self.HDXer_path = os.environ["HDXER_PATH"]
+        self.HDXer_path = self.settings.HDXer_path
         self.HDXer_env = self.settings.HDXer_env
         self.load_HDXer()
         self.generate_directory_structure(overwrite=False)
@@ -72,10 +72,12 @@ class ValDXer(Experiment):
 
         if hdx is None and segs is None:
             raise ValueError(f"Unable to prepare any HDX data for {calc_name}.")
+        else:
+            return hdx, segs
 
     def load_structures(self, 
                         top_path, 
-                        traj_paths: str=None, 
+                        traj_paths: list=None, 
                         calc_name: str=None):
         """
         Load structures: topology and trajectories (Optional).

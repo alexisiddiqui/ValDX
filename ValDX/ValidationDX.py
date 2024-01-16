@@ -14,13 +14,14 @@ import subprocess
 import numpy as np
 import concurrent.futures
 import MDAnalysis as mda
+import seaborn as sns
 
 from HDXer.reweighting import MaxEnt
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
 from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values
-from ValDX.HDX_plots import plot_lcurve, plot_gamma_distribution, plot_dfracs_compare, plot_paired_errors, plot_heatmap_trainval_compare, plot_heatmap_trainval_compare_error, plot_R_agreement_trainval
+from ValDX.HDX_plots import plot_lcurve, plot_gamma_distribution, plot_dfracs_compare, plot_paired_errors, plot_heatmap_trainval_compare, plot_heatmap_trainval_compare_error, plot_R_agreement_trainval, plot_dfracs_compare_MSE, plot_dfracs_compare_abs
 
 
 
@@ -562,6 +563,26 @@ class ValDXer(Experiment):
         except UserWarning:
             print("Unable to plot compare plot for nan_df")
         ####
+
+        # plot abs error for train and val
+        try:
+            plot_dfracs_compare_abs(args, 
+                            data=nan_df, 
+                            times=self.settings.times)
+        except UserWarning:
+            print("Unable to plot compare plot for nan_df")
+        ####
+        # plot MSE for train and val
+        try:
+            plot_dfracs_compare_MSE(args, 
+                            data=nan_df, 
+                            times=self.settings.times)
+        except UserWarning:
+            print("Unable to plot compare plot for nan_df")
+        ####
+
+
+
 
 
         try:    

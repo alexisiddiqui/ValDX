@@ -8,6 +8,8 @@ import pandas as pd
 import os
 import math
 import MDAnalysis as mda
+from sklearn.metrics import mean_squared_error
+
 
 from ValDX.helpful_funcs import *
 
@@ -540,7 +542,7 @@ def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False,
             'pred' - computed HDX deuterated fractions
             'reweighted' - reweighted HDX deuterated fractions
         data (pd.DataFrame): dataframe containing data to plot using dfs from helpful_funcs.py
-        times (list): list of times to plot
+        times (list): list of times (flaots) to plot
         save (bool): whether to save the figure
         save_dir (str): directory to save the figure in
         expt_index (int): index of expt in args
@@ -579,9 +581,6 @@ def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False,
             print(exs)
             # need to account for nan values
             difference = [np.abs(y - ex) for y, ex in zip(ys, exs)]
-
-
-
             print(difference)
             print(ys)
             print(len(ys))
@@ -608,6 +607,160 @@ def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False,
     fig.text(0.05, 0.5, 'HDX df compare to expt', va='center', rotation='vertical', fontsize=22)
 
 
+
+def plot_dfracs_compare_abs(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0, key: str='calc_name'):   
+    """Plot HDX deuterated fractions for each time point.
+    
+    Args:
+        *args: 
+            'expt' - experimental HDX deuterated fractions
+            'pred' - computed HDX deuterated fractions
+            'reweighted' - reweighted HDX deuterated fractions
+        data (pd.DataFrame): dataframe containing data to plot using dfs from helpful_funcs.py
+        times (list): list of times (flaots) to plot
+        save (bool): whether to save the figure
+        save_dir (str): directory to save the figure in
+        expt_index (int): index of expt in args
+
+    """
+    print("plot_dfracs_compare_abs")
+    print(data)
+    # expt = data[args[expt_index]].copy()
+    expt = data.loc[data[key]==args[expt_index]].copy()
+    print(expt)
+    all_diff_data = []
+    # plt.figure(figsize=(12, 6))
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+
+    expt_means = []  # List to store mean experimental values at each time step
+    print("ARGUMENTS")
+    print(args)
+    print(data.columns)
+    print(data[key].values)
+    print(data)
+    for i, t in enumerate(times):
+        expt_mean_at_t = np.mean(expt.iloc[:, i])
+        expt_means.append(expt_mean_at_t)
+
+        for arg in args:
+            print(arg)
+            df = data.loc[data[key]==arg].copy()
+            xs = np.arange(0, df.iloc[:, 1].shape[0])
+            ys = df.iloc[:, i].to_list()
+            peptides = df['peptide'].values.astype(int)
+            print(*peptides)
+
+            print(ys)
+            exs = expt.iloc[:, i].to_list()
+            exs = [exs[pep] for pep in peptides]
+            print(exs)
+            # need to account for nan values
+            difference = [np.abs(y - ex) for y, ex in zip(ys, exs)]
+
+            print(difference)
+            print(ys)
+            print(len(ys))
+            print(len(difference))
+            print(len(peptides))
+            # Storing differences with corresponding time and argument in the DataFrame
+            for j, d in enumerate(difference):
+                all_diff_data.append({'time': t, 'difference': d, 'type': arg, 'values': ys[j]})
+
+    # Convert list of dictionaries to DataFrame
+    df_differences = pd.DataFrame(all_diff_data).dropna()
+    print(df_differences)
+    # Plotting the violin plot
+    sns.boxplot(x='time', y='difference', hue='type', data=df_differences)
+    # plt.plot(range(0,4), expt_means, color='black', label='expt mean', linestyle='-', marker='o')
+
+    plt.title('HDX df abs error from expt')
+    plt.xlabel('Labeling time (min)')
+    plt.ylabel('HDX Protection Factor')
+    plt.ylim(-0.05, 1.05)
+    plt.legend(loc='upper right')
+    plt.show()
+    fig.text(0.5, 0.095, 'Residue', ha='center', fontsize=22)
+    fig.text(0.05, 0.5, 'HDX df abs error from expt', va='center', rotation='vertical', fontsize=22)
+
+
+
+def plot_dfracs_compare_MSE(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0, key: str='calc_name'):   
+    """Plot HDX deuterated fractions for each time point.
+    
+    Args:
+        *args: 
+            'expt' - experimental HDX deuterated fractions
+            'pred' - computed HDX deuterated fractions
+            'reweighted' - reweighted HDX deuterated fractions
+        data (pd.DataFrame): dataframe containing data to plot using dfs from helpful_funcs.py
+        times (list): list of times (flaots) to plot
+        save (bool): whether to save the figure
+        save_dir (str): directory to save the figure in
+        expt_index (int): index of expt in args
+
+    """
+    print("plot_dfracs_compare_MSE")
+    print(data)
+    # expt = data[args[expt_index]].copy()
+    expt = data.loc[data[key]==args[expt_index]].copy()
+    print(expt)
+    all_diff_data = []
+    # plt.figure(figsize=(12, 6))
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+
+    expt_means = []  # List to store mean experimental values at each time step
+    print("ARGUMENTS")
+    print(args)
+    print(data.columns)
+    print(data[key].values)
+    print(data)
+    for i, t in enumerate(times):
+        expt_mean_at_t = np.mean(expt.iloc[:, i])
+        expt_means.append(expt_mean_at_t)
+
+        for arg in args:
+            print(arg)
+            df = data.loc[data[key]==arg].copy()
+            xs = np.arange(0, df.iloc[:, 1].shape[0])
+            ys = df.iloc[:, i].to_list()
+            peptides = df['peptide'].values.astype(int)
+            print(*peptides)
+
+            print(ys)
+            exs = expt.iloc[:, i].to_list()
+            exs = [exs[pep] for pep in peptides]
+            print(exs)
+            # need to account for nan values
+            difference = [np.abs(y - ex) for y, ex in zip(ys, exs)]
+
+            difference_sq = [d**2 for d in difference]
+
+            mse = np.mean(difference_sq)
+
+
+            print(difference)
+            print(ys)
+            print(len(ys))
+            print(len(difference))
+            print(len(peptides))
+            # Storing differences with corresponding time and argument in the DataFrame
+            all_diff_data.append({'time': t, 'mse': mse, 'type': arg})
+
+    # Convert list of dictionaries to DataFrame
+    df_differences = pd.DataFrame(all_diff_data).dropna()
+    print(df_differences)
+    # Plotting the violin plot
+    sns.barplot(x='time', y='mse', hue='type', data=df_differences)
+    # plt.plot(range(0,4), expt_means, color='black', label='expt mean', linestyle='-', marker='o')
+
+    plt.title('HDX df mse from expt')
+    plt.xlabel('Labeling time (min)')
+    plt.ylabel('HDX Protection Factor')
+    plt.ylim(-0.005, 0.005)
+    plt.legend(loc='upper right')
+    plt.show()
+    fig.text(0.5, 0.095, 'Residue', ha='center', fontsize=22)
+    fig.text(0.05, 0.5, 'HDX df mse to expt', va='center', rotation='vertical', fontsize=22)
 
 
 def plot_dfracs_compare_hist(args: list, data: pd.DataFrame, times: list,  save=False, save_dir=None, expt_index: int=0):

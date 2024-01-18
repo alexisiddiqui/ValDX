@@ -36,7 +36,8 @@ class Settings:
         self.segs_name = ("residue_segs_", ".txt")
         self.outname = "out_"
         self.HDXer_mopt = "\"{ 'save_detailed' : True }\""
-
+        self.HDXer_stride = 1
+        self.stride = 100
 
         # reweighting
         self.RW_exponent = -3

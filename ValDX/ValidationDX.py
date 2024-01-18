@@ -170,7 +170,8 @@ class ValDXer(Experiment):
                                 "-log", log,
                                 "-out", out_prefix, 
                                 "-seg", segs,
-                                "-mopt", self.settings.HDXer_mopt]
+                                "-mopt", self.settings.HDXer_mopt,
+                                "-str", str(self.settings.HDXer_stride)]
                                 
             calc_hdx_command  =  " ".join(calc_hdx_command)
             # calc_hdx_command.extend(["-t", traj] for traj in trajs)
@@ -186,7 +187,7 @@ class ValDXer(Experiment):
 
             ### read HDX data into df
 
-            df = dfracs_to_df(out_prefix + "segment_average_fractions.dat", 
+            df = dfracs_to_df(out_prefix + "Segment_average_fractions.dat", 
                               names=self.settings.times)
 
             df["calc_name"] = [rep_name for i in range(len(df))]
@@ -315,7 +316,7 @@ class ValDXer(Experiment):
         if random_seeds is None:
             random_seeds = [self.settings.random_seed+i for i in range(n_reps)]
 
-
+        print(f"Random seeds: {random_seeds}")
         train_gammas = []
         val_gammas = []
 

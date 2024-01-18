@@ -102,6 +102,7 @@ class Experiment(ABC):
 
 
         if mode == 'r':
+            print(f"Randomly splitting segments for {calc_name} with random seed {random_seed} and train fraction {train_frac}")
             train_segs = self.segs.loc[self.segs['calc_name'] == seg_name].sample(frac=train_frac, random_state=random_seed)
             val_segs = self.segs.loc[self.segs['calc_name'] == seg_name].drop(train_segs.index)
         else:

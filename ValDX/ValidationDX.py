@@ -160,6 +160,10 @@ class ValDXer(Experiment):
             segs = self.val_segs.loc[self.val_segs["calc_name"] == rep_name, "path"].dropna().values[0]
         out_prefix = os.path.join(out_dir, "_".join([self.settings.outname, rep_name]))
         print(out_prefix)
+        times_as_str_list = [str(time) for time in self.settings.times]
+        times_as_str = ' '.join(times_as_str_list)
+
+
         if self.load_HDXer():
             ### how do we add times
             calc_hdx_command = ["python",
@@ -171,6 +175,7 @@ class ValDXer(Experiment):
                                 "-out", out_prefix, 
                                 "-seg", segs,
                                 "-mopt", self.settings.HDXer_mopt,
+                                "--times", times_as_str,
                                 "-str", str(self.settings.HDXer_stride)]
                                 
             calc_hdx_command  =  " ".join(calc_hdx_command)

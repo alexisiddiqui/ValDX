@@ -184,7 +184,7 @@ def reweight_to_df(path: str, names: list):
 
 
 def dfracs_to_df(path: str, names: list):
-
+    print("Path", path)
     df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None)
     #add peptide numbers
     #find number of columns

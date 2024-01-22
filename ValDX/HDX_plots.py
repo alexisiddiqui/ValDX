@@ -1017,8 +1017,8 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: int
                 df = pd.read_csv(work_path, comment='#', header=None, sep='\s+')
                 print(f"Reading {work_path} ...")
                 li.append(df)
-            except FileNotFoundError:
-                pass
+            except Exception as e:
+                print(f"Error reading {work_path}: {e}")
     print(li)
     works = pd.concat(li, axis=0, ignore_index=True) 
     works.columns = ['gamma', 'MSE', 'RMSE', 'work']

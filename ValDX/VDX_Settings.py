@@ -10,7 +10,7 @@ class Settings:
     """Settings for the Val HDX project"""
 
     def __init__(self, name=None, hdxer_path=None):
-        self.times: np.ndarray = [0.167, 1, 10, 120] 
+        self.times: np.array = np.array([0.167, 1, 10, 120]) 
 
         self.HDXer_env = "HDXER_ENV"
         if hdxer_path is not None:

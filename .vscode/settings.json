@@ -10,5 +10,6 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestArgs": [
         "ValDX"
-    ]
+    ],
+    "python.analysis.typeCheckingMode": "basic"
 }

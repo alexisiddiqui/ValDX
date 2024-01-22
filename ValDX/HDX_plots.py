@@ -1009,7 +1009,7 @@ def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, 
 def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: int=None, save=False, save_dir=None):
     li = []
     i, j = RW_range
-    for i in np.arange(-3, 1): # Select the range of gamma (i in j*10^i)
+    for i in np.arange(-4, 1): # Select the range of gamma (i in j*10^i)
         for j in np.arange(1, 10): # Select the range of gamma (j in j*10^i)
             # Read files containing work values from the smallest to the biggest gamma
             try:

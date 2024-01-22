@@ -1006,10 +1006,16 @@ def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, 
 
 
 
-def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: int=None, save=False, save_dir=None):
+def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: float=None, save=False, save_dir=None):
     li = []
     i, j = RW_range
-    for i in np.arange(-3, 1): # Select the range of gamma (i in j*10^i)
+    # convert gamma (float) to standard form (a*10^b)
+    if gamma is not None:
+        gamma_exponent = math.floor(math.log10(gamma))
+        gamma_coefficient = gamma / 10**gamma_exponent
+            
+
+    for i in np.arange(-4, 1): # Select the range of gamma (i in j*10^i)
         for j in np.arange(1, 10): # Select the range of gamma (j in j*10^i)
             # Read files containing work values from the smallest to the biggest gamma
             try:
@@ -1079,7 +1085,6 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: int
     plt.plot(x, y, color='teal', linewidth=3, markersize=10, marker='o')
 
     if gamma is not None:
-        gamma = gamma * 10**-3
         gamma_x = works[works['gamma'] == gamma]['MSE'].values[0]
         gamma_y = works[works['gamma'] == gamma]['work'].values[0]
         print(gamma_x, gamma_y)
@@ -1098,14 +1103,9 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: int
     # if save:
     #     plt.savefig(f'{calc_name}_decision_plot.pdf', bbox_inches='tight')
 
-    # TODO convert closest gamma float to integer exponent and coefficient
 
-    # for now just multiply by 10^3
-    # 
-    closest_gamma = closest_gamma * 10**3    
-    
 
-    return int(closest_gamma), works
+    return closest_gamma, works
 
 def plot_gamma_distribution(train_gammas: list, val_gammas: list, calc_name: str, save=False, save_dir=None):
     plt.figure(figsize=(11, 8.5))

@@ -40,8 +40,8 @@ class Settings:
         self.stride = 100
 
         # reweighting
-        self.RW_exponent = -3
-        self.RW_basegamma = 10**self.RW_exponent
+        self.RW_exponent = [-4, -3, -2, -1, 0, 1]
+        # self.RW_basegamma = 10**self.RW_exponent
         self.RW_do_reweighting = True
         self.RW_do_params = False
         self.RW_stepfactor = 0.00001

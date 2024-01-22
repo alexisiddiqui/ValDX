@@ -6,6 +6,7 @@
 # matched topology and peptide-residue segments
 # simulation MD data 
 import pandas as pd
+import math
 import time
 import os 
 import pickle
@@ -223,6 +224,11 @@ class ValDXer(Experiment):
             raise ValueError("Please provide a Calculation AND Experimental name for the structures.")
         if not train and train_gamma is None:
             raise ValueError("If validating, must provide a gamma to from a previous training run")
+        if train_gamma is not None:
+            train_gamma_exponent = math.floor(math.log10(train_gamma))
+            train_gamma_coefficient = train_gamma / 10**train_gamma_exponent
+            
+
 
         if train:
             rep_name = "_".join(["train", calc_name, str(rep)])
@@ -241,72 +247,78 @@ class ValDXer(Experiment):
         print(predictHDX_dir)
         print(rates)
         times = self.settings.times
-        exponent = self.settings.RW_exponent
+        # exponent = self.settings.RW_exponent
+        for exponent in self.settings.RW_exponent:
+            print(f"REWIGHTING {rep_name} with Exponent: {exponent}")
+            RW_basegamma = 10**exponent
+            # package all args except gamma into a dictionary
+            args = {
+                "do_reweight": self.settings.RW_do_reweighting, 
+                "do_params": self.settings.RW_do_params, 
+                "stepfactor": self.settings.RW_stepfactor, 
+                "basegamma": RW_basegamma, 
+                "predictHDX_dir": [predictHDX_dir], 
+                "kint_file": rates, 
+                "exp_file": expt, 
+                "times": times, 
+                "restart_interval": self.settings.RW_restart_interval,
+                "out_prefix": os.path.join(predictHDX_dir, self.settings.RW_outprefix),
+                "exponent": exponent,
+                }
 
-        # package all args except gamma into a dictionary
-        args = {
-            "do_reweight": self.settings.RW_do_reweighting, 
-            "do_params": self.settings.RW_do_params, 
-            "stepfactor": self.settings.RW_stepfactor, 
-            "basegamma": self.settings.RW_basegamma, 
-            "predictHDX_dir": [predictHDX_dir], 
-            "kint_file": rates, 
-            "exp_file": expt, 
-            "times": times, 
-            "restart_interval": self.settings.RW_restart_interval,
-            "out_prefix": os.path.join(predictHDX_dir, self.settings.RW_outprefix),
-            "exponent": exponent,
-            }
 
+            # how do we do this for validation data? I guess this is is simply a procedure - does it 
+            if train is not None:
+                
+                try:
+                    print("Trying concurrent.futures")
+                    args_r = [(args, r) for r in range(*gamma_range)]
+                    with concurrent.futures.ProcessPoolExecutor() as executor:
+                        executor.map(run_MaxEnt, args_r)
 
-        # how do we do this for validation data? I guess this is is simply a procedure - does it 
-        if train is not None:
-            
-            try:
-                print("Trying concurrent.futures")
-                args_r = [(args, r) for r in range(*gamma_range)]
-                with concurrent.futures.ProcessPoolExecutor() as executor:
-                    executor.map(run_MaxEnt, args_r)
+                except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
+                    for r in range(*gamma_range):
+                        print(f"Reweighting {rep_name} with gamma = {r}x10^{args['exponent']}")
+                        ### concurrent.futures
+                        run_MaxEnt(args_r)
+                        ### cnocurrent.futures       
 
-            except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
-                for r in range(*gamma_range):
-                    print(f"Reweighting {rep_name} with gamma = {r}x10^{args['exponent']}")
-                    ### concurrent.futures
-                    run_MaxEnt(args_r)
-                    ### cnocurrent.futures       
+                if args["do_reweight"] is False:
+                    RW_path = os.path.join(predictHDX_dir,
+                                            self.settings.RW_outprefix+f"{gamma_range[0]}x10^{exponent}final_segment_fractions.dat")
+                    reweighted_df = dfracs_to_df(path=RW_path,
+                                                names=self.settings.times)
+                    reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
+                    opt_gamma = 0
+                    return opt_gamma, reweighted_df
 
-            if args["do_reweight"] is False:
-                RW_path = os.path.join(predictHDX_dir,
-                                        self.settings.RW_outprefix+f"{gamma_range[0]}x10^{exponent}final_segment_fractions.dat")
-                reweighted_df = dfracs_to_df(path=RW_path,
-                                            names=self.settings.times)
-                reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
-                opt_gamma = 0
-                return opt_gamma, reweighted_df
-
-            # plot L-curve - return closest gamma value
-            opt_gamma, _ =  plot_lcurve(calc_name=rep_name, 
-                                     RW_range=gamma_range, 
-                                     gamma=train_gamma, 
-                                     RW_dir=predictHDX_dir, 
-                                     prefix=self.settings.RW_outprefix)
-            print(f"Optimal gamma for {rep_name} is {opt_gamma}x10^{exponent}")
-            # read in reweighted data using opt_gamma if train
-            if train:
-                RW_path = os.path.join(predictHDX_dir, 
-                                       self.settings.RW_outprefix+f"{opt_gamma}x10^{exponent}final_segment_fractions.dat")
-            elif train_gamma is not None:
-                RW_path = os.path.join(predictHDX_dir, 
-                                       self.settings.RW_outprefix+f"{train_gamma}x10^{exponent}final_segment_fractions.dat")
-            print(RW_path)
-            reweighted_df = dfracs_to_df(path=RW_path, 
-                                         names=self.settings.times)
-            print(reweighted_df)
-            reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
-            print(reweighted_df)
-
-            return opt_gamma, reweighted_df
+        # plot L-curve - return closest gamma value
+        opt_gamma, _ =  plot_lcurve(calc_name=rep_name, 
+                                    RW_range=gamma_range, 
+                                    gamma=train_gamma, 
+                                    RW_dir=predictHDX_dir, 
+                                    prefix=self.settings.RW_outprefix)
+        opt_gamma_exponent = math.floor(math.log10(opt_gamma))
+        opt_gamma_coefficient = opt_gamma / 10**opt_gamma_exponent
         
+
+        print(f"Optimal gamma for {rep_name} is {opt_gamma_coefficient}x10^{opt_gamma_exponent}")
+        # read in reweighted data using opt_gamma if train
+        if train:
+            RW_path = os.path.join(predictHDX_dir, 
+                                    self.settings.RW_outprefix+f"{int(opt_gamma_coefficient)}x10^{opt_gamma_exponent}final_segment_fractions.dat")
+        elif train_gamma is not None:
+            RW_path = os.path.join(predictHDX_dir, 
+                                    self.settings.RW_outprefix+f"{int(train_gamma_coefficient)}x10^{train_gamma_exponent}final_segment_fractions.dat")
+        print(RW_path)
+        reweighted_df = dfracs_to_df(path=RW_path, 
+                                        names=self.settings.times)
+        print(reweighted_df)
+        reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
+        print(reweighted_df)
+
+        return opt_gamma, reweighted_df
+    
 
 
     def run_VDX(self, 

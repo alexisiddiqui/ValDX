@@ -247,6 +247,7 @@ class ValDXer(Experiment):
         print(predictHDX_dir)
         print(rates)
         times = self.settings.times
+        args_e = []
         # exponent = self.settings.RW_exponent
         for exponent in self.settings.RW_exponent:
             print(f"REWIGHTING {rep_name} with Exponent: {exponent}")
@@ -265,32 +266,33 @@ class ValDXer(Experiment):
                 "out_prefix": os.path.join(predictHDX_dir, self.settings.RW_outprefix),
                 "exponent": exponent,
                 }
+            args_e.append(args)
 
+        # how do we do this for validation data? I guess this is is simply a procedure - does it 
+        if train is not None:
+            
+            try:
+                print("Trying concurrent.futures")
+                args_r = [(args, r) for r in range(*gamma_range) for args in args_e]
+                with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
+                    executor.map(run_MaxEnt, args_r)
 
-            # how do we do this for validation data? I guess this is is simply a procedure - does it 
-            if train is not None:
-                
-                try:
-                    print("Trying concurrent.futures")
-                    args_r = [(args, r) for r in range(*gamma_range)]
-                    with concurrent.futures.ProcessPoolExecutor() as executor:
-                        executor.map(run_MaxEnt, args_r)
+            except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
+                for r in range(*gamma_range):
+                    print(f"Reweighting {rep_name} with gamma = {r}x10^{args['exponent']}")
+                    ### concurrent.futures
+                    print("not using concurrent.futures")
+                    run_MaxEnt(args_r)
+                    ### cnocurrent.futures       
 
-                except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
-                    for r in range(*gamma_range):
-                        print(f"Reweighting {rep_name} with gamma = {r}x10^{args['exponent']}")
-                        ### concurrent.futures
-                        run_MaxEnt(args_r)
-                        ### cnocurrent.futures       
-
-                if args["do_reweight"] is False:
-                    RW_path = os.path.join(predictHDX_dir,
-                                            self.settings.RW_outprefix+f"{gamma_range[0]}x10^{exponent}final_segment_fractions.dat")
-                    reweighted_df = dfracs_to_df(path=RW_path,
-                                                names=self.settings.times)
-                    reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
-                    opt_gamma = 0
-                    return opt_gamma, reweighted_df
+            if args["do_reweight"] is False:
+                RW_path = os.path.join(predictHDX_dir,
+                                        self.settings.RW_outprefix+f"{gamma_range[0]}x10^{exponent}final_segment_fractions.dat")
+                reweighted_df = dfracs_to_df(path=RW_path,
+                                            names=self.settings.times)
+                reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
+                opt_gamma = 0
+                return opt_gamma, reweighted_df
 
         # plot L-curve - return closest gamma value
         opt_gamma, _ =  plot_lcurve(calc_name=rep_name, 

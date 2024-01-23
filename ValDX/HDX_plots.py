@@ -697,7 +697,6 @@ def plot_dfracs_compare_MSE(args: list, data: pd.DataFrame, times: list, save=Fa
         save (bool): whether to save the figure
         save_dir (str): directory to save the figure in
         expt_index (int): index of expt in args
-
     """
     print("plot_dfracs_compare_MSE")
     print(data)
@@ -744,13 +743,18 @@ def plot_dfracs_compare_MSE(args: list, data: pd.DataFrame, times: list, save=Fa
             print(len(difference))
             print(len(peptides))
             # Storing differences with corresponding time and argument in the DataFrame
+            if "train" in arg:
+                arg = "train"
+            elif "val" in arg:
+                arg = "val"
+
             all_diff_data.append({'time': t, 'mse': mse, 'type': arg})
 
     # Convert list of dictionaries to DataFrame
     df_differences = pd.DataFrame(all_diff_data).dropna()
     print(df_differences)
     # Plotting the violin plot
-    sns.barplot(x='time', y='mse', hue='type', data=df_differences)
+    sns.boxplot(x='time', y='mse', hue='type', data=df_differences)
     # plt.plot(range(0,4), expt_means, color='black', label='expt mean', linestyle='-', marker='o')
 
     plt.title('HDX df mse from expt')

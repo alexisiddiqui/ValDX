@@ -734,7 +734,7 @@ def plot_dfracs_compare_MSE(args: list, data: pd.DataFrame, times: list, save=Fa
 
             difference_sq = [d**2 for d in difference]
 
-            mse = np.mean(difference_sq)
+            mse = np.nanmean(difference_sq)
 
 
             print(difference)
@@ -749,7 +749,7 @@ def plot_dfracs_compare_MSE(args: list, data: pd.DataFrame, times: list, save=Fa
                 arg = "val"
 
             all_diff_data.append({'time': t, 'mse': mse, 'type': arg})
-
+    print(all_diff_data)
     # Convert list of dictionaries to DataFrame
     df_differences = pd.DataFrame(all_diff_data).dropna()
     print(df_differences)
@@ -760,7 +760,7 @@ def plot_dfracs_compare_MSE(args: list, data: pd.DataFrame, times: list, save=Fa
     plt.title('HDX df mse from expt')
     plt.xlabel('Labeling time (min)')
     plt.ylabel('HDX Protection Factor')
-    plt.ylim(-0.005, 0.005)
+    # plt.ylim(-0.005, 0.005)
     plt.legend(loc='upper right')
     plt.show()
     fig.text(0.5, 0.095, 'Residue', ha='center', fontsize=22)

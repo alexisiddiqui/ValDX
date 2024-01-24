@@ -249,7 +249,12 @@ class ValDXer(Experiment):
         times = self.settings.times
         args_e = []
         # exponent = self.settings.RW_exponent
-        for exponent in self.settings.RW_exponent:
+        RW_exponents = self.settings.RW_exponent
+        if train is False:
+            RW_exponents = [train_gamma_exponent]
+            gamma_range = (train_gamma_coefficient, train_gamma_coefficient)
+
+        for exponent in RW_exponents:
             print(f"REWIGHTING {rep_name} with Exponent: {exponent}")
             RW_basegamma = 10**exponent
             # package all args except gamma into a dictionary
@@ -258,7 +263,7 @@ class ValDXer(Experiment):
                 "do_params": self.settings.RW_do_params, 
                 "stepfactor": self.settings.RW_stepfactor, 
                 "basegamma": RW_basegamma, 
-                "predictHDX_dir": [predictHDX_dir], 
+                "predictHDX_dir": [predictHDX_dir], # requires brackets 
                 "kint_file": rates, 
                 "exp_file": expt, 
                 "times": times, 
@@ -269,8 +274,7 @@ class ValDXer(Experiment):
             args_e.append(args)
 
         # how do we do this for validation data? I guess this is is simply a procedure - does it 
-        if train is not None:
-            
+        if train is not False:
             try:
                 print("Trying concurrent.futures")
                 args_r = [(args, r) for r in range(*gamma_range) for args in args_e]

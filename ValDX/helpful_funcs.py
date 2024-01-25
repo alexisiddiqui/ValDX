@@ -5,7 +5,9 @@ import pandas as pd
 import subprocess
 from HDXer.reweighting import MaxEnt
 
-
+import cProfile
+import pstats
+import io
 
 def conda_to_env_dict(env_name):
     """
@@ -198,19 +200,48 @@ def dfracs_to_df(path: str, names: list):
         print(f"RW: ncol = {ncol}, len(names) = {len(names)}")
         return reweight_to_df(path, names)
 
+# def run_MaxEnt(args: tuple[dict, int]):
+#     """
+#     Run MaxEnt reweighting on HDX data.
+#     Takes arg as a dictionary - designed to be used for multiprocessing
+#     returns nothing as files are written to disk
+#     """
+#     args, r = args
+
+#     out_prefix = os.path.join(args["out_prefix"]+f"{r}x10^{args['exponent']}")
+#     print(out_prefix)
+#     reweight_object = MaxEnt(do_reweight=args["do_reweight"],
+#                                 do_params=args["do_params"],
+#                                 stepfactor=args["stepfactor"])
+    
+#     reweight_object.run(gamma=args["basegamma"]*r,
+#                         data_folders=args["predictHDX_dir"], 
+#                         kint_file=args["kint_file"],
+#                         exp_file=args["exp_file"],
+#                         times=args["times"], 
+#                         restart_interval=args["restart_interval"], 
+#                         out_prefix=out_prefix)
+    
+#     cprofile_log = out_prefix + f"_gamma_{r}x10^{args['exponent']}_cprofile.prof"
+
+
+
 def run_MaxEnt(args: tuple[dict, int]):
     """
     Run MaxEnt reweighting on HDX data.
     Takes arg as a dictionary - designed to be used for multiprocessing
     returns nothing as files are written to disk
     """
-    args, r = args
+    pr = cProfile.Profile()
+    pr.enable()
 
+    # The original content of run_MaxEnt
+    args, r = args
     out_prefix = os.path.join(args["out_prefix"]+f"{r}x10^{args['exponent']}")
     print(out_prefix)
     reweight_object = MaxEnt(do_reweight=args["do_reweight"],
-                                do_params=args["do_params"],
-                                stepfactor=args["stepfactor"])
+                             do_params=args["do_params"],
+                             stepfactor=args["stepfactor"])
     
     reweight_object.run(gamma=args["basegamma"]*r,
                         data_folders=args["predictHDX_dir"], 
@@ -220,6 +251,17 @@ def run_MaxEnt(args: tuple[dict, int]):
                         restart_interval=args["restart_interval"], 
                         out_prefix=out_prefix)
     
+    pr.disable()
+    # Save results to a file
+    cprofile_log = out_prefix + f"_gamma_{r}x10^{args['exponent']}_cprofile.prof"
+    pr.dump_stats(cprofile_log)
+
+    # Print results to the console
+    s = io.StringIO()
+    sortby = pstats.SortKey.CUMULATIVE
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    print(s.getvalue())
 
 def restore_trainval_peptide_nos(calc_name: str, 
                                  expt_name: str,

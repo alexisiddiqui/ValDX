@@ -228,8 +228,6 @@ class ValDXer(Experiment):
             train_gamma_exponent = math.floor(math.log10(train_gamma))
             train_gamma_coefficient = train_gamma / 10**train_gamma_exponent
             
-
-
         if train:
             rep_name = "_".join(["train", calc_name, str(rep)])
         else:
@@ -252,7 +250,7 @@ class ValDXer(Experiment):
         RW_exponents = self.settings.RW_exponent
         if train is False:
             RW_exponents = [train_gamma_exponent]
-            gamma_range = (train_gamma_coefficient, train_gamma_coefficient)
+            gamma_range = (int(train_gamma_coefficient), int(train_gamma_coefficient+1))
 
         for exponent in RW_exponents:
             print(f"REWIGHTING {rep_name} with Exponent: {exponent}")
@@ -272,9 +270,9 @@ class ValDXer(Experiment):
                 "exponent": exponent,
                 }
             args_e.append(args)
-
+        print(args_e)
         # how do we do this for validation data? I guess this is is simply a procedure - does it 
-        if train is not False:
+        if train is not None:
             try:
                 print("Trying concurrent.futures")
                 args_r = [(args, r) for r in range(*gamma_range) for args in args_e]
@@ -282,31 +280,41 @@ class ValDXer(Experiment):
                     executor.map(run_MaxEnt, args_r)
 
             except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
-                for r in range(*gamma_range):
+                for idx, r in enumerate(range(*gamma_range)):
                     print(f"Reweighting {rep_name} with gamma = {r}x10^{args['exponent']}")
                     ### concurrent.futures
                     print("not using concurrent.futures")
-                    run_MaxEnt(args_r)
+                    
+                    run_MaxEnt(args_r[idx])
                     ### cnocurrent.futures       
 
-            if args["do_reweight"] is False:
-                RW_path = os.path.join(predictHDX_dir,
-                                        self.settings.RW_outprefix+f"{gamma_range[0]}x10^{exponent}final_segment_fractions.dat")
-                reweighted_df = dfracs_to_df(path=RW_path,
-                                            names=self.settings.times)
-                reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
-                opt_gamma = 0
-                return opt_gamma, reweighted_df
+        if self.settings.RW_do_reweighting is False:
+            print("RW_do_reweighting is False")
+            RW_path = os.path.join(predictHDX_dir,
+                                    self.settings.RW_outprefix+f"{gamma_range[0]}x10^{exponent}final_segment_fractions.dat")
+            reweighted_df = dfracs_to_df(path=RW_path,
+                                        names=self.settings.times)
+            reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
+            opt_gamma = gamma_range[0]*10**exponent
+            return opt_gamma, reweighted_df
+        # if train is False:
+        #     print("not using concurrent.futures as train is False")
+        #     r = train_gamma_coefficient
+        #     run_MaxEnt((args_e[0], r))
 
-        # plot L-curve - return closest gamma value
-        opt_gamma, _ =  plot_lcurve(calc_name=rep_name, 
-                                    RW_range=gamma_range, 
-                                    gamma=train_gamma, 
-                                    RW_dir=predictHDX_dir, 
-                                    prefix=self.settings.RW_outprefix)
-        opt_gamma_exponent = math.floor(math.log10(opt_gamma))
-        opt_gamma_coefficient = opt_gamma / 10**opt_gamma_exponent
-        
+        if train is not False and self.settings.RW_do_reweighting is True:
+            # plot L-curve - return closest gamma value
+            opt_gamma, _ =  plot_lcurve(calc_name=rep_name, 
+                                        RW_range=gamma_range, 
+                                        gamma=train_gamma, 
+                                        RW_dir=predictHDX_dir, 
+                                        prefix=self.settings.RW_outprefix)
+            opt_gamma_exponent = math.floor(math.log10(opt_gamma))
+            opt_gamma_coefficient = opt_gamma / 10**opt_gamma_exponent
+        if train is False:
+            opt_gamma = train_gamma
+            opt_gamma_exponent = train_gamma_exponent
+            opt_gamma_coefficient = train_gamma_coefficient
 
         print(f"Optimal gamma for {rep_name} is {opt_gamma_coefficient}x10^{opt_gamma_exponent}")
         # read in reweighted data using opt_gamma if train

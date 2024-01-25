@@ -734,7 +734,7 @@ def plot_dfracs_compare_MSE(args: list, data: pd.DataFrame, times: list, save=Fa
 
             difference_sq = [d**2 for d in difference]
 
-            mse = np.mean(difference_sq)
+            mse = np.nanmean(difference_sq)
 
 
             print(difference)

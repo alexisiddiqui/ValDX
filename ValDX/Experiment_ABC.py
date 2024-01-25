@@ -125,7 +125,7 @@ class Experiment(ABC):
         elif mode == 'X':
             raise NotImplementedError
         elif mode == 'R':
-
+            segs = self.segs.copy()
             print(f"Splitting segments for {calc_name} by redundancy")
             segs = segs.loc[segs['calc_name'] == seg_name].copy()
             no_segs = len(segs)
@@ -134,54 +134,107 @@ class Experiment(ABC):
             segs = segs.groupby('ResNums').value_counts().reset_index(name='counts')
             # sort by counts
             segs = segs.sort_values(by=['counts','ResNums'], ascending=[False, True])
-            # find max counts
-            max_counts = segs['counts'].max()
+            # get list of all counts
+            counts = segs['counts'].unique()
+            # sort descending
+            counts = np.sort(counts)[::-1]
 
-            train_peptides = []
-            val_peptides = []
+            train_peptides = np.array([])
+            val_peptides = np.array([])
 
-            single_peptide_no = segs.loc[segs['counts'] == 1, 'peptide'].values.sample(1)
-            val_peptides.append(single_peptide_no)
-            # drop single_peptide_no from segs
+            # single_peptide_no = segs.loc[segs['counts'] == 1, 'peptide'].sample(1).values
+
+            # # append single_peptide_no to val_peptides
+            # val_peptides = np.append(val_peptides, single_peptide_no[0]).flatten()
+            # # drop single_peptide_no from segs
+            #   # Remove single_peptide_no from segs
+            # print(segs)
+            # peptide_to_remove = single_peptide_no[0]
+            # segs = segs.loc[segs['peptide'] != peptide_to_remove]
+            # print(segs)
+
+            # for c in counts:
+            #     if len(counts) == 1:
+            #     # if redundant peptides have been selected split them so that train and val have the correct ratio in the end
+            #         remaining = len(segs.loc[segs['counts'] == c])
+
+            #         train_no = (remaining * train_frac) - len(train_peptides)
+
+            #         train_peps = segs.loc[segs['counts'] == c, 'peptide'].sample(int(train_no)).values
+            #         # make sure peptides are unique
+            #         train_peps = np.unique(train_peps)
+            #         train_peptides = np.append(train_peptides, train_peps).flatten()
+
+            #         # val peptides are the rest
+            #         val_peps = segs.loc[segs['counts'] == c, 'peptide'].drop(train_peps).values
+            #         train_peptides = np.append(train_peptides, val_peps).flatten()
+
+            #     if len(train_peptides) < len(val_peptides):
+            #         peptides_to_add = train_peptides
+            #     else:
+            #         peptides_to_add = val_peptides
+
+            #     peps = segs.loc[segs['counts'] == c, 'peptide'].to_numpy()
+            #     peps = np.unique(peps)
+            #     peptides_to_add = np.append(peptides_to_add, peps).flatten()
+            #     # drop from segs
+            #     segs = segs.loc[~segs['peptide'].isin(peps)]
+            #     # remove from counts
+            #     counts = counts[counts != c]
+
+
+
+            # # assert that peptides that train and val peptides do not overlap
+            # overlap = np.intersect1d(train_peptides, val_peptides)
+            # assert len(overlap) == 0, f"Train and Val peptides overlap: {overlap}"
+
+
+            # print("Train frac: ", train_frac)
+            # print("No Train peptides: ", len(train_peptides))
+            # print("No Val peptides: ", len(val_peptides))
+            # print("Final Train Frac: ", len(train_peptides)/(len(train_peptides)+len(val_peptides)))
+
+
+            # self.train_segs = self.segs.loc[segs['peptide'].isin(train_peptides)]
+            # self.val_segs = self.segs.loc[segs['peptide'].isin(val_peptides)]
+
+
+            single_peptide_no = segs.loc[segs['counts'] == 1, 'peptide'].sample(1).values[0]
+            # Set to be used for val peptides
+            val_peptides = {single_peptide_no}
+            # Drop single_peptide_no from segs
             segs = segs.loc[segs['peptide'] != single_peptide_no]
 
-            for c in range(max_counts,0,-1):
-                if c == 1:
-                # if redundant peptides have been selected split them so that train and val have the correct ratio in the end
-                    remaining = len(segs.loc[segs['counts'] == c])
-
-                    train_no = (remaining * train_frac) - len(train_peptides)
-
-                    train_peps = segs.loc[segs['counts'] == c, 'peptide'].values.sample(train_no) 
-                    # make sure peptides are unique
-                    train_peps = np.unique(train_peps)
-                    train_peptides.append(train_peps)
-                    # val peptides are the rest
-                    val_peps = segs.loc[segs['counts'] == c, 'peptide'].values.drop(train_peps)
-                    val_peptides.append(val_peps)
-
-                if len(train_peptides) < len(val_peptides):
-                    peptides_to_add = train_peptides
+            # Iterate over unique counts, starting with the highest
+            for count in segs['counts'].unique()[::-1]:
+                peptides_with_count = segs[segs['counts'] == count]['peptide'].unique()
+                
+                # If it's the last count level, handle the remaining peptides
+                if count == 1:
+                    remaining_train_count = int((no_segs-1)*train_frac) - len(train_peptides)
+                    train_peptides_with_count = np.random.choice(peptides_with_count, remaining_train_count, replace=False)
                 else:
-                    peptides_to_add = val_peptides
+                    train_peptides_with_count = np.random.choice(peptides_with_count, int(len(peptides_with_count) * train_frac), replace=False)
+                
+                # Update the sets
+                val_peptides.update(set(peptides_with_count) - set(train_peptides_with_count))
 
-                peps = segs.loc[segs['counts'] == c, 'peptide'].values
-                peps = np.unique(peps)
-                peptides_to_add.append(peps)
+            # Convert sets to lists
+            train_peptides = list(set(segs['peptide']) - val_peptides)
+            val_peptides = list(val_peptides)
+            
+            # Assert no overlap between train and validation peptides
+            assert not set(train_peptides) & set(val_peptides), f"Train and Val peptides overlap."
 
-            # assert that peptides that train and val peptides do not overlap
-            assert len(set(train_peptides).intersection(set(val_peptides))) == 0
+            # Select the segments belonging to train and validation sets
+            train_segs = self.segs[self.segs['peptide'].isin(train_peptides)]
+            val_segs = self.segs[self.segs['peptide'].isin(val_peptides)]
 
             print("Train frac: ", train_frac)
             print("No Train peptides: ", len(train_peptides))
             print("No Val peptides: ", len(val_peptides))
-            print("Final Train Frac: ", len(train_peptides)/(len(train_peptides)+len(val_peptides)))
-
-
-            self.train_segs = self.segs.loc[segs['peptide'].isin(train_peptides)]
-            self.val_segs = self.segs.loc[segs['peptide'].isin(val_peptides)]
-
-
+            print("Final Train Frac: ", len(train_peptides) / (len(train_peptides) + len(val_peptides)))
+        
         else:
             raise ValueError(f"Mode {mode} not implemented yet.")
 

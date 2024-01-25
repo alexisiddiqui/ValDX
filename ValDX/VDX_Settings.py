@@ -38,6 +38,7 @@ class Settings:
         self.HDXer_mopt = "\"{ 'save_detailed' : True }\""
         self.HDXer_stride = 1
         self.stride = 100
+        self.split_mode = "r"
 
         # reweighting
         self.RW_exponent = [0]

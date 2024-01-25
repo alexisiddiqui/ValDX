@@ -73,7 +73,7 @@ class Experiment(ABC):
     def split_segments(self, 
                        seg_name: str=None, 
                        calc_name: str=None, 
-                       mode: str='r', 
+                       mode: str=None, 
                        random_seed: int=None, 
                        train_frac: float=None, 
                        rep: int=None):
@@ -83,7 +83,8 @@ class Experiment(ABC):
         r - random split of sequences (default)
         ### Not implemented yet
         s - split by N-terminal and C-terminal
-        x - spatial split across Xture
+        x - spatial split across Xture (alpha vs beta)
+        X - spatial split across Xture (loops vs structured)
         R - Redundancy aware split
         ###
         seg_name is the name of the segments dir to split loaded by load_HDX -> prepare_HDX_data
@@ -99,12 +100,141 @@ class Experiment(ABC):
         rep_name = "_".join([calc_name, str(rep)])
         train_rep_name = "_".join(["train", rep_name])
         val_rep_name = "_".join(["val", rep_name])
+        self.segs = self.segs.loc[self.segs['calc_name'] == seg_name].sort_values(by=['ResStr', 'ResEnd'])
 
+        if mode is None:
+            mode = self.settings.split_mode
 
-        if mode == 'r':
+        if mode is 'r':
             print(f"Randomly splitting segments for {calc_name} with random seed {random_seed} and train fraction {train_frac}")
             train_segs = self.segs.loc[self.segs['calc_name'] == seg_name].sample(frac=train_frac, random_state=random_seed)
             val_segs = self.segs.loc[self.segs['calc_name'] == seg_name].drop(train_segs.index)
+        elif mode is 's':
+            print(f"Splitting segments for {calc_name} by N-terminal and C-terminal")
+            #
+            no_segs = len(self.segs.loc[self.segs['calc_name'] == seg_name])
+            no_segs = int(no_segs/2)
+            # select first or second half basedd on random seed odd vs even
+            if random_seed % 2 == 0:
+                no_segs *= -1
+            # make srue to order by ResStr and then ResEnd
+            train_segs = self.segs.loc[self.segs['calc_name'] == seg_name].iloc[:no_segs]
+            val_segs = self.segs.loc[self.segs['calc_name'] == seg_name].iloc[no_segs:]
+        elif mode == 'x':
+            raise NotImplementedError
+        elif mode == 'X':
+            raise NotImplementedError
+        elif mode == 'R':
+            segs = self.segs.copy()
+            print(f"Splitting segments for {calc_name} by redundancy")
+            segs = segs.loc[segs['calc_name'] == seg_name].copy()
+            no_segs = len(segs)
+            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd']+1), axis=1)
+            segs = segs.explode('ResNums')
+            segs = segs.groupby('ResNums').value_counts().reset_index(name='counts')
+            # sort by counts
+            segs = segs.sort_values(by=['counts','ResNums'], ascending=[False, True])
+            # get list of all counts
+            counts = segs['counts'].unique()
+            # sort descending
+            counts = np.sort(counts)[::-1]
+
+            train_peptides = np.array([])
+            val_peptides = np.array([])
+
+            # single_peptide_no = segs.loc[segs['counts'] == 1, 'peptide'].sample(1).values
+
+            # # append single_peptide_no to val_peptides
+            # val_peptides = np.append(val_peptides, single_peptide_no[0]).flatten()
+            # # drop single_peptide_no from segs
+            #   # Remove single_peptide_no from segs
+            # print(segs)
+            # peptide_to_remove = single_peptide_no[0]
+            # segs = segs.loc[segs['peptide'] != peptide_to_remove]
+            # print(segs)
+
+            # for c in counts:
+            #     if len(counts) == 1:
+            #     # if redundant peptides have been selected split them so that train and val have the correct ratio in the end
+            #         remaining = len(segs.loc[segs['counts'] == c])
+
+            #         train_no = (remaining * train_frac) - len(train_peptides)
+
+            #         train_peps = segs.loc[segs['counts'] == c, 'peptide'].sample(int(train_no)).values
+            #         # make sure peptides are unique
+            #         train_peps = np.unique(train_peps)
+            #         train_peptides = np.append(train_peptides, train_peps).flatten()
+
+            #         # val peptides are the rest
+            #         val_peps = segs.loc[segs['counts'] == c, 'peptide'].drop(train_peps).values
+            #         train_peptides = np.append(train_peptides, val_peps).flatten()
+
+            #     if len(train_peptides) < len(val_peptides):
+            #         peptides_to_add = train_peptides
+            #     else:
+            #         peptides_to_add = val_peptides
+
+            #     peps = segs.loc[segs['counts'] == c, 'peptide'].to_numpy()
+            #     peps = np.unique(peps)
+            #     peptides_to_add = np.append(peptides_to_add, peps).flatten()
+            #     # drop from segs
+            #     segs = segs.loc[~segs['peptide'].isin(peps)]
+            #     # remove from counts
+            #     counts = counts[counts != c]
+
+
+
+            # # assert that peptides that train and val peptides do not overlap
+            # overlap = np.intersect1d(train_peptides, val_peptides)
+            # assert len(overlap) == 0, f"Train and Val peptides overlap: {overlap}"
+
+
+            # print("Train frac: ", train_frac)
+            # print("No Train peptides: ", len(train_peptides))
+            # print("No Val peptides: ", len(val_peptides))
+            # print("Final Train Frac: ", len(train_peptides)/(len(train_peptides)+len(val_peptides)))
+
+
+            # self.train_segs = self.segs.loc[segs['peptide'].isin(train_peptides)]
+            # self.val_segs = self.segs.loc[segs['peptide'].isin(val_peptides)]
+
+
+            single_peptide_no = segs.loc[segs['counts'] == 1, 'peptide'].sample(1).values[0]
+            # Set to be used for val peptides
+            val_peptides = {single_peptide_no}
+            # Drop single_peptide_no from segs
+            segs = segs.loc[segs['peptide'] != single_peptide_no]
+
+            # Iterate over unique counts, starting with the highest
+            for count in segs['counts'].unique()[::-1]:
+                peptides_with_count = segs[segs['counts'] == count]['peptide'].unique()
+                
+                # If it's the last count level, handle the remaining peptides
+                if count == 1:
+                    remaining_train_count = int((no_segs-1)*train_frac) - len(train_peptides)
+                    train_peptides_with_count = np.random.choice(peptides_with_count, remaining_train_count, replace=False)
+                else:
+                    train_peptides_with_count = np.random.choice(peptides_with_count, int(len(peptides_with_count) * train_frac), replace=False)
+                
+                # Update the sets
+                val_peptides.update(set(peptides_with_count) - set(train_peptides_with_count))
+
+            # Convert sets to lists
+            train_peptides = list(set(segs['peptide']) - val_peptides)
+            val_peptides = list(val_peptides)
+            
+            # Assert no overlap between train and validation peptides
+            assert not set(train_peptides) & set(val_peptides), f"Train and Val peptides overlap."
+
+            # Select the segments belonging to train and validation sets
+            train_segs = self.segs[self.segs['peptide'].isin(train_peptides)]
+            val_segs = self.segs[self.segs['peptide'].isin(val_peptides)]
+
+            print("Train frac: ", train_frac)
+            print("No Train peptides: ", len(train_peptides))
+            print("No Val peptides: ", len(val_peptides))
+            print("Final Train Frac: ", len(train_peptides) / (len(train_peptides) + len(val_peptides)))
+        
         else:
             raise ValueError(f"Mode {mode} not implemented yet.")
 

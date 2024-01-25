@@ -595,7 +595,7 @@ def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False,
     print(df_differences)
     # Plotting the violin plot
     sns.boxplot(x='time', y='values', hue='type', data=df_differences)
-    plt.plot(range(0,4), expt_means, color='black', label='expt mean', linestyle='-', marker='o')
+    plt.plot(range(0,len(times)), expt_means, color='black', label='expt mean', linestyle='-', marker='o')
 
     plt.title('HDX df empirical error from expt')
     plt.xlabel('Labeling time (min)')

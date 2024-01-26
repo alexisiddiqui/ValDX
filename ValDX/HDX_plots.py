@@ -1044,7 +1044,12 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
     # instead of calcing angle - rotate the curve and find the point where the gradient is 1
     # 
     angles = []
-    for i in range(len(x)-1):
+    unique_x = list(set(x))
+    if len(unique_x) == 1:
+        print("Only one unique MSE value, cannot plot decision curve - returning the first gamma value")
+        gamma = works['gamma'][0]
+        return gamma, works
+    for i in range(len(unique_x)-1):
         angles.append(np.arctan((y[i+1]-y[i])/(x[i+1]-x[i])))
 
     # find the index of the angle closest to 45 degrees

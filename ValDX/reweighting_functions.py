@@ -251,52 +251,52 @@ def calc_trial_ave_lnpi(ave_contacts, ave_hbonds, bc, bh, n_times, n_segs):
     return trial_ave_lnpi
 
 
-def calc_trial_dfracs(ave_lnpi, segment_filters, filtered_minuskt, filtered_exp_dfracs, n_datapoints):
-    """For a trial parameter move, calculate deuterated fractions and mean square error to target data using
-       the given average ln(protection factors). Average protection factors should be a 3D array of shape
-       [n_segments, n_residues, n_times]. This is filtered to calculate the by-segment averages using the provided
-       segment_filters Boolean array. The provided filtered_minuskt array (pre-filtered by the same segment_filters array)
-       is then used to calculate the deuterated fractions. The provided filtered_exp_dfracs array and n_datapoints are
-       then used to calculate the MSE to the target experimental data.
+# def calc_trial_dfracs(ave_lnpi, segment_filters, filtered_minuskt, filtered_exp_dfracs, n_datapoints):
+#     """For a trial parameter move, calculate deuterated fractions and mean square error to target data using
+#        the given average ln(protection factors). Average protection factors should be a 3D array of shape
+#        [n_segments, n_residues, n_times]. This is filtered to calculate the by-segment averages using the provided
+#        segment_filters Boolean array. The provided filtered_minuskt array (pre-filtered by the same segment_filters array)
+#        is then used to calculate the deuterated fractions. The provided filtered_exp_dfracs array and n_datapoints are
+#        then used to calculate the MSE to the target experimental data.
 
-       Requires current average ln(protection factors), segment filters, pre-filtered -kt rate constants, pre-filtered
-       target experimental deuterated fractions, and total number of datapoints
+#        Requires current average ln(protection factors), segment filters, pre-filtered -kt rate constants, pre-filtered
+#        target experimental deuterated fractions, and total number of datapoints
 
-       Usage: calc_trial_dfracs(ave_lnpi, segment_filters, filtered_minuskt, filtered_exp_dfracs, n_datapoints)
+#        Usage: calc_trial_dfracs(ave_lnpi, segment_filters, filtered_minuskt, filtered_exp_dfracs, n_datapoints)
 
-       Returns: residue_dfracs, segment_dfracs, MSE_to_target"""
-    # recalculate the deuterated fractions and MSE with the given ave_lnpi
-    denom = ave_lnpi * segment_filters
-    residue_dfracs = 1.0 - \
-                     np.exp(np.divide(filtered_minuskt, np.exp(denom),
-                                      out=np.full(filtered_minuskt.shape, np.nan),
-                                      where=denom != 0))
+#        Returns: residue_dfracs, segment_dfracs, MSE_to_target"""
+#     # recalculate the deuterated fractions and MSE with the given ave_lnpi
+#     denom = ave_lnpi * segment_filters
+#     residue_dfracs = 1.0 - \
+#                      np.exp(np.divide(filtered_minuskt, np.exp(denom),
+#                                       out=np.full(filtered_minuskt.shape, np.nan),
+#                                       where=denom != 0))
 
-    segment_dfracs = np.nanmean(residue_dfracs, axis=1)
-    segment_dfracs = segment_dfracs[:, np.newaxis, :].repeat(segment_filters.shape[1], axis=1)
-    MSE = np.sum((segment_dfracs * segment_filters
-                  - filtered_exp_dfracs) ** 2) / n_datapoints
-    return residue_dfracs, segment_dfracs, MSE
+#     segment_dfracs = np.nanmean(residue_dfracs, axis=1)
+#     segment_dfracs = segment_dfracs[:, np.newaxis, :].repeat(segment_filters.shape[1], axis=1)
+#     MSE = np.sum((segment_dfracs * segment_filters
+#                   - filtered_exp_dfracs) ** 2) / n_datapoints
+#     return residue_dfracs, segment_dfracs, MSE
 
-def calc_work(init_lnpi, lambdas, weights, kT):
-    """Calculate apparent work from the provided values of:
-       init_lnpi : np.array[n_residues, n_frames] of ln(protection_factor), on a by-residue & by-frame basis
-       lambdas : np.array[n_residues] of lambda values for each residue
-       weights : np.array[n_frames] of current weights for each frame (should sum to 1)
-       kT : value of kT for calculating work. Will determine units of the returned apparent work value.
+# def calc_work(init_lnpi, lambdas, weights, kT):
+#     """Calculate apparent work from the provided values of:
+#        init_lnpi : np.array[n_residues, n_frames] of ln(protection_factor), on a by-residue & by-frame basis
+#        lambdas : np.array[n_residues] of lambda values for each residue
+#        weights : np.array[n_frames] of current weights for each frame (should sum to 1)
+#        kT : value of kT for calculating work. Will determine units of the returned apparent work value.
 
-       Usage:
-       calc_work(init_lnpi, lambdas, weights, kT)
+#        Usage:
+#        calc_work(init_lnpi, lambdas, weights, kT)
 
-       Returns:
-       work (float)"""
+#        Returns:
+#        work (float)"""
 
-    # This is the same ave_lnpi calculated in the reweighting.py code but not broadcast to the full 3D array
-    ave_lnpi = np.sum(weights * init_lnpi, axis=1)
-    meanbias = -kT * np.sum(lambdas * ave_lnpi)
-    biaspot = -kT * np.sum(np.atleast_2d(lambdas).T * init_lnpi, axis=0)
-    work = np.sum(weights * np.exp((biaspot - meanbias) / kT))
-    work = kT * np.log(work)
-    return work
+#     # This is the same ave_lnpi calculated in the reweighting.py code but not broadcast to the full 3D array
+#     ave_lnpi = np.sum(weights * init_lnpi, axis=1)
+#     meanbias = -kT * np.sum(lambdas * ave_lnpi)
+#     biaspot = -kT * np.sum(np.atleast_2d(lambdas).T * init_lnpi, axis=0)
+#     work = np.sum(weights * np.exp((biaspot - meanbias) / kT))
+#     work = kT * np.log(work)
+#     return work
 
 

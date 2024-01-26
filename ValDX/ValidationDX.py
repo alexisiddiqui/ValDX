@@ -273,19 +273,22 @@ class ValDXer(Experiment):
         print(args_e)
         # how do we do this for validation data? I guess this is is simply a procedure - does it 
         if train is not None:
-            try:
+            # run reweighting for each gamma in gamma_range
+            args_r = [(args, r) for r in range(*gamma_range) for args in args_e]
+            try:     
                 print("Trying concurrent.futures")
-                args_r = [(args, r) for r in range(*gamma_range) for args in args_e]
                 with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
                     executor.map(run_MaxEnt, args_r)
 
             except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
-                for idx, r in enumerate(range(*gamma_range)):
-                    print(f"Reweighting {rep_name} with gamma = {r}x10^{args['exponent']}")
+                for idx, arg in enumerate(args_r):
+                    g = arg["basegamma"]
+                    g_coeff = arg["exponent"]
+                    print(f"Reweighting {rep_name} with gamma = {g}x10^{g_coeff}")
                     ### concurrent.futures
                     print("not using concurrent.futures")
                     
-                    run_MaxEnt(args_r[idx])
+                    run_MaxEnt(arg)
                     ### cnocurrent.futures       
 
         if self.settings.RW_do_reweighting is False:

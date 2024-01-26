@@ -8,9 +8,12 @@ from .reweighting_functions import read_contacts_hbonds, \
                                    subsample_contacts_hbonds, \
                                    read_kints_segments, \
                                    generate_trial_betas, \
-                                   calc_trial_ave_lnpi, \
-                                   calc_trial_dfracs, \
-                                   calc_work
+                                   calc_trial_ave_lnpi 
+
+from .optimisable_functions import calc_trial_dfracs, \
+                                    calc_work \
+
+
 
 class MaxEnt():
     """Class for Maximum Entropy reweighting of a predicted

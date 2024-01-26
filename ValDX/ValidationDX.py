@@ -17,7 +17,7 @@ import concurrent.futures
 import MDAnalysis as mda
 import seaborn as sns
 
-from HDXer.reweighting import MaxEnt
+from .reweighting import MaxEnt
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment

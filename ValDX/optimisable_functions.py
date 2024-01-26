@@ -70,6 +70,9 @@ def calc_new_weight(iniweights, biasfactor):
     newweights = newweights / np.sum(newweights)
     return newweights
 
+
+
+
 def calc_ave_lnpi(weights, lnpi):
     ave_lnpi = np.sum(weights * lnpi, axis=1)
     return ave_lnpi
@@ -90,4 +93,36 @@ def calc_segment_and_MSE_from_residue_dfracs(residue_dfracs, segment_filters, fi
     MSE = np.sum((segment_dfracs * segment_filters
                   - filtered_exp_dfracs) ** 2) / n_datapoints
     return segment_dfracs, MSE
+
+
+def calc_lambda_from_segment_dfracs(ave_lnpi, segment_filters, segment_dfracs, filtered_exp_dfracs, filtered_minuskt):
+    # denom = self.runvalues['ave_lnpi'] * self.runvalues['segfilters']
+    # curr_lambdas = np.nansum(
+    #     np.sum((self.runvalues['curr_segment_dfracs'] * self.runvalues['segfilters'] - self.runvalues['exp_dfrac_filtered']) * \
+    #            np.exp(np.divide(self.runvalues['minuskt_filtered'], np.exp(denom),
+    #                             out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
+    #                             where=denom != 0)) * \
+    #            np.divide(-self.runvalues['minuskt_filtered'], np.exp(denom),
+    #                      out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
+    #                      where=denom != 0), axis=2) / \
+    #     (np.sum(self.runvalues['segfilters'], axis=1)[:, 0])[:, np.newaxis], axis=0)
+    # return curr_lambdas
+    
+    denom = ave_lnpi * segment_filters
+    curr_lambdas = np.nansum(
+        np.sum((segment_dfracs * segment_filters - filtered_exp_dfracs) * \
+               np.exp(np.divide(filtered_minuskt, np.exp(denom),
+                                out=np.full(filtered_minuskt.shape, np.nan),
+                                where=denom != 0)) * \
+               np.divide(-filtered_minuskt, np.exp(denom),
+                         out=np.full(filtered_minuskt.shape, np.nan),
+                         where=denom != 0), axis=2) / \
+        (np.sum(segment_filters, axis=1)[:, 0])[:, np.newaxis], axis=0)
+    return curr_lambdas
+
+def calc_new_lambdas(curr_lambdas, step_size, gamma_target_lambdas):
+    # self.runvalues['lambdas'] = self.runvalues['lambdas'] * (1.0 - self.runvalues['curr_lambda_stepsize']) + \
+    #                             (self.runvalues['curr_lambda_stepsize'] * gamma_target_lambdas)
+    lambdas = curr_lambdas * (1.0 - step_size) + (step_size * gamma_target_lambdas)
+    return lambdas
 

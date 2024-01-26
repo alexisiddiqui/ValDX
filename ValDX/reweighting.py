@@ -10,8 +10,7 @@ from .reweighting_functions import read_contacts_hbonds, \
                                    generate_trial_betas, \
                                    calc_trial_ave_lnpi 
 
-from .optimisable_functions import calc_trial_dfracs, \
-                                    calc_work \
+from .optimisable_functions import *
 
 
 
@@ -459,17 +458,31 @@ class MaxEnt():
 
         # Calculate by-frame bias from lambda values (per residue) and contacts/hbonds (per residue and frame)
         if self.methodparams['do_mcsampl']:
-            biasfactor = np.sum(self.mcsamplvalues['lambdas_c'][:, np.newaxis] * self.runvalues['contacts']
-                                + self.mcsamplvalues['lambdas_h'][:, np.newaxis] * self.runvalues['hbonds'],
-                                axis=0)  # Sum over all residues, = array of len(nframes). lambdas is 1D array broadcast to 2D
+            # biasfactor = np.sum(self.mcsamplvalues['lambdas_c'][:, np.newaxis] * self.runvalues['contacts']
+            #                     + self.mcsamplvalues['lambdas_h'][:, np.newaxis] * self.runvalues['hbonds'],
+            #                     axis=0)
+            
+            biasfactor = calc_bias_factor_mc(lambdas_c=self.mcsamplvalues['lambdas_c'],
+                                             lambdas_h=self.mcsamplvalues['lambdas_h'],
+                                             contacts=self.runvalues['contacts'],
+                                             h_bonds=self.runvalues['hbonds'])
+    
+            
+            
+             # Sum over all residues, = array of len(nframes). lambdas is 1D array broadcast to 2D
         else:
-            biasfactor = np.sum(self.runvalues['lambdas'][:, np.newaxis] * self.runvalues['lnpi'],
-                                axis=0)  # Sum over all residues, = array of len(nframes). lambdas is 1D array broadcast to 2D
-
+            # biasfactor = np.sum(self.runvalues['lambdas'][:, np.newaxis] * self.runvalues['lnpi'],
+            #                     axis=0)  # Sum over all residues, = array of len(nframes). lambdas is 1D array broadcast to 2D
+            biasfactor = calc_bias_factor_grad(lambdas=self.runvalues['lambdas'],
+                                                  lnpi=self.runvalues['lnpi'])
+            
         # Calculate current weight of each frame (from initial weight & bias applied), and weighted-average protection factors (by-residue)
-        self.runvalues['currweights'] = self.runvalues['iniweights'] * np.exp(biasfactor)
-        self.runvalues['currweights'] = self.runvalues['currweights'] / np.sum(self.runvalues['currweights'])
-        self.runvalues['ave_lnpi'] = np.sum(self.runvalues['currweights'] * self.runvalues['lnpi'], axis=1)
+        # self.runvalues['currweights'] = self.runvalues['iniweights'] * np.exp(biasfactor)
+        # self.runvalues['currweights'] = self.runvalues['currweights'] / np.sum(self.runvalues['currweights'])
+        # self.runvalues['ave_lnpi'] = np.sum(self.runvalues['currweights'] * self.runvalues['lnpi'], axis=1)
+
+        self.runvalues['currweights'] = calc_new_weight(self.runvalues['iniweights'], biasfactor)
+        self.runvalues['ave_lnpi'] = calc_ave_lnpi(self.runvalues['currweights'], self.runvalues['lnpi'])
 
         # Calculate helper values & convert weighted-average protection factors to 3 dimensions.
         # On first iteration, set std. dev. of ln(Pf)
@@ -498,10 +511,14 @@ class MaxEnt():
         # Set temporary array for denominator so we can use np.divide to avoid divide-by-zero warning
         denom = self.runvalues['ave_lnpi'] * self.runvalues['segfilters']
         # D(t) = 1 - exp(-kt/P_i)
-        self.runvalues['curr_residue_dfracs'] = 1.0 - \
-                                                np.exp(np.divide(self.runvalues['minuskt_filtered'], np.exp(denom),
-                                                                 out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
-                                                                 where=denom!=0))
+        # self.runvalues['curr_residue_dfracs'] = 1.0 - \
+        #                                         np.exp(np.divide(self.runvalues['minuskt_filtered'], np.exp(denom),
+        #                                                          out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
+        #                                                          where=denom!=0))
+
+        self.runvalues['curr_residue_dfracs'] = calc_curr_residue_dfracs(ave_lnpi=self.runvalues['ave_lnpi'],
+                                                                          segment_filters=self.runvalues['segfilters'],
+                                                                          minuskt=self.runvalues['minuskt_filtered'])
 
         _curr_segment_dfracs = np.nanmean(self.runvalues['curr_residue_dfracs'], axis=1)
         # Convert to 3D array of shape [n_segments, n_residues, n_times]
@@ -511,6 +528,12 @@ class MaxEnt():
         self.runvalues['curr_MSE'] = np.sum((self.runvalues['curr_segment_dfracs'] * self.runvalues['segfilters']
                                              - self.runvalues['exp_dfrac_filtered'])**2) / self.runvalues['n_datapoints']
 
+        self.runvalues['curr_segment_dfracs'], self.runvalues['curr_MSE'] = calc_segment_and_MSE_from_residue_dfracs(residue_dfracs=self.runvalues['curr_residue_dfracs'],
+                                                                                                                     segment_filters=self.runvalues['segfilters'],
+                                                                                                                     filtered_exp_dfracs=self.runvalues['exp_dfrac_filtered'],
+                                                                                                                     n_datapoints=self.runvalues['n_datapoints'])
+        
+    
     def update_work(self):
         """Calculate current apparent work value using current values of:
            MaxEnt.runvalues['lnpi']
@@ -795,16 +818,23 @@ class MaxEnt():
            self.runvalues['exp_dfrac_filtered'] : target deuterate fractions, filtered using the Boolean filter above
 
            Returns: current_lambdas (np.array)"""
-        denom = self.runvalues['ave_lnpi'] * self.runvalues['segfilters']
-        curr_lambdas = np.nansum(
-            np.sum((self.runvalues['curr_segment_dfracs'] * self.runvalues['segfilters'] - self.runvalues['exp_dfrac_filtered']) * \
-                   np.exp(np.divide(self.runvalues['minuskt_filtered'], np.exp(denom),
-                                    out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
-                                    where=denom != 0)) * \
-                   np.divide(-self.runvalues['minuskt_filtered'], np.exp(denom),
-                             out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
-                             where=denom != 0), axis=2) / \
-            (np.sum(self.runvalues['segfilters'], axis=1)[:, 0])[:, np.newaxis], axis=0)
+        # denom = self.runvalues['ave_lnpi'] * self.runvalues['segfilters']
+        # curr_lambdas = np.nansum(
+        #     np.sum((self.runvalues['curr_segment_dfracs'] * self.runvalues['segfilters'] - self.runvalues['exp_dfrac_filtered']) * \
+        #            np.exp(np.divide(self.runvalues['minuskt_filtered'], np.exp(denom),
+        #                             out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
+        #                             where=denom != 0)) * \
+        #            np.divide(-self.runvalues['minuskt_filtered'], np.exp(denom),
+        #                      out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
+        #                      where=denom != 0), axis=2) / \
+        #     (np.sum(self.runvalues['segfilters'], axis=1)[:, 0])[:, np.newaxis], axis=0)
+
+        curr_lambdas = calc_lambda_from_segment_dfracs(ave_lnpi=self.runvalues['ave_lnpi'],
+                                                         segment_filters=self.runvalues['segfilters'],
+                                                         segment_dfracs=self.runvalues['curr_segment_dfracs'],
+                                                            filtered_exp_dfracs=self.runvalues['exp_dfrac_filtered'],
+                                                            filtered_minuskt=self.runvalues['minuskt_filtered'])
+
         return curr_lambdas
 
     def update_lambdas(self, target_lambdas, target_lambdas_c=None, target_lambdas_h=None):
@@ -838,8 +868,14 @@ class MaxEnt():
             # Calc example stepsize & make move in lambdas
             ave_deviation = np.sum(np.abs(target_lambdas)) / np.sum(gamma_target_lambdas != 0)
             self.runvalues['curr_lambda_stepsize'] = self.methodparams['stepfactor'] / (self.runparams['gamma'] * ave_deviation * self.runvalues['ave_sigma_lnpi'])  # Example stepsize based on ave_sigma_lnpi
-            self.runvalues['lambdas'] = self.runvalues['lambdas'] * (1.0 - self.runvalues['curr_lambda_stepsize']) + \
-                                        (self.runvalues['curr_lambda_stepsize'] * gamma_target_lambdas)
+            
+            # self.runvalues['lambdas'] = self.runvalues['lambdas'] * (1.0 - self.runvalues['curr_lambda_stepsize']) + \
+            #                             (self.runvalues['curr_lambda_stepsize'] * gamma_target_lambdas)
+
+            self.runvalues['lambdas'] = calc_new_lambdas(curr_lambdas=self.runvalues['lambdas'],
+                                                         step_size=self.runvalues['curr_lambda_stepsize'],
+                                                         gamma_target_lambdas=gamma_target_lambdas)
+            
 
     def make_iteration(self):
         """Perform a single HDXer iteration. One iteration consists of up to 4 steps,

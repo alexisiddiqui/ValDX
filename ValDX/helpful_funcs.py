@@ -480,21 +480,25 @@ def calc_traj_LogP_byres(universe:mda.Universe, B_C, B_H, stride=1, residues:np.
 
     if len(weights) != traj_len:
         weights = [1]*traj_len
+    print("weights sum: ", np.sum(weights))
 
     if traj_len > 1:
+        LogPf_by_res_mean = np.zeros(len(seg_indices))
         for idx, ts in enumerate(universe.trajectory[::stride]):
             LogPf_by_res = calc_LogP_by_res(universe, B_C, B_H)
-            print("LogPf_by_res", LogPf_by_res)
+            
+            # print("LogPf_by_res", LogPf_by_res)
             LogPf_by_res = LogPf_by_res[seg_indices]
         
-        LogPf_by_res = LogPf_by_res*weights[idx]
+            LogPf_by_res *= weights[idx]
+            LogPf_by_res_mean += LogPf_by_res
 
-        return (LogPf_by_res)/(len(universe.trajectory)/stride)
+        return (LogPf_by_res_mean)
     elif traj_len == 1:
         LogPf_by_res= calc_LogP_by_res(universe, B_C, B_H)
         LogPf_by_res = LogPf_by_res[seg_indices]
-
-        return (LogPf_by_res)
+        LogPf_by_res_mean = LogPf_by_res
+        return (LogPf_by_res_mean)
 
 
 def kints_to_dict(rates_path):
@@ -522,17 +526,30 @@ def merge_kint_dicts_into_df(kint_dicts:list[dict]):
     return kint_df
 
 def calc_dfrac_uptake_from_LogPf(LogPf_by_res, kints:dict, times:list, residues:list):
-
+    print("LogPf_by_res", LogPf_by_res)
     assert len(LogPf_by_res) == len(residues), "LogPf_by_res and kints must be the same length"
     Pf_by_res = np.exp(LogPf_by_res)
+    print("Pf_by_res", Pf_by_res)
+
 
     kints = np.array([kints[res] for res in residues])
-
+    print("kints", kints) # units min^-1
     kobs_by_res = kints/Pf_by_res
+    print("kobs_by_res", kobs_by_res)
+
 
     times = np.array(times).reshape(-1,1)
-    dfrac_uptake_by_res = 1 - np.exp(-kobs_by_res*times)
+    print("times", times)
+    exponents = -kobs_by_res*times
+    print(exponents.shape)
+    print("exponents", exponents)
+    
+    dfrac_uptake_by_res = 1 - np.exp(exponents)
+    for idx, t in enumerate(times):
+        print(f"t = {t} min")
+        print(f"dfrac_uptake_by_res = {dfrac_uptake_by_res[idx]}")
 
+        
     return dfrac_uptake_by_res
         
 

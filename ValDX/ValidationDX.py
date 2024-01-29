@@ -499,7 +499,7 @@ class ValDXer(Experiment):
 
         train_dfs = []
         val_dfs = []
-
+        test_dfs = []
         ## change functions to export dataframes which are then passed into evaulate HDX
         for rep in range(1,n_reps+1):
 
@@ -516,7 +516,7 @@ class ValDXer(Experiment):
             train_gammas.append(train_opt_gamma)
 
             # validation HDX
-            val_opt_gamma, val_df = self.validate_HDX(calc_name=calc_name,
+            val_opt_gamma, val_df,test_df = self.validate_HDX(calc_name=calc_name,
                                                         expt_name=expt_name,
                                                         mode=mode,
                                                         rep=rep,
@@ -526,6 +526,8 @@ class ValDXer(Experiment):
 
             train_dfs.append(train_df)
             val_dfs.append(val_df)
+            test_dfs.append(test_df)
+
 
         # evaluate HDX train vs val - how do we actually compare both? I guess we just take the average across the reps - how do we account for peptides?
         try:
@@ -533,6 +535,7 @@ class ValDXer(Experiment):
                           val_dfs=val_dfs, 
                           expt_name=expt_name, 
                           calc_name=calc_name, 
+                          test_dfs=test_dfs,
                           train_gammas=train_gammas, 
                           val_gammas=val_gammas,
                           n_reps=n_reps)
@@ -588,12 +591,13 @@ class ValDXer(Experiment):
                                                         rep=rep)
         # plot in evaluate_HDX
 
-        return train_gamma, val_df
+        return train_gamma, val_df, test_df
     
 
     def evaluate_HDX(self, 
                      train_dfs: list[pd.DataFrame], 
                      val_dfs: list[pd.DataFrame], 
+                     test_dfs: list[pd.DataFrame],
                      data: pd.DataFrame=None, 
                      expt_name: str=None, 
                      calc_name: str=None, 

@@ -675,12 +675,12 @@ class ValDXer(Experiment):
             print("Unable to plot paired errors for merge_df")
 
 
-        try:    
-            plot_paired_errors(args=[expt_name, *train_rep_names,  *val_rep_names, *test_rep_names],
-                            data=merge_df, 
-                            times=self.settings.times)
-        except UserWarning:
-            print("Unable to plot paired errors for merge_df")
+        # try:    
+        #     plot_paired_errors(args=[expt_name, *train_rep_names,  *val_rep_names, *test_rep_names],
+        #                     data=merge_df, 
+        #                     times=self.settings.times)
+        # except UserWarning:
+        #     print("Unable to plot paired errors for merge_df")
 
 
         top_path = self.paths.loc[self.paths["calc_name"] == calc_name, "top"].dropna().values[0]

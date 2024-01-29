@@ -615,6 +615,7 @@ class ValDXer(Experiment):
         # plot the individual runs from train and val
         train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
         val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+        test_rep_names = ["_".join(["test", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
         print(train_rep_names)
         print(val_rep_names)
         args = [expt_name, *train_rep_names]
@@ -629,7 +630,11 @@ class ValDXer(Experiment):
                             data=self.HDX_data, 
                             times=self.settings.times)
 
-    
+        args = [expt_name, *test_rep_names]
+        plot_dfracs_compare(args, 
+                            data=self.HDX_data, 
+                            times=self.settings.times)
+
         # 
         expt_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
 
@@ -641,6 +646,7 @@ class ValDXer(Experiment):
                                     expt_name=expt_name,
                                     train_dfs=train_dfs,
                                     val_dfs=val_dfs,
+                                    test_dfs=test_dfs,
                                     train_segs=self.train_segs,
                                     val_segs=self.val_segs,
                                     n_reps=n_reps,
@@ -668,6 +674,13 @@ class ValDXer(Experiment):
         except UserWarning:
             print("Unable to plot paired errors for merge_df")
 
+
+        try:    
+            plot_paired_errors(args=[expt_name, *train_rep_names,  *val_rep_names, *test_rep_names],
+                            data=merge_df, 
+                            times=self.settings.times)
+        except UserWarning:
+            print("Unable to plot paired errors for merge_df")
 
 
         top_path = self.paths.loc[self.paths["calc_name"] == calc_name, "top"].dropna().values[0]

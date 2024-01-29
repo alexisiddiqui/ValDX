@@ -271,6 +271,7 @@ def restore_trainval_peptide_nos(calc_name: str,
                                  expt_name: str,
                                  train_dfs: list[pd.DataFrame],
                                  val_dfs: list[pd.DataFrame],
+                                 test_dfs: list[pd.DataFrame],
                                  n_reps: int,
                                  times: list,
                                  train_segs: pd.DataFrame,
@@ -314,29 +315,36 @@ def restore_trainval_peptide_nos(calc_name: str,
     # create the replicate names
     train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
     val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+    test_rep_names = ["_".join(["test", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
 
     print("train_rep_names", train_rep_names)
     print("val_rep_names", val_rep_names)
+    print("test_rep_names", test_rep_names)
     # iterate through the reps and add the correct peptide numbers to the train and val dfs
     for r in range(n_reps):
         train_rep, val_rep = train_rep_names[r], val_rep_names[r]
+        test_rep = test_rep_names[r]
                     # 
         train_rep_peptides = train_segs.loc[train_segs["calc_name"] == train_rep, "peptide"].copy().to_list()
         val_rep_peptides = val_segs.loc[val_segs["calc_name"] == val_rep, "peptide"].copy().to_list()
-
+        test_rep_peptides = expt_segs.loc[expt_segs["calc_name"] == expt_name, "peptide"].copy().to_list()
         print("train_rep_peptides", train_rep_peptides)
         print("val_rep_peptides", val_rep_peptides)
+        print("test_rep_peptides", test_rep_peptides)
 
 
         train_dfs[r]["peptide"] = train_rep_peptides
         val_dfs[r]["peptide"] = val_rep_peptides
+        test_dfs[r]["peptide"] = test_rep_peptides
 
     # merge the reps together
     train_merge_df = pd.concat(train_dfs, ignore_index=True)
     val_merge_df = pd.concat(val_dfs, ignore_index=True)
+    test_dfs = pd.concat(test_dfs, ignore_index=True)
 
     # merge the train and val dfs together
     merge_df = pd.concat([train_merge_df, val_merge_df], ignore_index=True)
+    merge_df = pd.concat([merge_df, test_dfs], ignore_index=True)
 
     print("manual merge df")
     print(merge_df)

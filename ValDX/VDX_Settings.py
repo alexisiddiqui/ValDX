@@ -39,13 +39,15 @@ class Settings:
         self.HDXer_stride = 1
         self.stride = 100
         self.split_mode = "r"
+        self.temp = 300
 
         # reweighting
         self.RW_exponent = [0]
         # self.RW_basegamma = 10**self.RW_exponent
         self.RW_do_reweighting = True
         self.RW_do_params = False
-        self.RW_stepfactor = 0.00001
+        self.random_initialisation = False
+        self.RW_stepfactor = 10**-3
         self.RW_outprefix = "reweighting_gamma_"
         self.RW_restart_interval = 100
         self.gamma_range = (2,10)

@@ -34,7 +34,9 @@ class Experiment(ABC):
         self.HDX_data = pd.DataFrame()
         self.train_HDX_data = pd.DataFrame()
         self.val_HDX_data = pd.DataFrame()
-
+        self.weights = pd.DataFrame()
+        self.BV_constants = pd.DataFrame()
+        self.test_HDX_data = pd.DataFrame()
 
     def prepare_HDX_data(self, 
                          calc_name: str=None): 
@@ -94,8 +96,8 @@ class Experiment(ABC):
             random_seed = self.settings.random_seed
         if train_frac is None:
             train_frac = self.settings.train_frac
-        if seg_name is None:
-            seg_name = calc_name
+        # if seg_name is None:
+        #     seg_name = calc_name
 
         rep_name = "_".join([calc_name, str(rep)])
         train_rep_name = "_".join(["train", rep_name])
@@ -244,6 +246,9 @@ class Experiment(ABC):
         train_segs["calc_name"] = train_rep_name
         val_segs["calc_name"] = val_rep_name
 
+        print("train_segs")
+        print(train_segs.head())
+
         # save to file
         train_segs_name = "_".join(["train",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])
         val_segs_name = "_".join(["val",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])
@@ -253,17 +258,17 @@ class Experiment(ABC):
         train_segs_path = os.path.join(train_segs_dir, train_segs_name)
         val_segs_path = os.path.join(val_segs_dir, val_segs_name)
 
-        train_segs["path"] = train_segs_path
-        val_segs["path"] = val_segs_path
+        train_segs["path"] = [train_segs_path]*len(train_segs)
+        val_segs["path"] = [val_segs_path]*len(val_segs)
         
         # print("train_segs")
         # print(train_segs.head())
 
         segs_to_file(train_segs_path, train_segs)
-        print(f"Saved train {calc_name} segments to {train_segs_path}")
+        print(f"Saved train {rep_name} segments to {train_segs_path}")
         print(f"Train Peptide numbers: {np.sort(train_segs['peptide'].values)}")
         segs_to_file(val_segs_path, val_segs)
-        print(f"Saved val {calc_name} segments to {val_segs_path}")
+        print(f"Saved val {rep_name} segments to {val_segs_path}")
         print(f"Val Peptide numbers: {np.sort(val_segs['peptide'].values)}")
 
         self.train_segs = pd.concat([self.train_segs, train_segs], ignore_index=True)
@@ -271,8 +276,16 @@ class Experiment(ABC):
 
         
         ### split HDX data based on segments
-        train_HDX_data = self.HDX_data.loc[self.HDX_data['calc_name'] == seg_name].iloc[train_segs.index]
-        val_HDX_data = self.HDX_data.loc[self.HDX_data['calc_name'] == seg_name].iloc[val_segs.index]
+        train_HDX_data = self.HDX_data.loc[self.HDX_data['calc_name'] == seg_name].iloc[train_segs.index].copy()
+        val_HDX_data = self.HDX_data.loc[self.HDX_data['calc_name'] == seg_name].iloc[val_segs.index].copy()
+
+        try:
+            train_HDX_data = train_HDX_data.drop(columns=['ResStr','ResEnd'])
+            val_HDX_data = val_HDX_data.drop(columns=['ResStr','ResEnd'])
+        except:
+            pass
+
+
 
         train_HDX_data["calc_name"] = [train_rep_name]*len(train_HDX_data)
         val_HDX_data["calc_name"] = [val_rep_name]*len(val_HDX_data)
@@ -286,12 +299,6 @@ class Experiment(ABC):
         train_HDX_data["path"] = train_HDX_path
         val_HDX_data["path"] = val_HDX_path
 
-        # print(train_HDX_data.head())
-        # print(val_HDX_data.path)
-
-        # # sort by peptide number
-        # train_HDX_data = train_HDX_data.sort_values(by=['peptide'])
-        # val_HDX_data = val_HDX_data.sort_values(by=['peptide'])
 
         train_segs = train_segs.drop(columns=["calc_name", "path"]).copy()
         val_segs = val_segs.drop(columns=["calc_name", "path"]).copy()
@@ -299,6 +306,11 @@ class Experiment(ABC):
         # merge segs and HDX on peptide number
         train_HDX_data = pd.merge(train_HDX_data, train_segs, on=['peptide'])
         val_HDX_data = pd.merge(val_HDX_data, val_segs, on=['peptide'])
+        print("train_HDX_data")
+        print(train_HDX_data)
+        
+        # return None
+
 
         # reorder columns
         train_HDX_data = train_HDX_data[['ResStr','ResEnd', *self.settings.times, 'peptide', 'calc_name', 'path']]

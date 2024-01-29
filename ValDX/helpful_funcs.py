@@ -3,7 +3,9 @@ import os
 import numpy as np
 import pandas as pd
 import subprocess
-from HDXer.reweighting import MaxEnt
+import MDAnalysis as mda
+from .reweighting import MaxEnt
+from scipy.optimize import curve_fit
 
 import cProfile
 import pstats
@@ -243,7 +245,7 @@ def run_MaxEnt(args: tuple[dict, int]):
                              do_params=args["do_params"],
                              stepfactor=args["stepfactor"])
     
-    reweight_object.run(gamma=args["basegamma"]*r,
+    (currweights, bv_bc, bv_bh) = reweight_object.run(gamma=args["basegamma"]*r,
                         data_folders=args["predictHDX_dir"], 
                         kint_file=args["kint_file"],
                         exp_file=args["exp_file"],
@@ -262,6 +264,8 @@ def run_MaxEnt(args: tuple[dict, int]):
     ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
     ps.print_stats()
     print(s.getvalue())
+
+    return (currweights, bv_bc, bv_bh)
 
 def restore_trainval_peptide_nos(calc_name: str, 
                                  expt_name: str,
@@ -418,3 +422,117 @@ def add_nan_values(merge_df: pd.DataFrame,
         nan_df = pd.concat([nan_df, val_df], ignore_index=True)
 
     return nan_df
+
+
+
+def calc_LogP_by_res(structure: mda.Universe, B_C=0.35, B_H=2.0, cut_C=6.5, cut_H=2.4):
+    # cut_C, cut_H = 6.5, 2.4  # Angstroms
+
+    n_C, n_H = [], []
+    structure = structure.select_atoms("protein")
+    for res in structure.residues:
+        resid = res.resid
+        # print("Resi: ", resid)
+
+        amide_N = res.atoms.select_atoms("name N")
+        amide_H = res.atoms.select_atoms("name H or name H1 or name H2 or name H3")
+
+        amide_N_pos_string = " ".join([str(i) for i in amide_N.positions[0]])
+
+        heavy_atom_selection = f"point {amide_N_pos_string} {cut_C} and not name H* and not (name N and resid {resid})"
+        heavy_atoms = structure.select_atoms(heavy_atom_selection)
+        n_C.append(len(heavy_atoms))
+        
+        amide_H_positions = amide_H.positions
+        total = 0
+        for hydrogen in amide_H_positions:
+            hydrogen_pos_string = " ".join([str(i) for i in hydrogen])
+            acceptor_atom_selection = f"point {hydrogen_pos_string} {cut_H} and (type O) and not (name N and resid {resid})"
+            acceptor_atoms = structure.select_atoms(acceptor_atom_selection)
+
+            total += len(acceptor_atoms)
+
+        # Handle case where no hydrogens are found
+        if len(amide_H_positions) > 0:
+            n_H.append(total / len(amide_H_positions))
+        else:
+            n_H.append(0) # No hydrogens found
+
+    n_C = np.array(n_C)
+    n_H = np.array(n_H)
+
+    Log_Pf_C = B_C * n_C
+    Log_Pf_H = B_H * n_H
+    LogPf_by_res = Log_Pf_C + Log_Pf_H
+
+    return LogPf_by_res
+
+
+def calc_traj_LogP_byres(universe:mda.Universe, B_C, B_H, stride=1, residues:np.array=None, weights:list=[1]):
+    # convert residues to indices
+    print("residues", residues)
+    seg_indices = np.subtract(residues, 1)
+    seg_indices = seg_indices.astype(int)
+    print("seg_indices", seg_indices)
+    HDX_free_energy = 0
+    traj_len = len(universe.trajectory)
+    print(traj_len)
+
+    if len(weights) != traj_len:
+        weights = [1]*traj_len
+
+    if traj_len > 1:
+        for idx, ts in enumerate(universe.trajectory[::stride]):
+            LogPf_by_res = calc_LogP_by_res(universe, B_C, B_H)
+            print("LogPf_by_res", LogPf_by_res)
+            LogPf_by_res = LogPf_by_res[seg_indices]
+        
+        LogPf_by_res = LogPf_by_res*weights[idx]
+
+        return (LogPf_by_res)/(len(universe.trajectory)/stride)
+    elif traj_len == 1:
+        LogPf_by_res= calc_LogP_by_res(universe, B_C, B_H)
+        LogPf_by_res = LogPf_by_res[seg_indices]
+
+        return (LogPf_by_res)
+
+
+def kints_to_dict(rates_path):
+    rates = pd.read_csv(rates_path, sep="\s+", header=None, skiprows=1)
+    rates_dict = rates.set_index(0).to_dict()[1]
+    return rates_dict
+
+def merge_kint_dicts_into_df(kint_dicts:list[dict]):
+    # key = Resid
+    # value = kint
+    # convert dicts to dfs
+    kint_dfs = []
+
+    for kint_dict in kint_dicts:
+        kint_df = pd.DataFrame.from_dict(kint_dict, orient="index")
+        kint_df = kint_df.reset_index()
+        kint_df.columns = ["Resid", "kint"]
+        kint_dfs.append(kint_df)
+
+    # aggregate by resid and mean Kint
+    kint_df = pd.concat(kint_dfs, ignore_index=True)
+    kint_df = kint_df.groupby("Resid").mean()
+    kint_df = kint_df.reset_index()
+    kint_df.columns = ["Resid", "kint"]
+    return kint_df
+
+def calc_dfrac_uptake_from_LogPf(LogPf_by_res, kints:dict, times:list, residues:list):
+
+    assert len(LogPf_by_res) == len(residues), "LogPf_by_res and kints must be the same length"
+    Pf_by_res = np.exp(LogPf_by_res)
+
+    kints = np.array([kints[res] for res in residues])
+
+    kobs_by_res = kints/Pf_by_res
+
+    times = np.array(times).reshape(-1,1)
+    dfrac_uptake_by_res = 1 - np.exp(-kobs_by_res*times)
+
+    return dfrac_uptake_by_res
+        
+

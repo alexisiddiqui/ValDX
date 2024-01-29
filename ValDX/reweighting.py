@@ -9,8 +9,11 @@ from .reweighting_functions import read_contacts_hbonds, \
                                    read_kints_segments, \
                                    generate_trial_betas, \
                                    calc_trial_ave_lnpi 
-
+# from .optimisable_functions import *
 from .optimisable_functions import *
+# from .JAX_optimisable_functions import *
+# from .JAX_vmap_optimised_functions import *
+# from .cupy_optimised_functions import *
 
 
 
@@ -515,6 +518,14 @@ class MaxEnt():
         #                                         np.exp(np.divide(self.runvalues['minuskt_filtered'], np.exp(denom),
         #                                                          out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
         #                                                          where=denom!=0))
+        # ave_lnpi is 3D array of shape [n_segments, n_residues, n_times]
+        # minuskt_filtered is 2D array of shape [n_segments, n_times]
+        # segfilters is 3D array of shape [n_segments, n_residues, n_times]
+        # curr_residue_dfracs is 3D array of shape [n_segments, n_residues, n_times]
+        # curr_segment_dfracs is 3D array of shape [n_segments, n_residues, n_times]
+        # exp_dfrac_filtered is 3D array of shape [n_segments, n_residues, n_times]
+        # n_datapoints is scalar
+        # curr_MSE is scalar
 
         self.runvalues['curr_residue_dfracs'] = calc_curr_residue_dfracs(ave_lnpi=self.runvalues['ave_lnpi'],
                                                                           segment_filters=self.runvalues['segfilters'],

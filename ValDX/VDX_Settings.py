@@ -45,7 +45,7 @@ class Settings:
         # self.RW_basegamma = 10**self.RW_exponent
         self.RW_do_reweighting = True
         self.RW_do_params = False
-        self.RW_stepfactor = 0.00001
+        self.RW_stepfactor = 10**-3
         self.RW_outprefix = "reweighting_gamma_"
         self.RW_restart_interval = 100
         self.gamma_range = (2,10)

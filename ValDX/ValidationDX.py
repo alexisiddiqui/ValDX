@@ -277,7 +277,7 @@ class ValDXer(Experiment):
             args_r = [(args, r) for r in range(*gamma_range) for args in args_e]
             try:     
                 print("Trying concurrent.futures")
-                with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
+                with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
                     executor.map(run_MaxEnt, args_r)
 
             except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):

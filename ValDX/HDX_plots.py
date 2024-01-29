@@ -1049,8 +1049,16 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
         print("Only one unique MSE value, cannot plot decision curve - returning the first gamma value")
         gamma = works['gamma'][0]
         return gamma, works
-    for i in range(len(unique_x)-1):
-        angles.append(np.arctan((y[i+1]-y[i])/(x[i+1]-x[i])))
+    try:
+        for i in range(len(x)-1):
+            angles.append(np.arctan((y[i+1]-y[i])/(x[i+1]-x[i])))
+    except:
+        for idx, u_q in enumerate(unique_x):
+            if idx == 0:
+                continue
+            else:
+                angles.append(np.arctan((y[idx]-y[idx-1])/(u_q-unique_x[idx-1])))
+
 
     # find the index of the angle closest to 45 degrees
     closest = min(angles, key=lambda x:abs(x-math.pi/4))

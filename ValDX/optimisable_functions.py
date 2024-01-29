@@ -52,9 +52,7 @@ def calc_trial_dfracs(ave_lnpi, segment_filters, filtered_minuskt, filtered_exp_
     return residue_dfracs, segment_dfracs, MSE
 
 def calc_bias_factor_mc(lambdas_c, contacts, lambdas_h, h_bonds):
-    # biasfactor = np.sum(self.mcsamplvalues['lambdas_c'][:, np.newaxis] * self.runvalues['contacts']
-    #                 + self.mcsamplvalues['lambdas_h'][:, np.newaxis] * self.runvalues['hbonds'],
-    #                 axis=0) 
+
 
     biasfactor = np.sum(lambdas_c[:, np.newaxis] * contacts
                         + lambdas_h[:, np.newaxis] * h_bonds,
@@ -96,17 +94,7 @@ def calc_segment_and_MSE_from_residue_dfracs(residue_dfracs, segment_filters, fi
 
 
 def calc_lambda_from_segment_dfracs(ave_lnpi, segment_filters, segment_dfracs, filtered_exp_dfracs, filtered_minuskt):
-    # denom = self.runvalues['ave_lnpi'] * self.runvalues['segfilters']
-    # curr_lambdas = np.nansum(
-    #     np.sum((self.runvalues['curr_segment_dfracs'] * self.runvalues['segfilters'] - self.runvalues['exp_dfrac_filtered']) * \
-    #            np.exp(np.divide(self.runvalues['minuskt_filtered'], np.exp(denom),
-    #                             out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
-    #                             where=denom != 0)) * \
-    #            np.divide(-self.runvalues['minuskt_filtered'], np.exp(denom),
-    #                      out=np.full(self.runvalues['minuskt_filtered'].shape, np.nan),
-    #                      where=denom != 0), axis=2) / \
-    #     (np.sum(self.runvalues['segfilters'], axis=1)[:, 0])[:, np.newaxis], axis=0)
-    # return curr_lambdas
+
     
     denom = ave_lnpi * segment_filters
     curr_lambdas = np.nansum(
@@ -121,8 +109,7 @@ def calc_lambda_from_segment_dfracs(ave_lnpi, segment_filters, segment_dfracs, f
     return curr_lambdas
 
 def calc_new_lambdas(curr_lambdas, step_size, gamma_target_lambdas):
-    # self.runvalues['lambdas'] = self.runvalues['lambdas'] * (1.0 - self.runvalues['curr_lambda_stepsize']) + \
-    #                             (self.runvalues['curr_lambda_stepsize'] * gamma_target_lambdas)
+
     lambdas = curr_lambdas * (1.0 - step_size) + (step_size * gamma_target_lambdas)
     return lambdas
 

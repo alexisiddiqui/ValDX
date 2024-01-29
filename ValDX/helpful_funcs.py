@@ -440,14 +440,16 @@ def calc_LogP_by_res(structure: mda.Universe, B_C=0.35, B_H=2.0, cut_C=6.5, cut_
     structure = structure.select_atoms("protein")
     for res in structure.residues:
         resid = res.resid
-        # print("Resi: ", resid)
+        # print("Resi: ",  resid)
 
         amide_N = res.atoms.select_atoms(f"name N and resid {resid}")
         amide_H = res.atoms.select_atoms(f"name H or name H1 or name H2 or name H3 and resid {resid}")
-
+        # print(amide_N.positions)
         amide_N_pos_string = " ".join([str(i) for i in amide_N.positions[0]])
 
-        heavy_atom_selection = f"point {amide_N_pos_string} {cut_C} and not name H* and not (resid {resid}) and not (resname PRO) and protein"
+        resi_excl = " or ".join([f"resid {resid+i}" for i in range(-2,3)])
+
+        heavy_atom_selection = f"point {amide_N_pos_string} {cut_C} and not name H* and not ({resi_excl})"
         heavy_atoms = structure.select_atoms(heavy_atom_selection, periodic=False)
         # print("heavy_atoms", heavy_atoms)
         n_C.append(len(heavy_atoms))
@@ -456,8 +458,8 @@ def calc_LogP_by_res(structure: mda.Universe, B_C=0.35, B_H=2.0, cut_C=6.5, cut_
         total = 0
         for hydrogen in amide_H_positions:
             hydrogen_pos_string = " ".join([str(i) for i in hydrogen])
-            acceptor_atom_selection = f"point {hydrogen_pos_string} {cut_H} and type O and not (name N and resid {resid}) and protein"
-            acceptor_atoms = structure.select_atoms(acceptor_atom_selection)
+            acceptor_atom_selection = f"point {hydrogen_pos_string} {cut_H} and type O and not (name N and resid {resid}) and not ({resi_excl})"
+            acceptor_atoms = structure.select_atoms(acceptor_atom_selection, periodic=False)
 
             total += len(acceptor_atoms)
 
@@ -470,8 +472,8 @@ def calc_LogP_by_res(structure: mda.Universe, B_C=0.35, B_H=2.0, cut_C=6.5, cut_
     n_C = np.array(n_C)
     n_H = np.array(n_H)
 
-    print("Heavy atom contacts: ", n_C)
-    print("Hydrogen bond contacts: ", n_H)
+    # print("Heavy atom contacts: ", n_C)
+    # print("Hydrogen bond contacts: ", n_H)
 
     Log_Pf_C = B_C * n_C
     Log_Pf_H = B_H * n_H
@@ -482,10 +484,10 @@ def calc_LogP_by_res(structure: mda.Universe, B_C=0.35, B_H=2.0, cut_C=6.5, cut_
 
 def calc_traj_LogP_byres(universe:mda.Universe, B_C, B_H, stride=1, residues:np.array=None, weights:list=[1]):
     # convert residues to indices
-    print("residues", residues)
+    # print("residues", residues)
     seg_indices = np.subtract(residues, 1)
     seg_indices = seg_indices.astype(int)
-    print("seg_indices", seg_indices)
+    # print("seg_indices", seg_indices)
     HDX_free_energy = 0
     traj_len = len(universe.trajectory)
     print(traj_len)

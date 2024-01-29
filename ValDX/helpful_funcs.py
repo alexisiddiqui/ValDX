@@ -1,8 +1,8 @@
 # Universal functions
 import os
+import subprocess
 import numpy as np
 import pandas as pd
-import subprocess
 import MDAnalysis as mda
 from .reweighting import MaxEnt
 from scipy.optimize import curve_fit
@@ -442,32 +442,36 @@ def calc_LogP_by_res(structure: mda.Universe, B_C=0.35, B_H=2.0, cut_C=6.5, cut_
         resid = res.resid
         # print("Resi: ", resid)
 
-        amide_N = res.atoms.select_atoms("name N")
-        amide_H = res.atoms.select_atoms("name H or name H1 or name H2 or name H3")
+        amide_N = res.atoms.select_atoms(f"name N and resid {resid}")
+        amide_H = res.atoms.select_atoms(f"name H or name H1 or name H2 or name H3 and resid {resid}")
 
         amide_N_pos_string = " ".join([str(i) for i in amide_N.positions[0]])
 
-        heavy_atom_selection = f"point {amide_N_pos_string} {cut_C} and not name H* and not (name N and resid {resid})"
-        heavy_atoms = structure.select_atoms(heavy_atom_selection)
+        heavy_atom_selection = f"point {amide_N_pos_string} {cut_C} and not name H* and not (resid {resid}) and not (resname PRO) and protein"
+        heavy_atoms = structure.select_atoms(heavy_atom_selection, periodic=False)
+        # print("heavy_atoms", heavy_atoms)
         n_C.append(len(heavy_atoms))
-        
+
         amide_H_positions = amide_H.positions
         total = 0
         for hydrogen in amide_H_positions:
             hydrogen_pos_string = " ".join([str(i) for i in hydrogen])
-            acceptor_atom_selection = f"point {hydrogen_pos_string} {cut_H} and (type O) and not (name N and resid {resid})"
+            acceptor_atom_selection = f"point {hydrogen_pos_string} {cut_H} and type O and not (name N and resid {resid}) and protein"
             acceptor_atoms = structure.select_atoms(acceptor_atom_selection)
 
             total += len(acceptor_atoms)
 
         # Handle case where no hydrogens are found
         if len(amide_H_positions) > 0:
-            n_H.append(total / len(amide_H_positions))
+            n_H.append(total)
         else:
             n_H.append(0) # No hydrogens found
 
     n_C = np.array(n_C)
     n_H = np.array(n_H)
+
+    print("Heavy atom contacts: ", n_C)
+    print("Hydrogen bond contacts: ", n_H)
 
     Log_Pf_C = B_C * n_C
     Log_Pf_H = B_H * n_H
@@ -487,7 +491,7 @@ def calc_traj_LogP_byres(universe:mda.Universe, B_C, B_H, stride=1, residues:np.
     print(traj_len)
 
     if len(weights) != traj_len:
-        weights = [1]*traj_len
+        weights = [1/traj_len]*traj_len
     print("weights sum: ", np.sum(weights))
 
     if traj_len > 1:

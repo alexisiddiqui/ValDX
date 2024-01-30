@@ -162,3 +162,5 @@ cython_debug/
 raw_data/
 data/
 logs/
+results/
+plots/

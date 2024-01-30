@@ -37,6 +37,8 @@ class Experiment(ABC):
         self.weights = pd.DataFrame()
         self.BV_constants = pd.DataFrame()
         self.test_HDX_data = pd.DataFrame()
+        self.LogPfs = pd.DataFrame()
+        self.analysis_dump = {}
 
     def prepare_HDX_data(self, 
                          calc_name: str=None): 
@@ -143,64 +145,6 @@ class Experiment(ABC):
 
             train_peptides = np.array([])
             val_peptides = np.array([])
-
-            # single_peptide_no = segs.loc[segs['counts'] == 1, 'peptide'].sample(1).values
-
-            # # append single_peptide_no to val_peptides
-            # val_peptides = np.append(val_peptides, single_peptide_no[0]).flatten()
-            # # drop single_peptide_no from segs
-            #   # Remove single_peptide_no from segs
-            # print(segs)
-            # peptide_to_remove = single_peptide_no[0]
-            # segs = segs.loc[segs['peptide'] != peptide_to_remove]
-            # print(segs)
-
-            # for c in counts:
-            #     if len(counts) == 1:
-            #     # if redundant peptides have been selected split them so that train and val have the correct ratio in the end
-            #         remaining = len(segs.loc[segs['counts'] == c])
-
-            #         train_no = (remaining * train_frac) - len(train_peptides)
-
-            #         train_peps = segs.loc[segs['counts'] == c, 'peptide'].sample(int(train_no)).values
-            #         # make sure peptides are unique
-            #         train_peps = np.unique(train_peps)
-            #         train_peptides = np.append(train_peptides, train_peps).flatten()
-
-            #         # val peptides are the rest
-            #         val_peps = segs.loc[segs['counts'] == c, 'peptide'].drop(train_peps).values
-            #         train_peptides = np.append(train_peptides, val_peps).flatten()
-
-            #     if len(train_peptides) < len(val_peptides):
-            #         peptides_to_add = train_peptides
-            #     else:
-            #         peptides_to_add = val_peptides
-
-            #     peps = segs.loc[segs['counts'] == c, 'peptide'].to_numpy()
-            #     peps = np.unique(peps)
-            #     peptides_to_add = np.append(peptides_to_add, peps).flatten()
-            #     # drop from segs
-            #     segs = segs.loc[~segs['peptide'].isin(peps)]
-            #     # remove from counts
-            #     counts = counts[counts != c]
-
-
-
-            # # assert that peptides that train and val peptides do not overlap
-            # overlap = np.intersect1d(train_peptides, val_peptides)
-            # assert len(overlap) == 0, f"Train and Val peptides overlap: {overlap}"
-
-
-            # print("Train frac: ", train_frac)
-            # print("No Train peptides: ", len(train_peptides))
-            # print("No Val peptides: ", len(val_peptides))
-            # print("Final Train Frac: ", len(train_peptides)/(len(train_peptides)+len(val_peptides)))
-
-
-            # self.train_segs = self.segs.loc[segs['peptide'].isin(train_peptides)]
-            # self.val_segs = self.segs.loc[segs['peptide'].isin(val_peptides)]
-
-
             single_peptide_no = segs.loc[segs['counts'] == 1, 'peptide'].sample(1).values[0]
             # Set to be used for val peptides
             val_peptides = {single_peptide_no}
@@ -219,14 +163,17 @@ class Experiment(ABC):
                     train_peptides_with_count = np.random.choice(peptides_with_count, int(len(peptides_with_count) * train_frac), replace=False)
                 
                 # Update the sets
-                val_peptides.update(set(peptides_with_count) - set(train_peptides_with_count))
+                val_peptides.update(set(peptides_with_count) - set(train_peptides_with_count)) 
 
             # Convert sets to lists
             train_peptides = list(set(segs['peptide']) - val_peptides)
             val_peptides = list(val_peptides)
             
             # Assert no overlap between train and validation peptides
-            assert not set(train_peptides) & set(val_peptides), f"Train and Val peptides overlap."
+            assert not set(train_peptides) & set(val_peptides), f"Train and Val peptides overlap. Rethink algorithm."
+
+
+
 
             # Select the segments belonging to train and validation sets
             train_segs = self.segs[self.segs['peptide'].isin(train_peptides)]

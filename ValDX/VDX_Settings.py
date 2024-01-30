@@ -52,6 +52,8 @@ class Settings:
         self.RW_restart_interval = 100
         self.gamma_range = (2,10)
 
+        self.save_figs = False
+
 
 
     

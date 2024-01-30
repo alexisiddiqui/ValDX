@@ -16,6 +16,7 @@ import numpy as np
 import concurrent.futures
 import MDAnalysis as mda
 import seaborn as sns
+import datetime
 
 # from .reweighting import MaxEnt
 
@@ -40,6 +41,7 @@ class ValDXer(Experiment):
         self.HDXer_env = self.settings.HDXer_env
         self.load_HDXer()
         self.generate_directory_structure(overwrite=False)
+        self.analysis = pd.DataFrame()
     
     def load_HDX_data(self, 
                       HDX_path:str=None, 
@@ -215,7 +217,7 @@ class ValDXer(Experiment):
                      rep: int=None, 
                      train_gamma: float=None):
         """
-        Reweight HDX data from previsously predicted HDX data performed by predict_HDX().
+        R   eweight HDX data from previsously predicted HDX data performed by predict_HDX().
         """
         print(expt_name, calc_name, train, rep)
         if gamma_range is None:
@@ -353,7 +355,7 @@ class ValDXer(Experiment):
 
 
 
-    def recalculate_dataset(self, traj, cr_bc_bh, dataset_name, segs, rates:dict):
+    def recalculate_dataset(self, traj, cr_bc_bh, dataset_name, segs, rates:dict, train=False):
         print(f"Recalculating {dataset_name}")
         times = self.settings.times
 
@@ -385,51 +387,57 @@ class ValDXer(Experiment):
                                             stride=stride,
                                             residues=residues,
                                             weights=cr_bc_bh[0])
-        print("LogPf_by_res shape")
-        print(LogPf_by_res.shape)
-        print(LogPf_by_res)
-
-        dfracs_by_res_overtime = calc_dfrac_uptake_from_LogPf(LogPf_by_res,
-                                                              kints=rates,
-                                                              times=self.settings.times,
-                                                              residues=residues)
-        print("dfracs_by_res_overtime shape")
-        print(dfracs_by_res_overtime.shape)
-        print(dfracs_by_res_overtime)
-        # reshape dfracs_by_res_overtime to be in the same format as the HDX data
-        # this means converting residues back to segments
         
-        df["calc_name"] = [dataset_name]*len(df)
-        df["Residues"] = df.apply(lambda x: list(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
-        print(df)
+        LogPfs_to_add = pd.DataFrame({"LogPf": [LogPf_by_res], "calc_name": [dataset_name], "Residues": [residues]})
+        
+        self.LogPfs = pd.concat([self.LogPfs, LogPfs_to_add], ignore_index=True)
 
-        peptides = df["peptide"].to_list()
-        print(peptides)
-        for p in peptides:
-            print(p)
-            # collect all dfrac updates for each residue in the peptide
-            peptide_residues = df.loc[(df["peptide"] == p), "Residues"].to_list()[0]
-            print(peptide_residues)
-            # convert to indices based on order in residues
-            peptide_indices = [idx for idx, res in enumerate(residues) if res in peptide_residues]
+        if not train:
+            print("LogPf_by_res shape")
+            print(LogPf_by_res.shape)
+            print(LogPf_by_res)
+
+            dfracs_by_res_overtime = calc_dfrac_uptake_from_LogPf(LogPf_by_res,
+                                                                kints=rates,
+                                                                times=self.settings.times,
+                                                                residues=residues)
+            print("dfracs_by_res_overtime shape")
+            print(dfracs_by_res_overtime.shape)
+            print(dfracs_by_res_overtime)
+            # reshape dfracs_by_res_overtime to be in the same format as the HDX data
+            # this means converting residues back to segments
             
-            dfracs = dfracs_by_res_overtime[:, peptide_indices]
-            print(dfracs.shape)
-            # average the dfrac updates for each residue in the peptide
-            dfracs = np.mean(dfracs, axis=1)
+            df["calc_name"] = [dataset_name]*len(df)
+            df["Residues"] = df.apply(lambda x: list(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
+            print(df)
 
-            for idx, t in enumerate(times):
-                print(idx, t, dfracs[idx])
-                # select column t and peptide p
-                df.loc[(df["peptide"] == p), t] = dfracs[idx]
-    
+            peptides = df["peptide"].to_list()
+            print(peptides)
+            for p in peptides:
+                print(p)
+                # collect all dfrac updates for each residue in the peptide
+                peptide_residues = df.loc[(df["peptide"] == p), "Residues"].to_list()[0]
+                print(peptide_residues)
+                # convert to indices based on order in residues
+                peptide_indices = [idx for idx, res in enumerate(residues) if res in peptide_residues]
+                
+                dfracs = dfracs_by_res_overtime[:, peptide_indices]
+                print(dfracs.shape)
+                # average the dfrac updates for each residue in the peptide
+                dfracs = np.mean(dfracs, axis=1)
 
-        df = df.drop(columns=["Residues"])
-        print("Dataframe being appending")
-        print(df)
-        self.HDX_data = pd.concat([self.HDX_data, df], ignore_index=True)
+                for idx, t in enumerate(times):
+                    print(idx, t, dfracs[idx])
+                    # select column t and peptide p
+                    df.loc[(df["peptide"] == p), t] = dfracs[idx]
+        
 
-        return df
+            df = df.drop(columns=["Residues"])
+            print("Dataframe being appending")
+            print(df)
+            self.HDX_data = pd.concat([self.HDX_data, df], ignore_index=True)
+
+            return df
     
 
     def recalculate_test_and_val(self, cr_bc_bh, calc_name, expt_name, rep=None):
@@ -457,6 +465,14 @@ class ValDXer(Experiment):
         print(f"rates: {rates}")
         print(rates)
 
+        train_segs = self.train_segs[self.train_segs["calc_name"] == rep_name].copy()
+
+        self.recalculate_dataset(traj=traj,
+                                cr_bc_bh=cr_bc_bh,
+                                dataset_name=rep_name,
+                                segs=train_segs,
+                                rates=rates,
+                                train=True)
 
 
         val_segs = self.val_segs[self.val_segs["calc_name"] == val_name].copy()
@@ -606,11 +622,22 @@ class ValDXer(Experiment):
                      val_gammas: float=None, 
                      n_reps: int=None):
         
+        if self.settings.save_figs:
+
+            save_dir = os.path.join(self.settings.plot_dir, self.settings.name)
+            os.removedirs(save_dir)
+            os.makedirs(save_dir, exist_ok=True)
+
+        else:
+            save_dir = None
+
         times = self.settings.times
 
         plot_gamma_distribution(calc_name=calc_name, 
                                 train_gammas=train_gammas, 
-                                val_gammas=val_gammas)
+                                val_gammas=val_gammas,
+                                save=self.settings.save_figs,
+                                save_dir=save_dir)
 
         # plot the individual runs from train and val
         train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
@@ -619,8 +646,7 @@ class ValDXer(Experiment):
         print(train_rep_names)
         print(val_rep_names)
         args = [expt_name, *train_rep_names]
-
-
+        
         plot_dfracs_compare(args, 
                             data=self.HDX_data, 
                             times=self.settings.times)
@@ -656,12 +682,43 @@ class ValDXer(Experiment):
 
         expt_df = self.HDX_data[self.HDX_data["calc_name"] == expt_name]
         merge_df = pd.concat([expt_df, merge_df], ignore_index=True)
+        name = self.settings.name
+        data_to_dump = {
+            "train_dfs": train_dfs,
+            "val_dfs": val_dfs,
+            "test_dfs": test_dfs,
+            "expt_df": expt_df,
+            "merge_df": merge_df,
+            "expt_segs": expt_segs,
+            "train_segs": self.train_segs,
+            "val_segs": self.val_segs,
+            "n_reps": n_reps,
+            "times": self.settings.times,
+            "expt_name": expt_name,
+            "calc_name": calc_name,
+            "train_rep_names": train_rep_names,
+            "val_rep_names": val_rep_names,
+            "test_rep_names": test_rep_names,
+            "HDX_data": self.HDX_data,
+            "train_gammas": train_gammas,
+            "val_gammas": val_gammas,
+            "weights": self.weights,
+            "BV_constants": self.BV_constants,
+        }
+        # add to dictionary
+        self.analysis_dump[name] = data_to_dump
         # print(merge_df)
         args = [expt_name, *train_rep_names,  *val_rep_names]
+
+
+            
+
         try:
             plot_dfracs_compare(args, 
                             data=merge_df, 
-                            times=self.settings.times)
+                            times=self.settings.times,
+                            save=self.settings.save_figs,
+                            save_dir=save_dir)
         except UserWarning:
             print("Unable to plot compare plot for merge_df")
         ####
@@ -670,7 +727,9 @@ class ValDXer(Experiment):
         try:    
             plot_paired_errors(args,
                             data=merge_df, 
-                            times=self.settings.times)
+                            times=self.settings.times,
+                            save=self.settings.save_figs,
+                            save_dir=save_dir)
         except UserWarning:
             print("Unable to plot paired errors for merge_df")
 
@@ -707,13 +766,17 @@ class ValDXer(Experiment):
         #                             top=top)
 
     
-        plot_R_agreement_trainval(expt_name=expt_name, 
+        plot_df = plot_R_agreement_trainval(expt_name=expt_name, 
                                 train_names=train_names, 
                                 val_names=val_names, 
                                 expt_segs=expt_segs,
                                 data=merge_df, 
                                 times=self.settings.times, 
-                                top=top)
+                                top=top,
+                                save=self.settings.save_figs,
+                                save_dir=save_dir)
+        
+        self.analysis = pd.concat([self.analysis, plot_df], ignore_index=True)
         # return
 
         # Currently df contains values for the peptides in each train/val split 
@@ -737,43 +800,47 @@ class ValDXer(Experiment):
 
 
 
-        args = [expt_name, *train_rep_names,  *val_rep_names]
-        # this doesnt work - we need to either line up the peptides or just plot the averages
-        try:
-            plot_dfracs_compare(args, 
-                            data=nan_df, 
-                            times=self.settings.times)
-        except UserWarning:
-            print("Unable to plot compare plot for nan_df")
-        ####
+        # args = [expt_name, *train_rep_names,  *val_rep_names]
+        # # this doesnt work - we need to either line up the peptides or just plot the averages
+        # try:
+        #     plot_dfracs_compare(args, 
+        #                     data=nan_df, 
+        #                     times=self.settings.times)
+        # except UserWarning:
+        #     print("Unable to plot compare plot for nan_df")
+        # ####
 
         # plot abs error for train and val
         try:
             plot_dfracs_compare_abs(args, 
                             data=nan_df, 
-                            times=self.settings.times)
+                            times=self.settings.times,
+                            save=self.settings.save_figs,
+                            save_dir=save_dir)
         except UserWarning:
             print("Unable to plot compare plot for nan_df")
         ####
         # plot MSE for train and val
         try:
-            plot_dfracs_compare_MSE(args, 
+            plot_df = plot_dfracs_compare_MSE(args, 
                             data=nan_df, 
-                            times=self.settings.times)
+                            times=self.settings.times,
+                            save=self.settings.save_figs,
+                            save_dir=save_dir)
+            
+            self.analysis = pd.concat([self.analysis, plot_df], ignore_index=True)
         except UserWarning:
             print("Unable to plot compare plot for nan_df")
         ####
 
 
 
-
-
-        try:    
-            plot_paired_errors(args,
-                            data=nan_df, 
-                            times=self.settings.times)
-        except UserWarning:
-            print("Unable to plot paired errors for nan_df")
+        # try:    
+        #     plot_paired_errors(args,
+        #                     data=nan_df, 
+        #                     times=self.settings.times)
+        # except UserWarning:
+        #     print("Unable to plot paired errors for nan_df")
 
         # return
     
@@ -821,14 +888,18 @@ class ValDXer(Experiment):
         try:
             plot_dfracs_compare(args,
                              data=avg_df, 
-                             times=self.settings.times)
+                             times=self.settings.times,
+                            save=self.settings.save_figs,
+                            save_dir=save_dir)
         except UserWarning:
             print("Unable to plot compare plot for avg_df")
         # plot train and val averages against expt data with paired plot
         try:
             plot_paired_errors(args, 
                            data=avg_df, 
-                           times=self.settings.times)
+                           times=self.settings.times,
+                            save=self.settings.save_figs,
+                            save_dir=save_dir)
         except UserWarning:
             print("Unable to plot paired errors for avg_df")
 
@@ -873,3 +944,18 @@ class ValDXer(Experiment):
 
         self.prepare_intrinsic_rates(calc_name=calc_name)
      
+    def dump_analysis(self):
+        """
+        Dump analysis to csv file in results dir
+        Also returns useful data
+        """
+        name = self.settings.name
+        time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        csv_name = time + "_analysis.csv"
+        csv_dir = os.path.join(self.settings.results_dir, name)
+        csv_path = os.path.join(csv_dir, csv_name)
+        os.makedirs(csv_dir, exist_ok=True)
+        self.analysis["name"] = [name]*len(self.analysis)
+        self.analysis.to_csv(csv_path, index=False)
+
+        return self.analysis_dump, self.analysis, name

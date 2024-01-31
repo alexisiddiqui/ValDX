@@ -474,6 +474,18 @@ class ValDXer(Experiment):
                                 rates=rates,
                                 train=True)
 
+        expt_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
+
+        no_weight_BV = ([None], 0.35, 2.0)
+
+        self.recalculate_dataset(traj=traj,
+                                cr_bc_bh=no_weight_BV,
+                                dataset_name=expt_name,
+                                segs=expt_segs,
+                                rates=rates,
+                                train=True)                                 
+
+
 
         val_segs = self.val_segs[self.val_segs["calc_name"] == val_name].copy()
 
@@ -704,6 +716,7 @@ class ValDXer(Experiment):
             "val_gammas": val_gammas,
             "weights": self.weights,
             "BV_constants": self.BV_constants,
+            "LogPfs": self.LogPfs,
         }
         # add to dictionary
         self.analysis_dump[name] = data_to_dump

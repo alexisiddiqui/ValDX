@@ -134,7 +134,7 @@ class Experiment(ABC):
             no_segs = len(segs)
             segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
             segs = segs.explode('ResNums')
-            segs = segs.groupby('ResNums').size().reset_index(name='counts')
+            segs = segs.groupby(['ResNums','peptide']).size().reset_index(name='counts')
             # sort by counts
             segs = segs.sort_values(by=['counts', 'ResNums'], ascending=[False, True])
             # get list of all counts

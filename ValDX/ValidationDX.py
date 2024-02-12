@@ -388,7 +388,7 @@ class ValDXer(Experiment):
                                             residues=residues,
                                             weights=cr_bc_bh[0])
         
-        LogPfs_to_add = pd.DataFrame({"LogPf": [LogPf_by_res], "calc_name": [dataset_name], "Residues": [residues]})
+        LogPfs_to_add = pd.DataFrame({"LogPf": [LogPf_by_res], "calc_name": [dataset_name], "Residues": [residues], "name": self.settings.name})
         
         self.LogPfs = pd.concat([self.LogPfs, LogPfs_to_add], ignore_index=True)
 
@@ -477,10 +477,11 @@ class ValDXer(Experiment):
         expt_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
 
         no_weight_BV = ([None], 0.35, 2.0)
+        no_weight_name = "_".join(["no_weight", calc_name, str(rep)])
 
         self.recalculate_dataset(traj=traj,
                                 cr_bc_bh=no_weight_BV,
-                                dataset_name=expt_name,
+                                dataset_name=no_weight_name,
                                 segs=expt_segs,
                                 rates=rates,
                                 train=True)                                 
@@ -654,7 +655,7 @@ class ValDXer(Experiment):
         # plot the individual runs from train and val
         train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
         val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
-        test_rep_names = ["_".join(["test", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+        # test_rep_names = ["_".join(["test", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
         print(train_rep_names)
         print(val_rep_names)
         args = [expt_name, *train_rep_names]
@@ -668,10 +669,10 @@ class ValDXer(Experiment):
                             data=self.HDX_data, 
                             times=self.settings.times)
 
-        args = [expt_name, *test_rep_names]
-        plot_dfracs_compare(args, 
-                            data=self.HDX_data, 
-                            times=self.settings.times)
+        # args = [expt_name, *test_rep_names]
+        # plot_dfracs_compare(args, 
+        #                     data=self.HDX_data, 
+        #                     times=self.settings.times)
 
         # 
         expt_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
@@ -679,22 +680,23 @@ class ValDXer(Experiment):
         # train_val_segs = pd.concat([self.train_segs, self.val_segs], ignore_index=True)
 
         # segs = pd.merge(expt_segs, train_val_segs, on=["ResStr", "ResEnd"], how="outer")
-
+        print("Restoring trainval peptide numbers")
         merge_df = restore_trainval_peptide_nos(calc_name=calc_name,
                                     expt_name=expt_name,
                                     train_dfs=train_dfs,
                                     val_dfs=val_dfs,
-                                    test_dfs=test_dfs,
+                                    # test_dfs=test_dfs,
                                     train_segs=self.train_segs,
                                     val_segs=self.val_segs,
                                     n_reps=n_reps,
                                     times=self.settings.times,
                                     expt_segs=expt_segs)
 
-
+        print("Adding experimental data in to merge df")
         expt_df = self.HDX_data[self.HDX_data["calc_name"] == expt_name]
         merge_df = pd.concat([expt_df, merge_df], ignore_index=True)
         name = self.settings.name
+        print("dumping data")
         data_to_dump = {
             "train_dfs": train_dfs,
             "val_dfs": val_dfs,
@@ -710,7 +712,7 @@ class ValDXer(Experiment):
             "calc_name": calc_name,
             "train_rep_names": train_rep_names,
             "val_rep_names": val_rep_names,
-            "test_rep_names": test_rep_names,
+            # "test_rep_names": test_rep_names,
             "HDX_data": self.HDX_data,
             "train_gammas": train_gammas,
             "val_gammas": val_gammas,
@@ -720,12 +722,13 @@ class ValDXer(Experiment):
         }
         # add to dictionary
         self.analysis_dump[name] = data_to_dump
+        print("dumped data")
+        print(self.analysis_dump)
         # print(merge_df)
         args = [expt_name, *train_rep_names,  *val_rep_names]
 
 
             
-
         try:
             plot_dfracs_compare(args, 
                             data=merge_df, 

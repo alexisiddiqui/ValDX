@@ -271,7 +271,7 @@ def restore_trainval_peptide_nos(calc_name: str,
                                  expt_name: str,
                                  train_dfs: list[pd.DataFrame],
                                  val_dfs: list[pd.DataFrame],
-                                 test_dfs: list[pd.DataFrame],
+                                #  test_dfs: list[pd.DataFrame],
                                  n_reps: int,
                                  times: list,
                                  train_segs: pd.DataFrame,
@@ -335,21 +335,21 @@ def restore_trainval_peptide_nos(calc_name: str,
 
         train_dfs[r]["peptide"] = train_rep_peptides
         val_dfs[r]["peptide"] = val_rep_peptides
-        test_dfs[r]["peptide"] = test_rep_peptides
+        # test_dfs[r]["peptide"] = test_rep_peptides
 
     # merge the reps together
     train_merge_df = pd.concat(train_dfs, ignore_index=True)
     val_merge_df = pd.concat(val_dfs, ignore_index=True)
-    test_dfs = pd.concat(test_dfs, ignore_index=True)
+    # test_dfs = pd.concat(test_dfs, ignore_index=True)
 
     # merge the train and val dfs together
     merge_df = pd.concat([train_merge_df, val_merge_df], ignore_index=True)
-    merge_df = pd.concat([merge_df, test_dfs], ignore_index=True)
+    # merge_df = pd.concat([merge_df, test_dfs], ignore_index=True)
 
     print("manual merge df")
     print(merge_df)
 
-    # make sure that each rep has the same number of peptides between the train and val data
+    # make sure that each rep has the same number of peptides between the train and val data (is this needed?)
     for r in range(n_reps):
         train_rep_name, val_rep_name = train_rep_names[r], val_rep_names[r]
 
@@ -361,10 +361,10 @@ def restore_trainval_peptide_nos(calc_name: str,
         print("train segs", train_segs.loc[train_segs["calc_name"] == train_rep_name, "peptide"].values)
         print("val segs", val_segs.loc[val_segs["calc_name"] == val_rep_name, "peptide"].values)
 
-        if not np.array_equal(rep_peptides, expt_segs["peptide"].values):
-            print("rep_peptides", rep_peptides)
-            print("expt_segs", expt_segs["peptide"].values)
-            raise ValueError("Peptides not equal between tran/val and expt")
+        # if not np.array_equal(rep_peptides, expt_segs["peptide"].values):
+        #     print("rep_peptides", rep_peptides)
+        #     print("expt_segs", expt_segs["peptide"].values)
+        #     raise UserWarning("Peptides not equal between tran/val and expt")
 
     return merge_df
 

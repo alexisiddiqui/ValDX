@@ -493,8 +493,14 @@ def calc_traj_LogP_byres(universe:mda.Universe, B_C, B_H, stride=1, residues:np.
     print(traj_len)
 
     if len(weights) != traj_len:
+        print("weights must be the same length as the trajectory")
         weights = [1/traj_len]*traj_len
     print("weights sum: ", np.sum(weights))
+    
+# if any weights are nan then set then  weights = [1/traj_len]*traj_len
+    if np.isnan(weights).any():
+        weights = [1/traj_len]*traj_len
+        print("weights contain nan values, setting weights = [1/traj_len]*traj_len")
 
     if traj_len > 1:
         LogPf_by_res_mean = np.zeros(len(seg_indices))
@@ -566,4 +572,93 @@ def calc_dfrac_uptake_from_LogPf(LogPf_by_res, kints:dict, times:list, residues:
         
     return dfrac_uptake_by_res
         
+
+# def PDB_to_DSSP(top_path:str, dssp_path:str, sim_name:str):
+#     """
+#     Run DSSP on a PDB file to generate a DSSP file. Reads the output and returns a list of secondary structure elements.
+#     Secondary structure elements are reduced to a single character: H (alpha helix), S (beta sheet), or L (loop).
+#     Args:
+#     - pdb_path (str): The path to the PDB file.
+#     - dssp_path (str): The path to the DSSP file.
+#     Returns:
+#     - list of secondary structure elements by residue. 
+
+#     """
+#     # Run DSSP on the PDB file
+
+#     if sim_name is None:
+#         sim_name = "DSSP HEADER"
+
+#     pdb_test = mda.Universe(top_path)
+
+#     # write out as a pdb and add header
+#     pdb_test.atoms.write('do_mkdssp.pdb')
+#     with open('test.pdb', 'r') as original: data = original.read()
+#     with open('test.pdb', 'w') as modified: modified.write('HEADER    '+sim_name+'\n'+data)
+
+#     # Run DSSP on the PDB file
+
+
+
+def PDB_to_DSSP(top_path: str, dssp_path: str=None, sim_name: str=None):
+    """
+    Run DSSP on a PDB file to generate a DSSP file. Reads the output and returns a list of secondary structure elements.
+    Secondary structure elements are reduced to a single character: H (alpha helix), S (beta sheet), or L (loop).
+    Args:
+    - top_path (str): The path to the topology file to create the PDB file from.
+    - dssp_path (str): The path to save the DSSP file.
+    - sim_name (str): Simulation name to be included in the HEADER of the PDB file.
+    Returns:
+    - List of tuples, each containing the residue number and its secondary structure element.
+    """
+    temp_pdb = "do_mkdssp.pdb"
+
+    if sim_name is None:
+        sim_name = "DSSP HEADER"
+    if dssp_path is None:
+        dssp_path = "dssp_file.dssp"
+    print(top_path)
+    pdb_test = mda.Universe(top_path)
+
+    # write out as a pdb and add header
+    pdb_test.atoms.write(temp_pdb)
+
+
+    with open(temp_pdb, 'r') as original: data = original.read()
+    with open(temp_pdb, 'w') as modified: modified.write('HEADER    '+sim_name+'\n'+data)
+
+    # Run mkdssp to generate DSSP file
+    try:
+        subprocess.run(['mkdssp', temp_pdb,  dssp_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error running DSSP: {e}")
+        return []
+
+    # Parse the DSSP file
+    secondary_structures = []
+    with open(dssp_path, 'r') as dssp_file:
+        # Skip header lines
+        for line in dssp_file:
+            if line.startswith('  #  RESIDUE AA'):
+                break
+        # Read the secondary structure assignments
+        for line in dssp_file:
+            if len(line) > 13:  # Ensure line has enough data
+                residue_num = line[5:10].strip()
+                ss = line[16]
+                # Simplify the secondary structure to H, S, or L
+                if ss in 'GHI':
+                    ss = 'H'  # Helix
+                elif ss in 'EB':
+                    ss = 'S'  # Sheet
+                else:
+                    ss = 'L'  # Loop or other
+                secondary_structures.append((residue_num, ss))
+
+    # Cleanup temp PDB file
+    os.remove(temp_pdb)
+    os.remove(dssp_path)
+    print(len(secondary_structures))
+    print(len(pdb_test.residues))
+    return secondary_structures
 

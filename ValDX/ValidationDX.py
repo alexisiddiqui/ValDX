@@ -11,6 +11,7 @@ import time
 import os 
 import pickle
 import glob
+import copy
 import subprocess
 import numpy as np
 import concurrent.futures
@@ -508,6 +509,79 @@ class ValDXer(Experiment):
 
         return val_df, test_df
 
+    def write_data_split_PDB(self, calc_name, expt_name, rep):
+        """
+        Write out the PDB files for the train, val and test splits
+        """
+        rep_name = "_".join(["train", calc_name, str(rep)])
+        val_name = "_".join(["val", calc_name, str(rep)])
+        top, traj = self.prepare_structures(calc_name=calc_name)
+        print("Topology", top)
+        top.add_TopologyAttr('bfactors')
+        # write out the PDB files for the train, val and test splits
+        train_segs = self.train_segs[self.train_segs["calc_name"] == rep_name].copy()
+        val_segs = self.val_segs[self.val_segs["calc_name"] == val_name].copy()
+
+
+        train_segs = self.train_segs[self.train_segs["calc_name"] == rep_name].copy()
+        val_segs = self.val_segs[self.val_segs["calc_name"] == val_name].copy()
+
+        train_segs["residues"] = train_segs.apply(lambda x: list(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
+        val_segs["residues"] = val_segs.apply(lambda x: list(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
+
+        train_residues = np.concatenate(train_segs["residues"].to_numpy())
+        val_residues = np.concatenate(val_segs["residues"].to_numpy())
+
+        train_residues = np.unique(train_residues)-1
+        val_residues = np.unique(val_residues)-1
+
+
+        train_top = top.copy()
+        val_top = top.copy()
+        # assign bfactor to residues in the train and val splits
+
+        train_bfactors = np.zeros(len(train_top.residues))
+        val_bfactors = np.zeros(len(val_top.residues))
+
+        train_bfactors[train_residues] = 1
+        val_bfactors[val_residues] = 1
+
+        for idx,_ in enumerate(train_bfactors):
+            # pick residue and then assign bfactor to all atoms in the residue
+            train_res = train_top.residues[idx]
+            val_res = val_top.residues[idx]
+
+            for atom in train_res.atoms:
+                atom.bfactor = train_bfactors[idx]
+            for atom in val_res.atoms:
+                atom.bfactor = val_bfactors[idx]
+
+
+
+
+        name = self.settings.name
+        
+
+        time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        train_pdb_name = "_".join(["train", str(rep), name, time]) + ".pdb"
+        val_pdb_name = "_".join(["val", str(rep), name, time]) + ".pdb"
+
+        out_dir = os.path.join(self.settings.results_dir, name)
+
+        train_pdb_path = os.path.join(out_dir, train_pdb_name)
+        val_pdb_path = os.path.join(out_dir, val_pdb_name)
+
+        os.makedirs(out_dir, exist_ok=True)
+
+        print(f"Writing train PDB to {train_pdb_path}")
+        train_top.atoms.write(train_pdb_path)
+        print(f"Writing val PDB to {val_pdb_path}")
+        val_top.atoms.write(val_pdb_path)
+        
+
+
+
+        
 
 
     def run_VDX(self, 
@@ -551,6 +625,14 @@ class ValDXer(Experiment):
                                                         rep=rep,
                                                         train_gamma=train_opt_gamma,
                                                         cr_bc_bh=cr_bc_bh)
+            
+
+            self.write_data_split_PDB(calc_name=calc_name,
+                                        expt_name=expt_name,
+                                        rep=rep)
+            
+
+
             val_gammas.append(val_opt_gamma)  
 
             train_dfs.append(train_df)

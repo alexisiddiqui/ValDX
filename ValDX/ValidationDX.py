@@ -18,7 +18,7 @@ import concurrent.futures
 import MDAnalysis as mda
 import seaborn as sns
 import datetime
-
+from typing import List, Tuple
 # from .reweighting import MaxEnt
 
 from ValDX.VDX_Settings import Settings
@@ -706,9 +706,9 @@ class ValDXer(Experiment):
     
 
     def evaluate_HDX(self, 
-                     train_dfs: list[pd.DataFrame], 
-                     val_dfs: list[pd.DataFrame], 
-                     test_dfs: list[pd.DataFrame],
+                     train_dfs: List[pd.DataFrame], 
+                     val_dfs: List[pd.DataFrame], 
+                     test_dfs: List[pd.DataFrame],
                      data: pd.DataFrame=None, 
                      expt_name: str=None, 
                      calc_name: str=None, 

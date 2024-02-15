@@ -6,6 +6,7 @@ import pandas as pd
 import MDAnalysis as mda
 from .reweighting import MaxEnt
 from scipy.optimize import curve_fit
+from typing import Tuple, Dict, List
 
 import cProfile
 import pstats
@@ -228,7 +229,7 @@ def dfracs_to_df(path: str, names: list):
 
 
 
-def run_MaxEnt(args: tuple[dict, int]):
+def run_MaxEnt(args: Tuple[Dict, int]):
     """
     Run MaxEnt reweighting on HDX data.
     Takes arg as a dictionary - designed to be used for multiprocessing
@@ -269,11 +270,11 @@ def run_MaxEnt(args: tuple[dict, int]):
 
 def restore_trainval_peptide_nos(calc_name: str, 
                                  expt_name: str,
-                                 train_dfs: list[pd.DataFrame],
-                                 val_dfs: list[pd.DataFrame],
-                                #  test_dfs: list[pd.DataFrame],
+                                 train_dfs: List[pd.DataFrame],
+                                 val_dfs: List[pd.DataFrame],
+                                #  test_dfs: List[pd.DataFrame],
                                  n_reps: int,
-                                 times: list,
+                                 times: List,
                                  train_segs: pd.DataFrame,
                                  val_segs: pd.DataFrame,
                                  expt_segs: pd.DataFrame,
@@ -526,7 +527,7 @@ def kints_to_dict(rates_path):
     rates_dict = rates.set_index(0).to_dict()[1]
     return rates_dict
 
-def merge_kint_dicts_into_df(kint_dicts:list[dict]):
+def merge_kint_dicts_into_df(kint_dicts:List[dict]):
     # key = Resid
     # value = kint
     # convert dicts to dfs

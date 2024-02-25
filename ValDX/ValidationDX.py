@@ -372,11 +372,14 @@ class ValDXer(Experiment):
         residues = segs["Residues"].to_numpy()
         residues = np.concatenate(residues)
         residues = np.unique(residues)
+        start_res = np.sort(residues)[0]
+
         print(f"Residues for recalculation: {residues}")
         print(residues)
         print(rates.keys())
         # filter residues that dont exist in rates using numpy
         residues = np.array([res for res in residues if res in rates.keys()])
+
         print(f"Residues for recalculation: {residues}")
 
 

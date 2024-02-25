@@ -7,6 +7,7 @@ import MDAnalysis as mda
 from .reweighting import MaxEnt
 from scipy.optimize import curve_fit
 from typing import Tuple, Dict, List
+from concurrent.futures import ProcessPoolExecutor
 
 import cProfile
 import pstats
@@ -28,7 +29,7 @@ def conda_to_env_dict(env_name):
     
     # Decode result to string and split lines
     envs = result.stdout.decode().splitlines()
-    
+    print("envs", envs)
     # Initialize an empty path
     path = None
 
@@ -40,9 +41,11 @@ def conda_to_env_dict(env_name):
             parts = env.split()
             # The environment name should be the first component, and the path should be the last
             name = parts[0].strip()
+            print("name", name)
             env_path = parts[-1].strip()
             # Check if the environment name matches the one we're looking for
             if name == env_name:
+                print(f"Environment '{env_name}' found.")
                 path = env_path
                 break
 
@@ -57,7 +60,7 @@ def conda_to_env_dict(env_name):
         env_vars = os.environ.copy()
         # Update the PATH to include the bin directory of the conda environment
         env_vars['PATH'] = env_path + os.pathsep + env_vars['PATH']
-        
+        print("PATH", env_vars['PATH'])
         return env_vars
 
 
@@ -235,8 +238,8 @@ def run_MaxEnt(args: Tuple[Dict, int]):
     Takes arg as a dictionary - designed to be used for multiprocessing
     returns nothing as files are written to disk
     """
-    pr = cProfile.Profile()
-    pr.enable()
+    # pr = cProfile.Profile()
+    # pr.enable()
 
     # The original content of run_MaxEnt
     args, r = args
@@ -254,17 +257,17 @@ def run_MaxEnt(args: Tuple[Dict, int]):
                         restart_interval=args["restart_interval"], 
                         out_prefix=out_prefix)
     
-    pr.disable()
+    # pr.disable()
     # Save results to a file
-    cprofile_log = out_prefix + f"_gamma_{r}x10^{args['exponent']}_cprofile.prof"
-    pr.dump_stats(cprofile_log)
+    # cprofile_log = out_prefix + f"_gamma_{r}x10^{args['exponent']}_cprofile.prof"
+    # pr.dump_stats(cprofile_log)
 
     # Print results to the console
-    s = io.StringIO()
-    sortby = pstats.SortKey.CUMULATIVE
-    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-    ps.print_stats()
-    print(s.getvalue())
+    # s = io.StringIO()
+    # sortby = pstats.SortKey.CUMULATIVE
+    # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    # ps.print_stats()
+    # print(s.getvalue())
 
     return (currweights, bv_bc, bv_bh)
 
@@ -483,6 +486,59 @@ def calc_LogP_by_res(structure: mda.Universe, B_C=0.35, B_H=2.0, cut_C=6.5, cut_
     return LogPf_by_res
 
 
+
+def calc_LogP_frame_by_res(structure: mda.Universe, frame:int, B_C=0.35, B_H=2.0, cut_C=6.5, cut_H=2.4):
+    # cut_C, cut_H = 6.5, 2.4  # Angstroms
+
+    n_C, n_H = [], []
+    structure = structure.select_atoms("protein")
+    structure.universe.trajectory[frame]
+
+    for res in structure.residues:
+        resid = res.resid
+        # print("Resi: ",  resid)
+
+        amide_N = res.atoms.select_atoms(f"name N and resid {resid}")
+        amide_H = res.atoms.select_atoms(f"name H or name H1 or name H2 or name H3 and resid {resid}")
+        # print(amide_N.positions)
+        amide_N_pos_string = " ".join([str(i) for i in amide_N.positions[0]])
+
+        resi_excl = " or ".join([f"resid {resid+i}" for i in range(-2,3)])
+
+        heavy_atom_selection = f"point {amide_N_pos_string} {cut_C} and not name H* and not ({resi_excl})"
+        heavy_atoms = structure.select_atoms(heavy_atom_selection, periodic=False)
+        # print("heavy_atoms", heavy_atoms)
+        n_C.append(len(heavy_atoms))
+
+        amide_H_positions = amide_H.positions
+        total = 0
+        for hydrogen in amide_H_positions:
+            hydrogen_pos_string = " ".join([str(i) for i in hydrogen])
+            acceptor_atom_selection = f"point {hydrogen_pos_string} {cut_H} and type O and not (name N and resid {resid}) and not ({resi_excl})"
+            acceptor_atoms = structure.select_atoms(acceptor_atom_selection, periodic=False)
+
+            total += len(acceptor_atoms)
+
+        # Handle case where no hydrogens are found
+        if len(amide_H_positions) > 0:
+            n_H.append(total)
+        else:
+            n_H.append(0) # No hydrogens found
+
+    n_C = np.array(n_C)
+    n_H = np.array(n_H)
+
+    # print("Heavy atom contacts: ", n_C)
+    # print("Hydrogen bond contacts: ", n_H)
+
+    Log_Pf_C = B_C * n_C
+    Log_Pf_H = B_H * n_H
+    LogPf_by_res = Log_Pf_C + Log_Pf_H
+
+    return LogPf_by_res
+
+
+
 def calc_traj_LogP_byres(universe:mda.Universe, B_C, B_H, stride=1, residues:np.array=None, weights:list=[1]):
     # convert residues to indices
     # print("residues", residues)
@@ -505,18 +561,23 @@ def calc_traj_LogP_byres(universe:mda.Universe, B_C, B_H, stride=1, residues:np.
 
     if traj_len > 1:
         LogPf_by_res_mean = np.zeros(len(seg_indices))
-        for idx, ts in enumerate(universe.trajectory[::stride]):
-            LogPf_by_res = calc_LogP_by_res(universe, B_C, B_H)
-            
-            # print("LogPf_by_res", LogPf_by_res)
-            LogPf_by_res = LogPf_by_res[seg_indices]
-        
-            LogPf_by_res *= weights[idx]
-            LogPf_by_res_mean += LogPf_by_res
+        # multiprocess calc_LogP_frame_by_res
+        with ProcessPoolExecutor() as executor:
+            args = [(universe, frame, B_C, B_H) for frame in range(0, traj_len, stride)]
+            LogPf_by_frame = list(executor.map(calc_LogP_frame_by_res, *zip(*args)))
+            LogPf_by_frame = np.array(LogPf_by_frame)
+            # apply weights
+            weights = np.array(weights)
+            LogPf_by_frame = np.multiply(LogPf_by_frame, weights.reshape(-1,1)) 
+            # sum over frames
+            LogPf_by_res_mean = np.sum(LogPf_by_frame, axis=0)
+            # slice by seg_indices
+            LogPf_by_res_mean = LogPf_by_res_mean[seg_indices]
+            return (LogPf_by_res_mean)
 
-        return (LogPf_by_res_mean)
+        # return (LogPf_by_res_mean)
     elif traj_len == 1:
-        LogPf_by_res= calc_LogP_by_res(universe, B_C, B_H)
+        LogPf_by_res = calc_LogP_by_res(universe, B_C, B_H)
         LogPf_by_res = LogPf_by_res[seg_indices]
         LogPf_by_res_mean = LogPf_by_res
         return (LogPf_by_res_mean)

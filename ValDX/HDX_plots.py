@@ -1,4 +1,6 @@
 # Plotting functions - make them universal so other scripts can use them
+import matplotlib
+matplotlib.use('TkAgg')  # Example for using the TkAgg backend
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
@@ -45,6 +47,11 @@ def plot_dfracs(args: list, data: pd.DataFrame, times: list, segs: pd.DataFrame,
     fig.text(0.5, 0.095, 'Residue', ha='center', fontsize=22)
     fig.text(0.05, 0.5, 'HDX deuterated fractions', va='center', rotation='vertical', fontsize=22)
 
+    if save is True and save_dir is not None:
+        save_name = " ".join(args) + "_plot_dfracs.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path)
+
 def plot_peptide_redundancy(top: mda.Universe, segs: pd.DataFrame, save=False, save_dir=None):
     """Plot peptide redundancy.
 
@@ -86,7 +93,14 @@ def plot_peptide_redundancy(top: mda.Universe, segs: pd.DataFrame, save=False, s
     ax.set_xlabel('Residue Number')
     ax.set_ylabel('Residue Frequency')
 
+
+    if save is True and save_dir is not None:
+        save_name = "peptide_redundancy.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path)
+
     plt.show()
+    plt.close()
 
 
 def plot_heatmap_compare(args: list, data: pd.DataFrame, top: mda.Universe, segs: pd.DataFrame, times: list):
@@ -158,6 +172,8 @@ def plot_heatmap_compare(args: list, data: pd.DataFrame, top: mda.Universe, segs
 
     plt.suptitle('BPTI HDX deuterated fractions heatmap', fontsize=22)
     plt.tight_layout()
+
+
     plt.show()
 
         
@@ -249,8 +265,8 @@ def plot_heatmap_errors(args: list, data: pd.DataFrame, top: mda.Universe, segs:
 
     plt.suptitle('BPTI HDX deuterated fractions deviation heatmap', fontsize=22)
     plt.tight_layout()
-    plt.show()
 
+    plt.show()
 
 def plot_peptide_dfracs(args: list, data: pd.DataFrame, times: list, top: mda.Universe, segs: pd.DataFrame, save=False, save_dir=None):
         
@@ -338,9 +354,15 @@ def plot_peptide_dfracs(args: list, data: pd.DataFrame, times: list, top: mda.Un
 
     plt.suptitle('BPTI HDX deuterated fractions heatmap', fontsize=22)
     plt.tight_layout()
+
+
+
+
+    if save is True and save_dir is not None:
+        save_name = " ".join(args) + "_plot_peptide_dfracs.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path)
     plt.show()
-
-
 
 
 
@@ -445,6 +467,13 @@ def plot_peptide_dfracs_errors(args: list, data: pd.DataFrame, top: mda.Universe
 
     plt.suptitle('BPTI HDX deuterated fractions emp error heatmap', fontsize=22)
     plt.tight_layout()
+
+
+    if save is True and save_dir is not None:
+        save_name = " ".join(args) + "_plot_peptide_dfracs_errors.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path)
+
     plt.show()
 
 
@@ -531,6 +560,13 @@ def plot_dfracs_error(args: list, data: pd.DataFrame, RMSF: list or np.ndarray, 
 
 
 
+    if save is True and save_dir is not None:
+        save_name = " ".join(args) + "_plot_dfracs_error.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path)
+    
+    plt.show()
+    plt.close()
 
 
 def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0, key: str='calc_name'):   
@@ -608,6 +644,12 @@ def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False,
         save_path = os.path.join(save_dir, save_name)
         
 
+
+    if save is True and save_dir is not None:
+        save_name = " ".join(args) + "_plot_dfracs_compare.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path)
+
     plt.show()
     plt.close()
 
@@ -682,9 +724,16 @@ def plot_dfracs_compare_abs(args: list, data: pd.DataFrame, times: list, save=Fa
     plt.ylabel('HDX Protection Factor')
     plt.ylim(-0.05, 1.05)
     plt.legend(loc='upper right')
+
+
+    if save_dir is not None:
+        save_name = " ".join(args) + "_plot_dfracs_compare_abs.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path)
+
     plt.show()
-    fig.text(0.5, 0.095, 'Residue', ha='center', fontsize=22)
-    fig.text(0.05, 0.5, 'HDX df abs error from expt', va='center', rotation='vertical', fontsize=22)
+
+    plt.close()    
 
 
 
@@ -768,13 +817,15 @@ def plot_dfracs_compare_MSE(args: list, data: pd.DataFrame, times: list, save=Fa
     plt.ylabel('HDX Protection Factor')
     # plt.ylim(-0.005, 0.005)
     plt.legend(loc='upper right')
-    plt.show()
+
+
     # df_differences = df_differences.drop(columns=['Type'])
     if save and save_dir is not None:
         # save plot
         save_name = " ".join(args) + "_plot_dfracs_compare_MSE.png"
         save_path = os.path.join(save_dir, save_name)
-        
+    plt.show()
+    plt.close()
 
     return df_differences
 
@@ -846,13 +897,15 @@ def plot_dfracs_compare_hist(args: list, data: pd.DataFrame, times: list,  save=
         ax.legend(loc='upper right')
 
     plt.tight_layout()
+
+
+    if save is True and save_dir is not None:
+        save_name = " ".join(args) + "_plot_dfracs_compare_hist.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path)
+
     plt.show()
-            #     print("Incorrect argument given. Please choose one or more of the following: 'expt' 'pred' 'reweighted'")
-    fig.text(0.5, 0.095, 'Residue', ha='center', fontsize=22)
-    fig.text(0.05, 0.5, 'HDX df compare to expt', va='center', rotation='vertical', fontsize=22)
-
-
-
+    plt.close()
 
 
 def plot_dfracs_compare_hist_errors(args: list, data: pd.DataFrame, times: list,  save=False, save_dir=None, expt_index: int=0):
@@ -927,11 +980,15 @@ def plot_dfracs_compare_hist_errors(args: list, data: pd.DataFrame, times: list,
         ax.legend(loc='upper right')
 
     plt.tight_layout()
-    plt.show()
-            #     print("Incorrect argument given. Please choose one or more of the following: 'expt' 'pred' 'reweighted'")
-    fig.text(0.5, 0.095, 'Residue', ha='center', fontsize=22)
-    fig.text(0.05, 0.5, 'HDX df compare to expt', va='center', rotation='vertical', fontsize=22)
 
+
+    if save is True and save_dir is not None:
+        save_name = " ".join(args) + "_plot_dfracs_compare_hist_errors.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path)
+    
+    plt.show()
+    plt.close()
 
 
 def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0, key: str='calc_name'):
@@ -1013,14 +1070,16 @@ def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, 
             ax.set_title(f'Pairwise comparison at time {t} min')
         
     plt.tight_layout()
-    plt.show()
+
+
 
     if save and save_dir is not None:
         # save plot
         save_name = " ".join(args) + "_plot_paired_errors.png"
         save_path = os.path.join(save_dir, save_name)
         
-
+    plt.show()
+    plt.close()
 
 
 
@@ -1119,13 +1178,15 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
     plt.ylabel('W$_{app}$ / kJ mol$^{-1}$')
 
 
+
     if (save is True) and (save_dir is not None):
         save_name = f'{calc_name}_decision_plot.png'
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path, format='png', dpi=300)
 
-
     plt.show()
+
+
     plt.close()
 
 
@@ -1146,6 +1207,8 @@ def plot_gamma_distribution(train_gammas: list, val_gammas: list, calc_name: str
         plt.savefig(save_path, format='png', dpi=300)
 
     plt.show()
+
+
     plt.close()
 
     # if save:
@@ -1291,6 +1354,8 @@ def plot_gamma_distribution(train_gammas: list, val_gammas: list, calc_name: str
 #         plt.tight_layout()
 #         plt.show()
 
+
+
 def plot_R_agreement_trainval(expt_name: str, 
                                   expt_segs: pd.DataFrame,
                                   top: mda.Universe,
@@ -1404,6 +1469,8 @@ def plot_R_agreement_trainval(expt_name: str,
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path, format='png', dpi=300)
     plt.show()
+
+
     plt.close()
 
     # plot_df.drop(columns=["Type"])
@@ -1491,6 +1558,8 @@ def plot_heatmap_trainval_compare(expt_names: list,
     plt.suptitle('BPTI HDX deuterated fractions heatmap', fontsize=22)
     plt.tight_layout()
     plt.show()
+
+
     plt.close()
 
 
@@ -1647,6 +1716,8 @@ def plot_heatmap_trainval_compare_error(expt_names: list,
 
 
 
+
+
     residues = expt_segs
     peptides = residues['peptide'].to_list()
     residues["Residue"] = residues.apply(lambda x: tuple(range(x.ResStr, x.ResEnd+1)), axis=1)
@@ -1732,4 +1803,6 @@ def plot_heatmap_trainval_compare_error(expt_names: list,
     plt.suptitle('BPTI HDX deuterated fractions heatmap', fontsize=22)
     plt.tight_layout()
     plt.show()
+
+
 

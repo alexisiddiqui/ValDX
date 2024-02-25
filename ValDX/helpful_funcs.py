@@ -60,6 +60,7 @@ def conda_to_env_dict(env_name):
         env_vars = os.environ.copy()
         # Update the PATH to include the bin directory of the conda environment
         env_vars['PATH'] = env_path + os.pathsep + env_vars['PATH']
+        os.environ['CONDA_PREFIX'] = env_path
         print("PATH", env_vars['PATH'])
         return env_vars
 

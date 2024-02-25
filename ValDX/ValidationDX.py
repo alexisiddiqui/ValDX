@@ -117,17 +117,26 @@ class ValDXer(Experiment):
         calc_hdx = os.path.join(self.HDXer_path, "HDXer", "calc_hdx.py")
 
 
-        test_HDX_command = ['python', calc_hdx, '-h']
+        # test_HDX_command = ['python', calc_hdx, '-h']
 
+        # test_HDX_command = ['conda', 'run', '-n', 'HDXER_ENV', "python", calc_hdx, '-h']
         env_path = conda_to_env_dict(self.HDXer_env)
+        print("calc_hdx")
+        print(calc_hdx)
+        test_HDX_command = f"""
+        conda activate HDXER_ENV
+        python {calc_hdx} -h
+        """
+        # print(" ".join(test_HDX_command))
         try:
             _ = subprocess.run(test_HDX_command, 
-                           env=env_path, 
+                            shell=True, executable="/bin/bash",
+                        #    env=env_path, 
                            check=True,
                            capture_output=True)
             return True
-        except subprocess.CalledProcessError:
-            print("HDXer failed to run. Check the HDXer environment and executable path.")
+        except:
+            raise EnvironmentError("HDXer failed to run. Check the HDXer environment and executable path.")
             return False
 
 
@@ -167,10 +176,12 @@ class ValDXer(Experiment):
         times_as_str_list = [str(time) for time in self.settings.times]
         times_as_str = ' '.join(times_as_str_list)
 
+        python = "python"
+        python = "conda run -n HDXER_ENV python"
 
         if self.load_HDXer():
             ### how do we add times
-            calc_hdx_command = ["python",
+            calc_hdx_command = [python,
                                 calc_hdx,
                                 "-t", *trajs,
                                 "-p", top,
@@ -559,9 +570,6 @@ class ValDXer(Experiment):
             for atom in val_res.atoms:
                 atom.bfactor = val_bfactors[idx]
 
-
-
-
         name = self.settings.name
         
 
@@ -642,9 +650,11 @@ class ValDXer(Experiment):
             val_dfs.append(val_df)
             test_dfs.append(test_df)
 
+        print("Finished running VDX loop")
 
         # evaluate HDX train vs val - how do we actually compare both? I guess we just take the average across the reps - how do we account for peptides?
         try:
+            print("Evaluating HDX")
             self.evaluate_HDX(train_dfs=train_dfs, 
                           val_dfs=val_dfs, 
                           expt_name=expt_name, 
@@ -653,6 +663,7 @@ class ValDXer(Experiment):
                           train_gammas=train_gammas, 
                           val_gammas=val_gammas,
                           n_reps=n_reps)
+            print("Finished evaluating HDX")
         # plot optimal gamma distributions
         except UserWarning:
             print("Unable to evaluate HDX")
@@ -723,14 +734,17 @@ class ValDXer(Experiment):
         if self.settings.save_figs:
 
             save_dir = os.path.join(self.settings.plot_dir, self.settings.name)
-            os.removedirs(save_dir)
+            try:
+                os.removedirs(save_dir)
+            except:
+                pass
             os.makedirs(save_dir, exist_ok=True)
 
         else:
             save_dir = None
 
         times = self.settings.times
-
+        print("plotting gamma distributions")
         plot_gamma_distribution(calc_name=calc_name, 
                                 train_gammas=train_gammas, 
                                 val_gammas=val_gammas,
@@ -744,12 +758,13 @@ class ValDXer(Experiment):
         print(train_rep_names)
         print(val_rep_names)
         args = [expt_name, *train_rep_names]
-        
+        print("plotting dfracs compare for train")
         plot_dfracs_compare(args, 
                             data=self.HDX_data, 
                             times=self.settings.times)
 
         args = [expt_name, *val_rep_names]
+        print("plotting dfracs compare for val")
         plot_dfracs_compare(args, 
                             data=self.HDX_data, 
                             times=self.settings.times)
@@ -815,6 +830,7 @@ class ValDXer(Experiment):
 
             
         try:
+            print("plotting dfracs compare for merge_df")
             plot_dfracs_compare(args, 
                             data=merge_df, 
                             times=self.settings.times,
@@ -826,6 +842,7 @@ class ValDXer(Experiment):
 
 
         try:    
+            print("plotting dfracs compare abs for merge_df")
             plot_paired_errors(args,
                             data=merge_df, 
                             times=self.settings.times,
@@ -866,7 +883,7 @@ class ValDXer(Experiment):
         #                             times=self.settings.times, 
         #                             top=top)
 
-    
+        print("plotting R agreement")
         plot_df = plot_R_agreement_trainval(expt_name=expt_name, 
                                 train_names=train_names, 
                                 val_names=val_names, 
@@ -876,7 +893,7 @@ class ValDXer(Experiment):
                                 top=top,
                                 save=self.settings.save_figs,
                                 save_dir=save_dir)
-        
+        print("concat plot_df")
         self.analysis = pd.concat([self.analysis, plot_df], ignore_index=True)
         # return
 
@@ -913,6 +930,7 @@ class ValDXer(Experiment):
 
         # plot abs error for train and val
         try:
+            print("plotting abs error for nan_df")
             plot_dfracs_compare_abs(args, 
                             data=nan_df, 
                             times=self.settings.times,
@@ -923,6 +941,7 @@ class ValDXer(Experiment):
         ####
         # plot MSE for train and val
         try:
+            print("plotting MSE for nan_df")
             plot_df = plot_dfracs_compare_MSE(args, 
                             data=nan_df, 
                             times=self.settings.times,
@@ -987,6 +1006,7 @@ class ValDXer(Experiment):
         # plot train and val against expt data with compare plot
         args = [expt_name, train_avg_name, val_avg_name]
         try:
+            print("plotting dfracs compare for avg_df")
             plot_dfracs_compare(args,
                              data=avg_df, 
                              times=self.settings.times,
@@ -996,6 +1016,7 @@ class ValDXer(Experiment):
             print("Unable to plot compare plot for avg_df")
         # plot train and val averages against expt data with paired plot
         try:
+            print("plotting paired errors for avg_df")
             plot_paired_errors(args, 
                            data=avg_df, 
                            times=self.settings.times,

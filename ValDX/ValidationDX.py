@@ -27,7 +27,6 @@ from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, se
 from ValDX.HDX_plots import plot_lcurve, plot_gamma_distribution, plot_dfracs_compare, plot_paired_errors, plot_heatmap_trainval_compare, plot_heatmap_trainval_compare_error, plot_R_agreement_trainval, plot_dfracs_compare_MSE, plot_dfracs_compare_abs
 
 
-
 class ValDXer(Experiment):
     def __init__(self, 
                  settings: Settings, 
@@ -227,6 +226,7 @@ class ValDXer(Experiment):
                      gamma_range: tuple=None, 
                      train: bool=True, 
                      rep: int=None, 
+                     weights: np.array=None,
                      train_gamma: float=None):
         """
         R   eweight HDX data from previsously predicted HDX data performed by predict_HDX().
@@ -284,6 +284,7 @@ class ValDXer(Experiment):
                 "exponent": exponent,
                 "random_initial": self.settings.random_initialisation,
                 "temp": self.settings.temp,
+                'iniweights': weights
                 }
             args_e.append(args)
         print(args_e)
@@ -600,6 +601,7 @@ class ValDXer(Experiment):
                 expt_name: str=None, 
                 mode: str=None, # not implemented yet
                 n_reps: int=None, 
+                weights: np.array=None,
                 random_seeds: list=None):
         
         if n_reps is None:
@@ -626,6 +628,7 @@ class ValDXer(Experiment):
             train_opt_gamma, train_df, cr_bc_bh = self.train_HDX(calc_name=calc_name, 
                                                        expt_name=expt_name, 
                                                        mode=mode, 
+                                                       weights=weights,
                                                        rep=rep)
             train_gammas.append(train_opt_gamma)
 
@@ -675,6 +678,7 @@ class ValDXer(Experiment):
                   calc_name: str=None, 
                   expt_name: str=None, 
                   mode: str=None, 
+                  weights: np.array=None,
                   rep: int=None):
         ### need to rethink how to do train - val split for the names - each train rep needs to be in its own folder - reweighting uses an entire directory
 
@@ -691,6 +695,7 @@ class ValDXer(Experiment):
         gamma, df, cr_bc_bh = self.reweight_HDX(expt_name=expt_name, 
                                       calc_name=calc_name, 
                                       train=True, 
+                                      weights=weights,
                                       rep=rep)
 
         self.HDX_data = pd.concat([self.HDX_data, df], ignore_index=True)
@@ -731,6 +736,19 @@ class ValDXer(Experiment):
                      val_gammas: float=None, 
                      n_reps: int=None):
         
+        # return evaluate_notebook(self,
+        #                             train_dfs=train_dfs,
+        #                             val_dfs=val_dfs,
+        #                             test_dfs=test_dfs,
+        #                             data=data,
+        #                             expt_name=expt_name,
+        #                             calc_name=calc_name,
+        #                             mode=mode,
+        #                             train_gammas=train_gammas,
+        #                             val_gammas=val_gammas,
+        #                             n_reps=n_reps)
+    
+
         if self.settings.save_figs:
 
             save_dir = os.path.join(self.settings.plot_dir, self.settings.name)

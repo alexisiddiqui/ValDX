@@ -1,6 +1,6 @@
 # Plotting functions - make them universal so other scripts can use them
 import matplotlib
-matplotlib.use('TkAgg')  # Example for using the TkAgg backend
+# matplotlib.use('TkAgg')  # Example for using the TkAgg backend
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap

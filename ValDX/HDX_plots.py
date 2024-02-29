@@ -175,7 +175,7 @@ def plot_heatmap_compare(args: list, data: pd.DataFrame, top: mda.Universe, segs
 
 
     plt.show()
-
+    plt.close()
         
 
 
@@ -267,6 +267,7 @@ def plot_heatmap_errors(args: list, data: pd.DataFrame, top: mda.Universe, segs:
     plt.tight_layout()
 
     plt.show()
+    plt.close()
 
 def plot_peptide_dfracs(args: list, data: pd.DataFrame, times: list, top: mda.Universe, segs: pd.DataFrame, save=False, save_dir=None):
         
@@ -362,7 +363,9 @@ def plot_peptide_dfracs(args: list, data: pd.DataFrame, times: list, top: mda.Un
         save_name = " ".join(args) + "_plot_peptide_dfracs.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
-    plt.show()
+    else:
+        plt.show()
+        plt.close()
 
 
 
@@ -473,8 +476,9 @@ def plot_peptide_dfracs_errors(args: list, data: pd.DataFrame, top: mda.Universe
         save_name = " ".join(args) + "_plot_peptide_dfracs_errors.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
-
-    plt.show()
+    else:
+        plt.show()
+        plt.close()
 
 
 
@@ -564,9 +568,9 @@ def plot_dfracs_error(args: list, data: pd.DataFrame, RMSF: list or np.ndarray, 
         save_name = " ".join(args) + "_plot_dfracs_error.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
-    
-    plt.show()
-    plt.close()
+    else:
+        plt.show()
+        plt.close()
 
 
 def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0, key: str='calc_name'):   
@@ -649,9 +653,9 @@ def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False,
         save_name = " ".join(args) + "_plot_dfracs_compare.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
-
-    plt.show()
-    plt.close()
+    else:
+        plt.show()
+        plt.close()
 
 
 def plot_dfracs_compare_abs(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0, key: str='calc_name'):   
@@ -730,10 +734,10 @@ def plot_dfracs_compare_abs(args: list, data: pd.DataFrame, times: list, save=Fa
         save_name = " ".join(args) + "_plot_dfracs_compare_abs.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
+    else:
+        plt.show()
 
-    plt.show()
-
-    plt.close()    
+        plt.close()    
 
 
 
@@ -824,8 +828,10 @@ def plot_dfracs_compare_MSE(args: list, data: pd.DataFrame, times: list, save=Fa
         # save plot
         save_name = " ".join(args) + "_plot_dfracs_compare_MSE.png"
         save_path = os.path.join(save_dir, save_name)
-    plt.show()
-    plt.close()
+        plt.savefig(save_path)
+    else:
+        plt.show()
+        plt.close()
 
     return df_differences
 
@@ -903,9 +909,9 @@ def plot_dfracs_compare_hist(args: list, data: pd.DataFrame, times: list,  save=
         save_name = " ".join(args) + "_plot_dfracs_compare_hist.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
-
-    plt.show()
-    plt.close()
+    else:
+        plt.show()
+        plt.close()
 
 
 def plot_dfracs_compare_hist_errors(args: list, data: pd.DataFrame, times: list,  save=False, save_dir=None, expt_index: int=0):
@@ -986,9 +992,9 @@ def plot_dfracs_compare_hist_errors(args: list, data: pd.DataFrame, times: list,
         save_name = " ".join(args) + "_plot_dfracs_compare_hist_errors.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
-    
-    plt.show()
-    plt.close()
+    else:
+        plt.show()
+        plt.close()
 
 
 def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, save_dir=None, expt_index: int=0, key: str='calc_name'):
@@ -1077,9 +1083,10 @@ def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, 
         # save plot
         save_name = " ".join(args) + "_plot_paired_errors.png"
         save_path = os.path.join(save_dir, save_name)
-        
-    plt.show()
-    plt.close()
+        plt.savefig(save_path, format='png', dpi=300)
+    else:
+        plt.show()
+        plt.close()
 
 
 
@@ -1111,6 +1118,11 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
     y = works['work'].values.tolist()
     print("MSE, work", x, y)
     # calculate the the angle made between each point and the next and the x axis
+
+    # if only one value - return this value
+    if len(x) == 1:
+        return works['gamma'].values[0], works
+
 
     ### Optimiser ###
     # TODO change this to a more robust method - change this to find the kink in the curve
@@ -1183,11 +1195,9 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
         save_name = f'{calc_name}_decision_plot.png'
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path, format='png', dpi=300)
-
-    plt.show()
-
-
-    plt.close()
+    else:
+        plt.show()
+        plt.close()
 
 
     return closest_gamma, works
@@ -1205,11 +1215,9 @@ def plot_gamma_distribution(train_gammas: list, val_gammas: list, calc_name: str
         save_name = f'{calc_name}_gamma_distribution.png'
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path, format='png', dpi=300)
-
-    plt.show()
-
-
-    plt.close()
+    else:
+        plt.show()
+        plt.close()
 
     # if save:
     #     plt.savefig(f'{calc_name}_gamma_distribution.pdf', bbox_inches='tight')
@@ -1468,10 +1476,11 @@ def plot_R_agreement_trainval(expt_name: str,
         save_name = " ".join(args) + "_plot_R_agreement_trainval.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path, format='png', dpi=300)
-    plt.show()
+    else:
+        plt.show()
 
 
-    plt.close()
+        plt.close()
 
     # plot_df.drop(columns=["Type"])
     return plot_df
@@ -1803,6 +1812,337 @@ def plot_heatmap_trainval_compare_error(expt_names: list,
     plt.suptitle('BPTI HDX deuterated fractions heatmap', fontsize=22)
     plt.tight_layout()
     plt.show()
+    plt.close()
 
 
+def split_benchmark_plot_MSE_by_name(df,
+                        save=False,
+                        save_dir=None):
+    print("plotting benchmark MSE by name")
+    # Create a FacetGrid, using 'name' for each subplot
+    g = sns.FacetGrid(df, col="name", col_wrap=6, height=4, aspect=1.5)
+    g.fig.suptitle('MSE over Time by Type for each Named Split Mode')
+
+    # Create boxplots
+    g = g.map(sns.boxplot, "time", "mse", "Type", palette="Set3")
+
+    # Adding some additional options for better visualization
+    g.add_legend(title='Type')
+    g.set_axis_labels("Time", "MSE")
+    g.set_titles("{col_name}")
+
+    # Adjust the arrangement of the plots
+    plt.subplots_adjust(top=0.9)
+    names = df["name"].unique()
+    if save is True and save_dir is not None:
+        # save plot
+        save_name = " ".join(names) + "_plot_MSE.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path, format='png', dpi=300)
+    else:
+        # Show plot
+        plt.show()
+        plt.close()
+
+def split_benchmark_plot_MSE_by_protein_split(df,
+                        save=False,
+                        save_dir=None):
+    print("plotting benchmark MSE by protein and split")
+    # Create a FacetGrid, using 'name' for each subplot
+    g = sns.FacetGrid(df, col="protein", col_wrap=3, height=4, aspect=1.5)
+    g.fig.suptitle('MSE over Time by Type for each protein and Split Mode')
+
+    # Create boxplots
+    g = g.map(sns.boxplot, "dataset", "mse", "split_type", palette="Set3")
+
+    # Adding some additional options for better visualization
+    g.add_legend(title='Type')
+    g.set_axis_labels("Time", "MSE")
+    g.set_titles("{col_name}")
+
+    # Adjust the arrangement of the plots
+    plt.subplots_adjust(top=0.9)
+    proteins = df["protein"].unique()
+
+    if save is True and save_dir is not None:
+        # save plot
+        save_name = " ".join(proteins) + "_plot_MSE_protein_split.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path, format='png', dpi=300)
+    else:
+        # Show plot
+        plt.show()
+        plt.close()
+
+def split_benchmark_plot_MSE_by_split_protein(df,
+                        save=False,
+                        save_dir=None):
+    print("plotting benchmark MSE by split and protein")
+    # Create a FacetGrid, using 'name' for each subplot
+    g = sns.FacetGrid(df, col="split_type", col_wrap=3, height=4, aspect=1.5)
+    g.fig.suptitle('MSE over Time by Type for each protein and Split Mode')
+
+    # Create boxplots
+    g = g.map(sns.boxplot, "protein", "mse", "dataset", palette="Set3")
+
+    # Adding some additional options for better visualization
+    g.add_legend(title='Type')
+    g.set_axis_labels("Time", "MSE")
+    g.set_titles("{col_name}")
+
+    # Adjust the arrangement of the plots
+    plt.subplots_adjust(top=0.9)
+    splits = df["split_type"].unique()
+    if save is True and save_dir is not None:
+        # save plot
+        save_name = " ".join(splits) + "_plot_MSE_split_protein.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path, format='png', dpi=300)
+    else:
+        # Show plot
+        plt.show()
+        plt.close()
+
+def split_benchmark_plot_MSE_by_split(df,
+                                      save=False,
+                                      save_dir=None):
+    print("plotting benchmark MSE by split")
+    plt.figure(figsize=(10, 6))  # Adjust the size of the figure here
+
+    sns.boxplot(data=df, x="dataset", y="mse", hue="split_type", palette="Set2")
+
+    # Adding some additional options for better visualization
+    plt.xlabel("dataset")
+    plt.ylabel("MSE")
+    plt.title("MSE by class")
+    plt.legend(title="class")
+
+    if save is True and save_dir is not None:
+        # save plot
+        save_name = "plot_MSE_by_class.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path, format='png', dpi=300)
+    else:
+        # Show plot
+        plt.show()
+        plt.close()
+
+def split_benchmark_plot_MSE_by_protein(df,
+                                        save=False,
+                                        save_dir=None):
+    print("plotting benchmark MSE by protein")
+    plt.figure(figsize=(10, 6))  # Adjust the size of the figure here
+
+    sns.boxplot(data=df, x="dataset", y="mse", hue="protein", palette="Set2")
+
+    # Adding some additional options for better visualization
+    plt.xlabel("Dataset")
+    plt.ylabel("MSE")
+    plt.title("MSE by Dataset Coloured by Protein")
+    plt.legend(title="Protein")
+
+    if save is True and save_dir is not None:
+        # save plot
+        save_name = "plot_MSE_by_protein.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path, format='png', dpi=300)
+    else:
+        # Show plot
+        plt.show()
+        plt.close()
+
+def split_benchmark_BV_scatterplot(df,
+                                   save=False,
+                                   save_dir=None):
+    print("plotting benchmark BV scatter")
+    # Constants
+    bc, bh = 0.35, 2.0
+
+    # Create a figure and a set of subplots
+    fig, axs = plt.subplots(1, 2, figsize=(14, 6)) # figsize can be adjusted as needed
+
+    # First plot on the left
+    sns.scatterplot(data=df, x="Bc", y="Bh", hue="protein", palette="Set2", ax=axs[0])
+    axs[0].axhline(y=bh, color='grey', linestyle='--')
+    axs[0].axvline(x=bc, color='grey', linestyle='--')
+    axs[0].set_xlabel("Bc")
+    axs[0].set_ylabel("Bh")
+    axs[0].set_title("BV Constants by Protein")
+    axs[0].legend(title="Protein")
+
+    # Second plot on the right
+    sns.scatterplot(data=df, x="Bc", y="Bh", hue="split_type", palette="Set1", ax=axs[1])
+    axs[1].axhline(y=bh, color='grey', linestyle='--')
+    axs[1].axvline(x=bc, color='grey', linestyle='--')
+    axs[1].set_xlabel("Bc")
+    axs[1].set_ylabel("Bh")
+    axs[1].set_title("BV Constants by Split Type")
+    axs[1].legend(title="Split Type")
+
+    # Adjust layout
+    plt.tight_layout()
+    # [ax.set_yscale('log') for ax in axs]
+    # Show plot
+    if save is True and save_dir is not None:
+            # save plot
+            save_name = "plot_BV_scatter.png"
+            save_path = os.path.join(save_dir, save_name)
+            plt.savefig(save_path, format='png', dpi=300)
+    else:
+        # Show plot
+        plt.show()
+        plt.close()
+
+def split_benchmark_BV_boxplot_by_protein(df,
+                                        save=False,
+                                        save_dir=None):
+    print("plotting benchmark BV boxplot by protein")
+        # Constants
+    bc, bh = 0.35, 2.0
+
+    # Setup figure
+    fig, axs = plt.subplots(2, 1, figsize=(20, 12))  # Adjust figsize as needed
+    fig.suptitle('BV Constant Distribution for each Protein')
+
+    # Plot Bh
+    sns.boxplot(x='protein', y='Bh', hue='protein', data=df, palette="Set3", ax=axs[0])
+    axs[0].axhline(y=bh, color='red', linestyle='--')
+    axs[0].set_title('Bh by Protein')
+    axs[0].set_xlabel('Protein')
+    axs[0].set_ylabel('Bh')
+
+    # Plot Bc
+    sns.boxplot(x='protein', y='Bc', hue='protein', data=df, palette="Set3", ax=axs[1])
+    axs[1].axhline(y=bc, color='blue', linestyle='--')
+    axs[1].set_title('Bc by Protein')
+    axs[1].set_xlabel('Protein')
+    axs[1].set_ylabel('Bc')
+
+    # Adjust layout
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust the rectangle [left, bottom, right, top] as needed
+
+    if save is True and save_dir is not None:
+            # save plot
+            save_name = "plot_BV_by_protein.png"
+            save_path = os.path.join(save_dir, save_name)
+            plt.savefig(save_path, format='png', dpi=300)
+    else:
+        # Show plot
+        plt.show()
+        plt.close()
+
+def split_benchmark_BV_boxplot_by_split_type(df,
+                                        save=False,
+                                        save_dir=None):
+    print("plotting benchmark BV boxplot by split type")
+        # Constants
+    bc, bh = 0.35, 2.0
+
+    # Setup figure
+    fig, axs = plt.subplots(2, 1, figsize=(20, 12))  # Adjust figsize as needed
+    fig.suptitle('BV Constant Distribution for each Protein')
+
+    # Plot Bh
+    sns.boxplot(x='split_type', y='Bh', hue='split_type', data=df, palette="Set3", ax=axs[0])
+    axs[0].axhline(y=bh, color='red', linestyle='--')
+    axs[0].set_title('Bh by Split Mode')
+    axs[0].set_xlabel('Split Mode')
+    axs[0].set_ylabel('Bh')
+
+    # Plot Bc
+    sns.boxplot(x='split_type', y='Bc', hue='split_type', data=df, palette="Set3", ax=axs[1])
+    axs[1].axhline(y=bc, color='blue', linestyle='--')
+    axs[1].set_title('Bc by Split Mode')
+    axs[1].set_xlabel('Split Mode')
+    axs[1].set_ylabel('Bc')
+
+    # Adjust layout
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust the rectangle [left, bottom, right, top] as needed
+
+    if save is True and save_dir is not None:
+            # save plot
+            save_name = "plot_BV_by_split_mode.png"
+            save_path = os.path.join(save_dir, save_name)
+            plt.savefig(save_path, format='png', dpi=300)
+    else:
+        # Show plot
+        plt.show()
+        plt.close()
+
+def split_benchmark_BV_boxplot_by_protein_by_split_type(df,
+                                        save=False,
+                                        save_dir=None):
+    print("plotting benchmark BV boxplot by protein by split type")
+        # Constants
+    bc, bh = 0.35, 2.0
+
+    # Setup figure
+    fig, axs = plt.subplots(2, 1, figsize=(20, 12))  # Adjust figsize as needed
+    fig.suptitle('BV Constants by Protein for each Split Mode')
+
+    # Plot Bh
+    sns.boxplot(x='protein', y='Bh', hue='split_type', data=df, palette="Set3", ax=axs[0])
+    axs[0].axhline(y=bh, color='red', linestyle='--')
+    axs[0].set_title('Bh by split_type')
+    axs[0].set_xlabel('Protein')
+    axs[0].set_ylabel('Bh')
+
+    # Plot Bc
+    sns.boxplot(x='protein', y='Bc', hue='split_type', data=df, palette="Set3", ax=axs[1])
+    axs[1].axhline(y=bc, color='blue', linestyle='--')
+    axs[1].set_title('Bc by split_type')
+    axs[1].set_xlabel('Protein')
+    axs[1].set_ylabel('Bc')
+
+    # Adjust layout
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust the rectangle [left, bottom, right, top] as needed
+
+    if save is True and save_dir is not None:
+        save_name = "plot_BV_by_protein_by_split_mode.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path, format='png', dpi=300)
+
+    else:
+        # Show plot
+        plt.show()
+        plt.close()
+
+
+def split_benchmark_BV_boxplot_by_split_type_by_protein(df,
+                                        save=False,
+                                        save_dir=None):
+    print("plotting benchmark BV boxplot by split type by protein")
+        # Constants
+    bc, bh = 0.35, 2.0
+
+    # Setup figure
+    fig, axs = plt.subplots(2, 1, figsize=(20, 12))  # Adjust figsize as needed
+    fig.suptitle('BV Constants by Split for each Protein')
+
+    # Plot Bh
+    sns.boxplot(x='split_type', y='Bh', hue='protein', data=df, palette="Set3", ax=axs[0])
+    axs[0].axhline(y=bh, color='red', linestyle='--')
+    axs[0].set_title('Bh by Protein')
+    axs[0].set_xlabel('Split Mode')
+    axs[0].set_ylabel('Bh')
+
+    # Plot Bc
+    sns.boxplot(x='split_type', y='Bc', hue='protein', data=df, palette="Set3", ax=axs[1])
+    axs[1].axhline(y=bc, color='blue', linestyle='--')
+    axs[1].set_title('Bc by Protein')
+    axs[1].set_xlabel('Split Mode')
+    axs[1].set_ylabel('Bc')
+
+    # Adjust layout
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust the rectangle [left, bottom, right, top] as needed
+
+    if save is True and save_dir is not None:
+        save_name = "plot_BV_by_split_mode_by_protein.png"
+        save_path = os.path.join(save_dir, save_name)
+        plt.savefig(save_path, format='png', dpi=300)
+    else:
+
+        # Show plot
+        plt.show()
+        plt.close()
 

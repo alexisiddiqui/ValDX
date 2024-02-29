@@ -53,6 +53,10 @@ class Settings:
         self.gamma_range = (2,10)
 
         self.save_figs = True
+        self.plot = True # only affects some plots
+
+        self.cluster_frac1 = 0.5
+        self.cluster_frac2 = 0.1
 
 
 

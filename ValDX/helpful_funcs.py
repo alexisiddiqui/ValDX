@@ -8,7 +8,9 @@ from .reweighting import MaxEnt
 from scipy.optimize import curve_fit
 from typing import Tuple, Dict, List
 from concurrent.futures import ProcessPoolExecutor
-
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
 import cProfile
 import pstats
 import io
@@ -246,15 +248,20 @@ def run_MaxEnt(args: Tuple[Dict, int]):
     args, r = args
     out_prefix = os.path.join(args["out_prefix"]+f"{r}x10^{args['exponent']}")
     print(out_prefix)
+    weights=args["iniweights"]
+
+
     reweight_object = MaxEnt(do_reweight=args["do_reweight"],
                              do_params=args["do_params"],
-                             stepfactor=args["stepfactor"])
+                             stepfactor=args["stepfactor"],
+                             random_initial=args["random_initial"])
     
     (currweights, bv_bc, bv_bh) = reweight_object.run(gamma=args["basegamma"]*r,
                         data_folders=args["predictHDX_dir"], 
                         kint_file=args["kint_file"],
                         exp_file=args["exp_file"],
                         times=args["times"], 
+                        iniweights=args["iniweights"],
                         restart_interval=args["restart_interval"], 
                         out_prefix=out_prefix)
     
@@ -269,6 +276,9 @@ def run_MaxEnt(args: Tuple[Dict, int]):
     # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
     # ps.print_stats()
     # print(s.getvalue())
+    print("Sum of Output Weights")
+    print(np.sum(currweights))
+
 
     return (currweights, bv_bc, bv_bh)
 
@@ -552,13 +562,16 @@ def calc_traj_LogP_byres(universe:mda.Universe, B_C, B_H, stride=1, residues:np.
 
     if len(weights) != traj_len:
         print("weights must be the same length as the trajectory")
+        print(weights)
         weights = [1/traj_len]*traj_len
     print("weights sum: ", np.sum(weights))
     
 # if any weights are nan then set then  weights = [1/traj_len]*traj_len
     if np.isnan(weights).any():
-        weights = [1/traj_len]*traj_len
         print("weights contain nan values, setting weights = [1/traj_len]*traj_len")
+        print(weights)
+        weights = [1/traj_len]*traj_len
+
 
     if traj_len > 1:
         LogPf_by_res_mean = np.zeros(len(seg_indices))
@@ -725,3 +738,161 @@ def PDB_to_DSSP(top_path: str, dssp_path: str=None, sim_name: str=None):
     print(len(pdb_test.residues))
     return secondary_structures
 
+
+def cluster_traj_by_density(universe: mda.Universe,
+                            selection: str="name CA",
+                            cluster_frac1: float=0.5):
+    """
+    PCA Clustering of CA coordinates,
+    Clusters frames to the cluster_frac1 fraction of the total frames
+    Returns a universe with the clustered frames and their weights as the occupancy of the cluster 
+    also retuns the PCA object to transform new data
+    """
+    # Select atoms
+    CA_atoms = universe.select_atoms(selection)
+
+    # Get coordinates across all frames
+    coords = np.array([CA_atoms.positions.flatten() for ts in universe.trajectory])
+    print("Coords shape")
+    print(coords.shape)
+    # Get number of frames
+    n_frames = len(universe.trajectory)
+    n_final_frames = int(n_frames*cluster_frac1)
+    # Perform PCA
+    print("Performing PCA")
+    pca = PCA(n_components=2)
+    pca.fit(coords)
+
+    # Project the data onto the first two principal components
+    projected = pca.transform(coords)
+    print("Transformed data")
+    print(projected.shape)
+
+    # Perform KMeans clustering
+    kmeans = KMeans(n_clusters=n_final_frames)
+    print("Fitting KMeans")
+    kmeans.fit(projected)
+
+    # Get the cluster centers
+    print("Getting cluster centers")
+    cluster_centers = kmeans.cluster_centers_
+    print(cluster_centers.shape)
+    # Get the cluster labels
+    print("Getting cluster labels")
+    cluster_labels = kmeans.labels_
+    print(cluster_labels.shape)
+    # unique cluster labels
+    unique_labels = np.unique(cluster_labels)
+    print("Unique labels")
+    print(unique_labels.shape)
+    # pick frames closest to cluster centers
+    cluster_frames = []
+    for center in cluster_centers:
+        # get the index of the closest frame to the cluster center
+        closest_frame = np.argmin(np.linalg.norm(projected - center, axis=1))
+        cluster_frames.append(closest_frame)
+    print("Cluster frames")
+    print(cluster_frames)
+    print(len(cluster_frames))
+    # Get the weights of the clusters
+    cluster_weights = np.bincount(cluster_labels)/n_frames
+    #normalize the weights to sum to 1
+    cluster_weights = cluster_weights/np.sum(cluster_weights)
+    cluster_weights = cluster_weights*len(unique_labels) # HDXER requires weights that add up to the number of frames
+    print("Cluster weights")
+    print(cluster_weights)
+    print(cluster_weights.shape)
+
+    # plot PCA 
+    plt.title("PCA of CA atoms from Initial Trajectory")
+    plt.scatter(projected[:, 0], projected[:, 1], c=cluster_labels, s=50, cmap='viridis')
+    plt.show()
+    plt.close()
+    plt.title("PCA of Cluster Centers from Initial Trajectory")
+    plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], c='red', s=100*cluster_weights, alpha=0.5)
+    plt.show()
+    plt.close()
+
+    return cluster_frames, cluster_weights, pca
+
+
+def recluster_traj_by_weight(clustered_universe:mda.Universe,
+                             pca_operator:PCA,
+                             cluster_weights:np.array,
+                             selection:str="name CA",
+                             cluster_frac2:float=0.2,
+                             ):
+
+
+    # Select atoms
+    CA_atoms = clustered_universe.select_atoms(selection)
+
+    # Get coordinates
+    coords = np.array([CA_atoms.positions.flatten() for ts in clustered_universe.trajectory])
+    print("Coords shape")
+    print(coords.shape)
+    # Perform PCA
+    print("Performing PCA")
+    pca = pca_operator
+    # Project the data onto the first two principal components
+    projected = pca.transform(coords)
+    print("Transformed data")
+    print(projected.shape)
+
+    # Perform KMeans clustering by weight
+    n_frames = len(clustered_universe.trajectory)
+    n_final_frames = int(n_frames*cluster_frac2)
+
+    kmeans = KMeans(n_clusters=n_final_frames)
+    kmeans.fit(projected, sample_weight=cluster_weights)
+
+    # Get the cluster centers
+    cluster_centers = kmeans.cluster_centers_
+    print("Cluster Centers")
+    print(cluster_centers)
+    # Get the cluster labels
+    print("Getting cluster labels")
+    cluster_labels = kmeans.labels_
+    print(cluster_labels.shape)
+    print("Unique labels")
+    unique_labels = np.unique(cluster_labels)   
+    # pick frames closest to cluster centers
+    cluster_frames = []
+    for center in cluster_centers:
+        # get the index of the closest frame to the cluster center
+        closest_frame = np.argmin(np.linalg.norm(projected - center, axis=1))
+        cluster_frames.append(closest_frame)
+
+    # sum up the weights for each cluster from the original cluster weights
+    final_cluster_weights = np.array([np.sum(cluster_weights[cluster_labels == i]) for i in unique_labels])
+
+    # normalize the weights to sum to 1
+    final_cluster_weights = final_cluster_weights/np.sum(final_cluster_weights)   
+
+    # multiply by the number of frames
+     # HDXER requires weights that add up to the number of frames
+    final_cluster_weights = final_cluster_weights*n_final_frames
+    print("Final Cluster Weights")
+    print(final_cluster_weights)
+    print(np.sum(final_cluster_weights))
+    print(n_final_frames)
+
+    assert int(np.sum(final_cluster_weights)) == n_final_frames, "Final cluster weights must sum to the number of frames"
+
+    print("Final Cluster Weights")
+    print(final_cluster_weights)
+    print(final_cluster_weights.shape)
+
+
+    plt.title("PCA of CA atoms from Clustered Trajectory")
+    plt.scatter(projected[:, 0], projected[:, 1], c=cluster_labels, s=50, cmap='viridis')
+    plt.show()
+    plt.close()
+    plt.title("PCA of Cluster Centers from Clustered Trajectory")
+    plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], c='red', s=100*final_cluster_weights, alpha=0.5)
+    plt.show()
+    plt.close()
+
+    
+
+    return cluster_frames, final_cluster_weights

@@ -20,6 +20,7 @@ import MDAnalysis as mda
 import seaborn as sns
 import datetime
 from typing import List, Tuple
+from icecream import ic
 # from .reweighting import MaxEnt
 
 # import copy
@@ -46,17 +47,22 @@ class ValDXer(Experiment):
         self.load_HDXer()
         self.generate_directory_structure(overwrite=False)
         self.analysis = pd.DataFrame()
+        # self.settings.plot_dir = os.path.join(self.settings.plot_dir, self.settings.name)
     
     def load_HDX_data(self, 
-                      HDX_path:str=None, 
-                      SEG_path:str=None, 
-                      calc_name: str=None, 
+                      HDX_path: str=None, 
+                      SEG_path: str=None, 
+                      calc_name : str=None,
+                      times: list=None, 
                       experimental=False):
         """
         Load HDX data and Matched Residue Segments paths: Experiment and Predicted.
         Does not check if the paths are valid. 
         May fail if incorrect format during prepare HDX data.
         """
+        if times is not None:
+            self.times = times
+
         if calc_name is None:
             raise ValueError("Please provide a calculation name for the structures.")
         if HDX_path is None and experimental is False:
@@ -576,11 +582,12 @@ class ValDXer(Experiment):
                 atom.bfactor = val_bfactors[idx]
 
         name = self.settings.name
-        
+
+        mode = self.settings.split_mode
 
         time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        train_pdb_name = "_".join(["train", str(rep), name, time]) + ".pdb"
-        val_pdb_name = "_".join(["val", str(rep), name, time]) + ".pdb"
+        train_pdb_name = "_".join(["train", str(rep), name, mode ,time]) + ".pdb"
+        val_pdb_name = "_".join(["val", str(rep), name, mode ,time]) + ".pdb"
 
         out_dir = os.path.join(self.settings.results_dir, name)
 
@@ -606,7 +613,8 @@ class ValDXer(Experiment):
                 random_seeds: list=None):
         print("Running VDX loop")
 
-
+        if mode is not None:
+            self.settings.split_mode = mode
         if n_reps is None:
             n_reps = self.settings.replicates
         if random_seeds is None:
@@ -643,10 +651,10 @@ class ValDXer(Experiment):
                                                         train_gamma=train_opt_gamma,
                                                         cr_bc_bh=cr_bc_bh)
             
-
-            self.write_data_split_PDB(calc_name=calc_name,
-                                        expt_name=expt_name,
-                                        rep=rep)
+            if self.settings.plot:
+                self.write_data_split_PDB(calc_name=calc_name,
+                                            expt_name=expt_name,
+                                            rep=rep)
             
 
 
@@ -683,7 +691,7 @@ class ValDXer(Experiment):
                                 times: list=None,
                                 expt_name: str=None,
                                 n_reps: int=None,
-                                split_modes: list=['r', 's', 'R3', 'xR', 'Sp', 'SR'],
+                                split_modes: list=['r', 's', 'R3', 'Sp'],
                                 random_seeds: list=None,
                                 hdx_path: str=None,
                                 segs_path: str=None,
@@ -694,6 +702,8 @@ class ValDXer(Experiment):
                                 top_path: str=None
                                 ):
         print(self.settings.gamma_range)
+  
+
 
         name_mapping = {
             "r": "naive_random",
@@ -717,6 +727,9 @@ class ValDXer(Experiment):
         names = []
         save_paths = []
 
+        if times is not None:
+            self.settings.times = times
+            self.times = times
         settings = deepcopy(self.settings)
         if RW and optimise:
             settings.RW_do_reweighting = True
@@ -729,13 +742,17 @@ class ValDXer(Experiment):
             settings.RW_do_reweighting = False
             settings.RW_do_params = False
             # settings.gamma_range = (3, 4)
-
-        for mode in split_modes:
+        name = deepcopy(settings.name)
+        print(f"Running benchmark for {name}")
+        split_names = [f"{mode}_{name_mapping[mode]}" for mode in split_modes]
+        names = [f"{name}_{split_name}" for split_name in split_names]
+        settings.times = times
+        settings.results_dir = os.path.join(settings.results_dir, system, "Benchmark")
+        for idx, mode in enumerate(split_modes):
+            settings.name = names[idx]
+            # split_name = split_names[idx]
             print(f"Running {mode} split mode")
-            split_name = f"{mode}_{name_mapping[mode]}_{system}"
             settings.split_mode = mode
-            settings.name = split_name
-            settings.times = times
             _VDX = ValDXer(settings=settings)
             _VDX.settings.plot = False
             _VDX.load_HDX_data(HDX_path=hdx_path,
@@ -789,12 +806,17 @@ class ValDXer(Experiment):
             if isinstance(dump, pd.DataFrame):
                 print("df found")
                 # print(dump)
-                dump["name_name"] = dump["name"]+"_"+dump["calc_name"]
-                dump["protein"] = [i.split("_")[3] for i in dump["name"]]
-                dump["dataset"] = [i.split("_")[0] for i in dump["calc_name"]]
-                dump["split_type"] = [i.split("_")[0] for i in dump["name"]]
-                dump["class"] = dump["dataset"] + "_" + dump["split_type"]
-
+                try:
+                    dump["name_name"] = dump["name"]+"_"+dump["calc_name"]
+                    dump["protein"] = [i.split("_")[3] if len(i.split("_")) > 3 else "Experiment" for i in dump["name"]]
+                    # dump["split_type"] = [i.split("_")[0] for i in dump["name"]]
+                    dump["dataset"] = dump["calc_name"].apply(lambda x: x.split("_")[0])
+                    dump["class"] = dump["dataset"] + "_" + dump["split_type"]
+                except:
+                    print("Failed to add info to analysis dump")
+                    print(dump)
+                    raise ValueError("Failed to add info to analysis dump")
+                    # break
  
         # plot the results
         MSE_df = combined_analysis_dump["analysis_df"]
@@ -809,14 +831,15 @@ class ValDXer(Experiment):
                 
         # split_benchmark_plot_MSE_by_protein_split(MSE_df)
 
-        if settings.save_figs:
-    
-            save_dir = os.path.join(settings.results_dir, system, settings.name)
+        if self.settings.save_figs:
+            save_dir = os.path.join(settings.plot_dir, system, "Benchmark")
             try:
                 os.removedirs(save_dir)
             except:
                 pass
             os.makedirs(save_dir, exist_ok=True)
+        else:
+            save_dir = None
 
 
         split_benchmark_plot_MSE_by_split(MSE_df,
@@ -850,7 +873,7 @@ class ValDXer(Experiment):
                             times: list=None,
                             expt_name: str=None,
                             n_reps: int=None,
-                            split_mode: str=['R3'],
+                            split_mode: str='R3',
                             random_seeds: list=None,
                             hdx_path: str=None,
                             segs_path: str=None,
@@ -858,6 +881,11 @@ class ValDXer(Experiment):
                             top_path: str=None,
                             modal_cluster: bool=False):
         ### Currently only doing the mean - update to take the mode for cluster frac2
+
+        self.settings.split_mode = split_mode
+        if times is not None:
+            self.settings.times = times
+            self.times = times
 
         u = mda.Universe(top_path, *traj_paths)
 
@@ -893,23 +921,24 @@ class ValDXer(Experiment):
 
         # reweight trajectory
                 
-        settings = self.settings
+        settings = deepcopy(self.settings)
         settings.RW_do_reweighting = True
         settings.RW_do_params = False
-
+        settings.name = "_".join([settings.name, system, "refine"])
+        
         _VDX = ValDXer(settings=settings)
 
         _VDX.load_HDX_data(HDX_path=hdx_path,
                             SEG_path=segs_path,
-                            calc_name=expt_name)
+                            calc_name=expt_name,
+                            experimental=True)
         _VDX.load_structures(top_path=top_path,
                             traj_paths=[clustered_traj_path],
-                            calc_name=system)
+                            calc_name=system+"_clustered"+"_refine")
         _VDX.settings.random_initialisation = True
-        _ = _VDX.run_VDX(calc_name=system,
+        _ = _VDX.run_VDX(calc_name=system+"_clustered"+"_refine",
                         expt_name=expt_name,
-                        n_reps=n_reps,
-                        mode=split_mode)
+                        n_reps=n_reps)
 
 
         final_weights = _VDX.weights["weights"].values
@@ -1036,7 +1065,7 @@ class ValDXer(Experiment):
 
         if self.settings.save_figs:
 
-            save_dir = os.path.join(self.settings.plot_dir, self.settings.name)
+            save_dir = os.path.join(self.settings.plot_dir, calc_name, 'Evaluate')
             try:
                 os.removedirs(save_dir)
             except:
@@ -1127,7 +1156,7 @@ class ValDXer(Experiment):
         # add to dictionary
         self.analysis_dump[name] = data_to_dump
         print("dumped data")
-        print(self.analysis_dump)
+        ic(self.analysis_dump)
         # print(merge_df)
         args = [expt_name, *train_rep_names,  *val_rep_names]
 
@@ -1203,12 +1232,12 @@ class ValDXer(Experiment):
                                 expt_segs=expt_segs)
             
         print("nan_df")
-        print(nan_df)
+        ic(nan_df)
 
         # add expt_df to nan_df
         nan_df = pd.concat([nan_df, expt_df], ignore_index=True)
         print("nan_df + expt_df")
-        print(nan_df)
+        ic(nan_df)
 
 
 
@@ -1364,6 +1393,11 @@ class ValDXer(Experiment):
         print(self.analysis_dump.keys())
         print(self.analysis_dump[name].keys())
 
+        assert self.settings.split_mode is not None
+
+        self.analysis["name"] = [name]*len(self.analysis)
+        self.analysis["split_type"] = [self.settings.split_mode]*len(self.analysis)
+
         for key in self.analysis_dump[name].keys():
             dump = self.analysis_dump[name][key]
             print(f"Key: {key}")
@@ -1372,5 +1406,6 @@ class ValDXer(Experiment):
                 # print("dump", dump)
                 print(f"Adding {name} to df {key}")
                 dump["name"] = [name]*len(dump)
+                dump["split_type"] = [self.settings.split_mode]*len(dump)
 
         return self.analysis_dump, self.analysis, name

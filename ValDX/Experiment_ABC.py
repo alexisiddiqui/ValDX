@@ -49,7 +49,9 @@ class Experiment(ABC):
         """
         print(f"Preparing HDX data for {calc_name}")
         try:
+            # print(self.paths)
             path = self.paths.loc[self.paths['calc_name'] == calc_name]['HDX'].values[0]
+            # print(path)
             new_HDX_data = dfracs_to_df(path, 
                                         names=self.times)
             ### do we need this line??

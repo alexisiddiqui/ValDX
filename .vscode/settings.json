@@ -11,5 +11,5 @@
     "python.testing.pytestArgs": [
         "ValDX"
     ],
-    "python.analysis.typeCheckingMode": "off"
+    "python.analysis.typeCheckingMode": "basic"
 }

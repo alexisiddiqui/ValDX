@@ -56,7 +56,7 @@ class Settings:
         self.plot = True # only affects some plots
 
         self.cluster_frac1 = 0.5
-        self.cluster_frac2 = 0.1
+        self.cluster_size2 = 10
 
 
 

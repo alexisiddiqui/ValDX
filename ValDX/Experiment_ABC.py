@@ -880,6 +880,10 @@ class Experiment(ABC):
             self.name = name
             exp_dir = os.path.join(self.settings.data_dir, self.name)
             os.makedirs(exp_dir)
+            plot_dir = self.settings.plot_dir
+            os.makedirs(plot_dir, exist_ok=True)
+            results_dir = os.path.join(self.settings.results_dir, self.settings.name)
+            os.makedirs(results_dir, exist_ok=True)
 
             return self.name, exp_dir
 

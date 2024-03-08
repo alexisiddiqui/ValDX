@@ -17,6 +17,7 @@ import subprocess
 import numpy as np
 import concurrent.futures
 import MDAnalysis as mda
+from MDAnalysis.analysis import align
 import seaborn as sns
 import datetime
 from typing import List, Tuple
@@ -28,9 +29,9 @@ from icecream import ic
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
-from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight
-from ValDX.HDX_plots import plot_lcurve, plot_gamma_distribution, plot_dfracs_compare, plot_paired_errors, plot_heatmap_trainval_compare, plot_heatmap_trainval_compare_error, plot_R_agreement_trainval, plot_dfracs_compare_MSE, plot_dfracs_compare_abs, split_benchmark_plot_MSE_by_name, split_benchmark_plot_MSE_by_protein_split, split_benchmark_plot_MSE_by_split_protein, split_benchmark_plot_MSE_by_split, split_benchmark_plot_MSE_by_protein, split_benchmark_BV_scatterplot, split_benchmark_BV_boxplot_by_protein, split_benchmark_BV_boxplot_by_split_type, split_benchmark_BV_boxplot_by_protein_by_split_type, split_benchmark_BV_boxplot_by_split_type_by_protein
-
+from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames
+from ValDX.HDX_plots import *
+import matplotlib
 
 class ValDXer(Experiment):
     def __init__(self, 
@@ -48,6 +49,10 @@ class ValDXer(Experiment):
         self.generate_directory_structure(overwrite=False)
         self.analysis = pd.DataFrame()
         # self.settings.plot_dir = os.path.join(self.settings.plot_dir, self.settings.name)
+        if self.settings.save_figs:
+            matplotlib.use('Agg')
+        else:
+            matplotlib.use('TkAgg')
     
     def load_HDX_data(self, 
                       HDX_path: str=None, 
@@ -346,6 +351,7 @@ class ValDXer(Experiment):
                                         RW_range=gamma_range, 
                                         gamma=train_gamma, 
                                         RW_dir=predictHDX_dir, 
+                                        save=self.settings.save_figs,
                                         prefix=self.settings.RW_outprefix)
             opt_gamma_exponent = math.floor(math.log10(opt_gamma))
             opt_gamma_coefficient = opt_gamma / 10**opt_gamma_exponent
@@ -601,6 +607,36 @@ class ValDXer(Experiment):
         print(f"Writing val PDB to {val_pdb_path}")
         val_top.atoms.write(val_pdb_path)
         
+    def write_RW_representative_PDB(self, 
+                                    calc_name,
+                                    rep, 
+                                    weights, 
+                                    cluster_size2=None):
+        """
+        Write out frames - flattened by weights up to cluster_size2
+        """
+        weights = np.array(weights)
+        if cluster_size2 is None:
+            cluster_size2 = self.settings.cluster_size2
+
+        print("Writing RW representative PDBs")
+        name = self.settings.name
+        mode = self.settings.split_mode
+        top, traj = self.prepare_structures(calc_name=calc_name)
+
+        frames, _ = flatten_weights_to_frames(weights, cluster_size2)
+
+        time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        pdb_name = "_".join(["RW", str(rep), name, mode ,time]) + ".pdb"
+        out_dir = os.path.join(self.settings.results_dir, name)
+
+        pdb_path = os.path.join(out_dir, pdb_name)
+        os.makedirs(out_dir, exist_ok=True)
+
+        print(f"Writing RW representative PDB to {pdb_path}")
+        with mda.Writer(pdb_path, traj.trajectory.n_frames, multiframe=True) as W:
+            for ts in traj.trajectory[frames]:
+                W.write(traj)
 
 
 
@@ -655,6 +691,11 @@ class ValDXer(Experiment):
                 self.write_data_split_PDB(calc_name=calc_name,
                                             expt_name=expt_name,
                                             rep=rep)
+                if (self.settings.RW_do_reweighting is True) and (self.settings.RW_do_params is False):
+                    self.write_RW_representative_PDB(calc_name=calc_name,
+                                                    rep=rep,
+                                                    weights=cr_bc_bh[0],
+                                                    cluster_size2=self.settings.cluster_size2)
             
 
 
@@ -695,7 +736,7 @@ class ValDXer(Experiment):
                                 random_seeds: list=None,
                                 hdx_path: str=None,
                                 segs_path: str=None,
-                                traj_paths: str=None,
+                                traj_paths: list=None,
                                 weights: np.array=None,
                                 RW: bool=False,
                                 optimise: bool=True,
@@ -861,8 +902,8 @@ class ValDXer(Experiment):
             # split_benchmark_BV_boxplot_by_split_type_by_protein(BV_df)
             # # BV Constants by protein
             # split_benchmark_BV_boxplot_by_protein_by_split_type(BV_df)
-                    
-            
+
+
 
         return combined_analysis_dump, names, save_paths
 
@@ -874,7 +915,7 @@ class ValDXer(Experiment):
                             expt_name: str=None,
                             n_reps: int=None,
                             split_mode: str='R3',
-                            random_seeds: list=None,
+                            random_seed: int=None,
                             hdx_path: str=None,
                             segs_path: str=None,
                             traj_paths: list=None,
@@ -886,11 +927,18 @@ class ValDXer(Experiment):
         if times is not None:
             self.settings.times = times
             self.times = times
+        if random_seed is not None:
+            self.settings.random_seed = random_seed
 
         u = mda.Universe(top_path, *traj_paths)
 
-        cluster_frames, iniweights, pca = cluster_traj_by_density(u, cluster_frac1=self.settings.cluster_frac1)
-        
+        cluster_frames, iniweights, projected, cluster_centers, cluster_labels = cluster_traj_by_density(u, 
+                                                                  cluster_frac1=self.settings.cluster_frac1)
+        plot_cluster_weights(projected_data=projected,
+                            new_cluster_centers=cluster_centers,
+                            cluster_labels=cluster_labels,
+                            new_cluster_weights=iniweights,
+                            save=self.settings.save_figs, save_dir=self.settings.plot_dir)
 
         # save clustered universe 
         clustered_traj_name = "_".join([system, "clustered", "cfrac1", str(self.settings.cluster_frac1), ".xtc"])
@@ -906,11 +954,10 @@ class ValDXer(Experiment):
 
 
 
-        _ = self.run_benchmark_ensemble(system=system+"_clustered",
+        _ = self.run_benchmark_ensemble(system=system+"_cl",
                                             times=times,
                                             expt_name=expt_name,
                                             n_reps=n_reps,
-                                            random_seeds=random_seeds,
                                             hdx_path=hdx_path,
                                             optimise=False,
                                             segs_path=segs_path,
@@ -925,6 +972,7 @@ class ValDXer(Experiment):
         settings.RW_do_reweighting = True
         settings.RW_do_params = False
         settings.name = "_".join([settings.name, system, "refine"])
+        settings.random_seed = settings.random_seed + 1
         
         _VDX = ValDXer(settings=settings)
 
@@ -934,9 +982,9 @@ class ValDXer(Experiment):
                             experimental=True)
         _VDX.load_structures(top_path=top_path,
                             traj_paths=[clustered_traj_path],
-                            calc_name=system+"_clustered"+"_refine")
+                            calc_name=system+"_cl"+"_refine")
         _VDX.settings.random_initialisation = True
-        _ = _VDX.run_VDX(calc_name=system+"_clustered"+"_refine",
+        _ = _VDX.run_VDX(calc_name=system+"_cl"+"_refine",
                         expt_name=expt_name,
                         n_reps=n_reps)
 
@@ -946,18 +994,48 @@ class ValDXer(Experiment):
         # average weights
         avg_weights = np.mean(final_weights, axis=0)
 
+        plot_cluster_weights(projected_data=projected[cluster_frames],
+                            new_cluster_centers=cluster_centers,
+                            cluster_labels=cluster_labels[cluster_frames],
+                            new_cluster_weights=avg_weights,
+                            save=self.settings.save_figs, save_dir=self.settings.plot_dir)
+
         clustered_universe = mda.Universe(top_path, clustered_traj_path)
         # recluster to cluster frac2
-        recluster_frames, final_cluster2_weights = recluster_traj_by_weight(clustered_universe=clustered_universe, cluster_weights=avg_weights, cluster_frac2=self.settings.cluster_frac2, pca_operator=pca)
+        if not modal_cluster:
+            recluster_frames, final_cluster2_weights, reclustered_centers, reclustered_labels = recluster_traj_by_weight(clustered_universe=clustered_universe, 
+                                                                                                                         projected=projected[cluster_frames],
+                                                                                                                        cluster_weights=avg_weights, 
+                                                                                                                        cluster_size2=self.settings.cluster_size2)
+            # plot 
+            plot_cluster_weights(projected_data=projected[cluster_frames],
+                                new_cluster_centers=reclustered_centers,
+                                cluster_labels=reclustered_labels,
+                                new_cluster_weights=final_cluster2_weights,
+                                save=self.settings.save_figs, save_dir=self.settings.plot_dir)
+            print("Mean Cluster")
+            print(recluster_frames)
+            print(final_cluster2_weights)
+            assert len(recluster_frames) == self.settings.cluster_size2, f"Reclustered frames: {len(recluster_frames)} != {self.settings.cluster_size2}"
 
-        # print("Weights", final_cluster2_weights)
-        # print("Weights shape", final_cluster2_weights.shape)
-        # print("Weights sum", np.sum(final_cluster2_weights))
+        elif modal_cluster:
+            # if modal cluster then create a list of frames ordered by avg_weights - take the top n frames
+            recluster_frames, final_cluster2_weights = flatten_weights_to_frames(avg_weights, self.settings.cluster_size2)
+
+            # find new cluster centers by the values of the reclustered frames
+            reclustered_centers = np.array([projected[i] for i in recluster_frames])
+
+            plot_cluster_weights(projected_data=projected,
+                                new_cluster_centers=reclustered_centers,
+                                cluster_labels=cluster_labels,
+                                new_cluster_weights=final_cluster2_weights,
+                                save=self.settings.save_figs, save_dir=self.settings.plot_dir)
 
 
-        reclustered_traj_name = "_".join([system, "reclustered", "cfrac2", str(self.settings.cluster_frac2), ".xtc"])
+            print("Modal Cluster")
+
+        reclustered_traj_name = "_".join([system, "reclustered", "csize2", str(self.settings.cluster_size2), ".xtc"])
         reclustered_traj_path = os.path.join(self.settings.data_dir, self.settings.name, reclustered_traj_name)
-
 
         with mda.Writer(reclustered_traj_path, u.trajectory.n_frames) as W:
             for ts in u.trajectory[recluster_frames]:
@@ -965,15 +1043,29 @@ class ValDXer(Experiment):
         
         reclustered_universe = mda.Universe(top_path, reclustered_traj_path)
 
-        assert reclustered_universe.trajectory.n_frames == len(recluster_frames)
+        assert reclustered_universe.trajectory.n_frames == len(recluster_frames), f"Reclustered frames: {reclustered_universe.trajectory.n_frames} != {len(recluster_frames)}"
 
         self.settings.random_initialisation = False
 
-        _ = self.run_benchmark_ensemble(system=system+"_reclustered",
+        viz_reclustered_traj_name = "_".join([system, "reclustered", "csize2", str(self.settings.cluster_size2), ".pdb"])
+        viz_reclustered_traj_path = os.path.join(self.settings.results_dir, self.settings.name, viz_reclustered_traj_name)
+
+        # align trajectory to first frame
+    
+        ref = mda.Universe(top_path)
+
+        align.AlignTraj(u, ref, select="name CA", in_memory=True).run()
+
+        with mda.Writer(viz_reclustered_traj_path, u.trajectory.n_frames, multiframe=True) as W:
+            for ts in u.trajectory[recluster_frames]:
+                W.write(u)
+        
+        
+        settings.random_seed = settings.random_seed + 1
+        _ = self.run_benchmark_ensemble(system=system+"_recl",
                                             times=times,
                                             expt_name=expt_name,
                                             n_reps=n_reps,
-                                            random_seeds=random_seeds,
                                             hdx_path=hdx_path,
                                             optimise=False,
                                             segs_path=segs_path,
@@ -981,14 +1073,12 @@ class ValDXer(Experiment):
                                             weights=final_cluster2_weights,
                                             top_path=top_path)
 
-
-
+        settings.random_seed = settings.random_seed + 1
         # run BV Benchmark ensemble
-        return self.run_benchmark_ensemble(system=system+"_reclustered-BVoptimised",
+        return self.run_benchmark_ensemble(system=system+"_recl_BVoptimised",
                                             times=times,
                                             expt_name=expt_name,
                                             n_reps=n_reps,
-                                            random_seeds=random_seeds,
                                             hdx_path=hdx_path,
                                             RW=False,
                                             segs_path=segs_path,
@@ -1206,18 +1296,21 @@ class ValDXer(Experiment):
         #                             data=merge_df, 
         #                             times=self.settings.times, 
         #                             top=top)
-        print("plotting R agreement")
-        plot_df = plot_R_agreement_trainval(expt_name=expt_name, 
-                                train_names=train_names, 
-                                val_names=val_names, 
-                                expt_segs=expt_segs,
-                                data=merge_df, 
-                                times=self.settings.times, 
-                                top=top,
-                                save=self.settings.save_figs,
-                                save_dir=save_dir)
-        print("concat plot_df")
-        self.analysis = pd.concat([self.analysis, plot_df], ignore_index=True)
+        try:
+            print("plotting R agreement")
+            plot_df = plot_R_agreement_trainval(expt_name=expt_name, 
+                                    train_names=train_names, 
+                                    val_names=val_names, 
+                                    expt_segs=expt_segs,
+                                    data=merge_df, 
+                                    times=self.settings.times, 
+                                    top=top,
+                                    save=self.settings.save_figs,
+                                    save_dir=save_dir)
+            print("concat plot_df")
+            self.analysis = pd.concat([self.analysis, plot_df], ignore_index=True)
+        except UserWarning:
+            print("Unable to plot R agreement for merge_df")
         # return
 
         # Currently df contains values for the peptides in each train/val split 
@@ -1264,17 +1357,17 @@ class ValDXer(Experiment):
                 print("Unable to plot compare plot for nan_df")
         ####
         # plot MSE for train and val
-        try:
-            print("plotting MSE for nan_df")
-            plot_df = plot_dfracs_compare_MSE(args, 
-                            data=nan_df, 
-                            times=self.settings.times,
-                            save=self.settings.save_figs,
-                            save_dir=save_dir)
-            
-            self.analysis = pd.concat([self.analysis, plot_df], ignore_index=True)
-        except UserWarning:
-            print("Unable to plot compare plot for nan_df")
+        # try:
+        print("plotting MSE for nan_df")
+        plot_df = plot_dfracs_compare_MSE(args, 
+                        data=nan_df, 
+                        times=self.settings.times,
+                        save=self.settings.save_figs,
+                        save_dir=save_dir)
+        
+        self.analysis = pd.concat([self.analysis, plot_df], ignore_index=True)
+        # except RuntimeError:
+        #     print("Unable to plot compare MSE plot for nan_df and therfore add plot_df to self.analysis")
         ####
 
         if self.settings.plot:

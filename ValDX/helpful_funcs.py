@@ -803,45 +803,38 @@ def cluster_traj_by_density(universe: mda.Universe,
     print(cluster_weights)
     print(cluster_weights.shape)
 
-    # plot PCA 
-    plt.title("PCA of CA atoms from Initial Trajectory")
-    plt.scatter(projected[:, 0], projected[:, 1], c=cluster_labels, s=50, cmap='viridis')
-    plt.show()
-    plt.close()
-    plt.title("PCA of Cluster Centers from Initial Trajectory")
-    plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], c='red', s=100*cluster_weights, alpha=0.5)
-    plt.show()
-    plt.close()
+    # plot_args =  (projected, cluster_labels, cluster_centers, cluster_weights)
 
-    return cluster_frames, cluster_weights, pca
+    return cluster_frames, cluster_weights, projected, cluster_centers, cluster_labels
 
 
 def recluster_traj_by_weight(clustered_universe:mda.Universe,
-                             pca_operator:PCA,
+                            #  pca_operator:PCA,
+                             projected:np.array,
                              cluster_weights:np.array,
-                             selection:str="name CA",
-                             cluster_frac2:float=0.2,
+                            #  selection:str="name CA",
+                             cluster_size2:int=10,
                              ):
 
 
-    # Select atoms
-    CA_atoms = clustered_universe.select_atoms(selection)
+    # # Select atoms
+    # CA_atoms = clustered_universe.select_atoms(selection)
 
-    # Get coordinates
-    coords = np.array([CA_atoms.positions.flatten() for ts in clustered_universe.trajectory])
-    print("Coords shape")
-    print(coords.shape)
-    # Perform PCA
-    print("Performing PCA")
-    pca = pca_operator
-    # Project the data onto the first two principal components
-    projected = pca.transform(coords)
+    # # Get coordinates
+    # coords = np.array([CA_atoms.positions.flatten() for ts in clustered_universe.trajectory])
+    # print("Coords shape")
+    # print(coords.shape)
+    # # Perform PCA
+    # print("Performing PCA")
+    # pca = pca_operator
+    # # Project the data onto the first two principal components
+    # projected = pca.transform(coords)
     print("Transformed data")
     print(projected.shape)
 
     # Perform KMeans clustering by weight
     n_frames = len(clustered_universe.trajectory)
-    n_final_frames = int(n_frames*cluster_frac2)
+    n_final_frames = int(cluster_size2)
 
     kmeans = KMeans(n_clusters=n_final_frames)
     kmeans.fit(projected, sample_weight=cluster_weights)
@@ -886,15 +879,61 @@ def recluster_traj_by_weight(clustered_universe:mda.Universe,
     print(final_cluster_weights.shape)
 
 
-    plt.title("PCA of CA atoms from Clustered Trajectory")
-    plt.scatter(projected[:, 0], projected[:, 1], c=cluster_labels, s=50, cmap='viridis')
-    plt.show()
-    plt.close()
-    plt.title("PCA of Cluster Centers from Clustered Trajectory")
-    plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], c='red', s=100*final_cluster_weights, alpha=0.5)
-    plt.show()
-    plt.close()
+
+    # plot_args = (projected, cluster_labels, cluster_centers, cluster_weights)
 
     
 
-    return cluster_frames, final_cluster_weights
+    return cluster_frames, final_cluster_weights, cluster_centers, cluster_labels
+
+
+
+def flatten_weights_to_frames(avg_weights, cluster_size2, threshold=False):
+
+    if threshold:
+        threshold_frac = cluster_size2//len(avg_weights)
+        threshold_val = (np.max(avg_weights)*threshold_frac)
+
+    else:
+        threshold_val = 0
+
+    normalised_weights = avg_weights*len(avg_weights)
+    # print(normalised_weights)
+    print(np.round(normalised_weights,1))
+    print(list(range(len(normalised_weights))))
+    print(len(normalised_weights))
+
+    recluster_frames = np.argsort(normalised_weights)[::-1]
+    print(recluster_frames)
+    normalised_weights = np.round(normalised_weights).astype(int)
+
+    # remove frames with weights less than the threshold
+    recluster_frames = recluster_frames[normalised_weights[recluster_frames] > threshold_val]
+
+    # expand frames so that each frame is repeated by the number of times it is selected 
+    recluster_frames = np.repeat(recluster_frames, normalised_weights[recluster_frames])
+
+    print("Recluster Frames")
+    print(recluster_frames)
+    print(len(recluster_frames))
+
+    # sample the frames to the cluster size
+    recluster_frames = np.random.choice(recluster_frames, cluster_size2, replace=True)
+
+    final_cluster2_weights = np.ones(len(recluster_frames))
+    print("Modal Cluster")
+    print(recluster_frames, len(recluster_frames))
+    print(final_cluster2_weights)
+    assert len(recluster_frames) == cluster_size2, f"Reclustered frames: {len(recluster_frames)} != {cluster_size2}" 
+
+    return recluster_frames, final_cluster2_weights
+
+
+def write_pdb_by_frame(traj:mda.Universe, frames, out_dir, pdb_name):
+    pdb_path = os.path.join(out_dir, pdb_name)
+    os.makedirs(out_dir, exist_ok=True)
+
+    print(f"Writing RW representative PDB to {pdb_path}")
+    with mda.Writer(pdb_path, traj.trajectory.n_frames, multiframe=True) as W:
+        for ts in traj.trajectory[frames]:
+            W.write(traj)

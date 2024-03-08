@@ -12,6 +12,8 @@ import math
 import MDAnalysis as mda
 from sklearn.metrics import mean_squared_error
 from icecream import ic
+import time
+import datetime
 
 from ValDX.helpful_funcs import *
 
@@ -2146,3 +2148,23 @@ def split_benchmark_BV_boxplot_by_split_type_by_protein(df,
         plt.close()
 
 
+def plot_cluster_weights(projected_data, cluster_labels, new_cluster_centers, new_cluster_weights, save, save_dir):
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))  # Create a figure with 1 row and 2 columns for subplots
+
+    # Plot the first scatter plot (PCA of CA atoms from Clustered Trajectory)
+    axs[0].set_title("PCA of CA atoms from Trajectory")
+    axs[0].scatter(projected_data[:, 0], projected_data[:, 1], c=cluster_labels, s=50, cmap='viridis')
+
+    # Plot the second scatter plot (PCA of Cluster Centers from Clustered Trajectory)
+    axs[1].set_title("PCA of Cluster Centers from Clustered Trajectory")
+    axs[1].scatter(new_cluster_centers[:, 0], new_cluster_centers[:, 1], c='red', s=100*new_cluster_weights, alpha=0.5)
+
+    plt.tight_layout()  # Adjust layout to prevent overlapping
+    if save is True and save_dir is not None:
+        time= datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        save_name = f"cluster_weights_{time}.png"
+        save_path = os.path.join(save_dir, save_name)        
+        plt.savefig(save_path, format='png', dpi=300)
+    else:
+        plt.show()
+        plt.close()

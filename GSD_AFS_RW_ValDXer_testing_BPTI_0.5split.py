@@ -162,8 +162,8 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 
 # %%
 ic.disable()
-VDX.settings.cluster_frac1 = 0.5
-VDX.settings.cluster_size2 = 50
+VDX.settings.cluster_frac1 = 0.1
+VDX.settings.cluster_size2 = 20
 combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_modal_cluster",
                                                                         times=[0.167, 1, 10, 120],
                                                                         expt_name=expt_name,

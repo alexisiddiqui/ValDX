@@ -12,7 +12,7 @@ from MDAnalysis.coordinates.XTC import XTCWriter
 from pdbfixer import PDBFixer
 from openmm.app import PDBFile
 
-settings = Settings(name='testHOIP')
+settings = Settings(name='8AHOIPdab27')
 settings.replicates = 1
 settings.gamma_range = (2,6)
 settings.train_frac = 0.5
@@ -27,7 +27,7 @@ import pickle
 
 VDX = ValDXer(settings)
 expt_name = 'Experimental'
-test_name = "HOIPapo_test"
+test_name = "HOIPdab27_8A"
 import icecream as ic
 # ic.disable()
 
@@ -107,7 +107,7 @@ import icecream as ic
 
 
 # %%
-raw_hdx_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo_peptide.csv"
+raw_hdx_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_dab27_pepitde.csv"
 raw_hdx = pd.read_csv(raw_hdx_path)
 raw_hdx.tail()
 
@@ -182,20 +182,88 @@ print(grouped)
 
 # change Start to ResStr and End to ResEnd
 hdx = grouped.rename(columns={'Start': 'ResStr', 'End': 'ResEnd'})
+hdx["Residues"] = hdx.apply(lambda x: list(range(int(x['ResStr']), int(x['ResEnd'])+1)), axis=1)
 
 # drop the exposure column
 hdx.columns.name = None
 
 print(hdx)
 
+import MDAnalysis as mda
+
+u = mda.Universe("6SC6.pdb")
+
+chain_A = u.select_atoms("protein and segid A")
+
+print(len(chain_A.residues.resids))
+# select residues in Chain A that are in 4A of Chain B and C
+import numpy as np
+selection_string = "protein and (segid A and around 8 (segid B or segid C))"
+
+interface = u.select_atoms(selection_string)
+interface_resids = interface.residues.resids  
+
+print(len(interface_resids))
+
+
+first_resid = chain_A.residues[0].resid
+print(first_resid)
+
+original_resids = chain_A.residues.resids
+
+non_interface_resids = np.setdiff1d(original_resids, interface_resids)
+non_interface_resids = non_interface_resids - (first_resid - 1)
+# print(non_interface_resids)
+print(len(non_interface_resids))
+
+interface_resids = interface_resids - (first_resid - 1)
+# print(interface_resids)
+print(len(interface_resids))
+print(len(hdx))
+
+
+clean_hdx = hdx.copy()
+print(interface_resids)
+print(len(hdx))
+# interface_resids = [0]
+# exclude residues in interface_resids
+for idx, row in hdx.iterrows():
+    row_resids = row['Residues']
+    print(row_resids)
+    # print(interface_resids)
+    # if any residue in row_resids is in interface_resids, drop the row
+    intersection = np.intersect1d(row_resids,interface_resids)
+    print(intersection)
+
+    if len(intersection) > 0:
+        print("Dropping row")
+        clean_hdx = clean_hdx.drop(idx)
+        # print(clean_hdx)
+    else:
+        print("Keeping row")
+        # print(clean_hdx)
+
+# print(clean_hdx)
+print(len(clean_hdx))
+
+
+hdx = clean_hdx.copy()
+
+
+# drop residues over 376
+hdx = hdx[hdx['ResStr'] <= 376]
+hdx = hdx[hdx['ResEnd'] <= 376]
+print(len(clean_hdx))
+
+print(len(hdx))
 
 # %%
-
+hdx.drop(columns=['Residues'], inplace=True)
 
 # %%
 
 hdx = hdx.round(5)
-hdx.to_csv(os.path.join("raw_data", "HOIP", 'HOIP_apo.dat'), sep=' ', index=False)
+hdx.to_csv(os.path.join("raw_data", "HOIP", 'HOIP_dab27', 'HOIP_dab27.dat'), sep=' ', index=False)
 
 
 # %%
@@ -204,19 +272,19 @@ segs = hdx[['ResStr', 'ResEnd']].drop_duplicates().sort_values(by=['ResStr', 'Re
 
 # %%
 
-# # convert to list of tuples
-# segs = [tuple(x) for x in segs.values]
+# convert to list of tuples
+segs = [tuple(x) for x in segs.values]
 
-# print(segs)
+print(segs)
 
 
 # %%
 
 
-# # write list as new lines with space delimiter
-# with open(os.path.join("raw_data", "HOIP", 'HOIP_APO_segs.txt'), 'w') as f:
-#     for item in segs:
-#         f.write("%s\n" % ' '.join(map(str, item)))
+# write list as new lines with space delimiter
+with open(os.path.join("raw_data", "HOIP", 'HOIP_dab27', 'HOIP_dab27.txt'), 'w') as f:
+    for item in segs:
+        f.write("%s\n" % ' '.join(map(str, item)))
 
 # %%
 # ### at the moment PDB fixer is adding different number of hydrogens to different structures... Need to change the code to use PROPKA to get H states and apply to all strucutres
@@ -271,41 +339,41 @@ segs = hdx[['ResStr', 'ResEnd']].drop_duplicates().sort_values(by=['ResStr', 'Re
 def pre_process_main():
     # BPTI data
     # BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HOIP/HOIP_apo/"
-    BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo"
+    BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_dab27"
     # BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
 
     sim_name = 'HOIP_apo_AF'
     os.listdir(BPTI_dir)
 
-    segs_name = "HOIP_APO_segs.txt"
+    segs_name = "HOIP_dab27.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "HOIP_apo.dat"
+    hdx_name = "HOIP_dab27.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
     rates_name = "out__train_MD_Simulated_1Intrinsic_rates.dat"
     rates_path = os.path.join(BPTI_dir, rates_name)
 
-    sim_dir = os.path.join(BPTI_dir, "alphafold_quick")
+    # sim_dir = os.path.join(BPTI_dir, "alphafold_quick")
 
-    pdb_list = [f for f in os.listdir(sim_dir) if f.endswith('.pdb')]
+    # pdb_list = [f for f in os.listdir(sim_dir) if f.endswith('.pdb')]
 
-    print(pdb_list) 
+    # print(pdb_list) 
 
 
-    H_sim_dir = os.path.join(BPTI_dir, "alphafold_H")
+    # H_sim_dir = os.path.join(BPTI_dir, "alphafold_H")
 
-    os.makedirs(H_sim_dir, exist_ok=True)
+    # os.makedirs(H_sim_dir, exist_ok=True)
 
-    for pdb in pdb_list:
-        continue
-        fixer = PDBFixer(os.path.join(H_sim_dir, pdb))
-        fixer.addMissingHydrogens(7.0)
-        H_pdb_name = pdb.replace('.pdb', '_H.pdb')
-        PDBFile.writeFile(fixer.topology, fixer.positions, open(os.path.join(H_sim_dir, H_pdb_name), 'w'), keepIds=True)
-        break
-    pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
+    # for pdb in pdb_list:
+    #     continue
+    #     fixer = PDBFixer(os.path.join(H_sim_dir, pdb))
+    #     fixer.addMissingHydrogens(7.0)
+    #     H_pdb_name = pdb.replace('.pdb', '_H.pdb')
+    #     PDBFile.writeFile(fixer.topology, fixer.positions, open(os.path.join(H_sim_dir, H_pdb_name), 'w'), keepIds=True)
+    #     break
+    # pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
 
 
     top_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_af_sample_1000_protonated.pdb"
@@ -348,22 +416,23 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 #                                                                     segs_path=segs_path,
 #                                                                     traj_paths=traj_paths,
 #                                                                     top_path=top_path)
-
 settings.cluster_frac1 = 0.1
-# combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_modal",
-#                                                                     times=[0, 0.5, 5.0],
-#                                                                     expt_name=expt_name,
-#                                                                     n_reps=2,
-#                                                                     split_mode='R3',
-#                                                                     hdx_path=hdx_path,
-#                                                                     segs_path=segs_path,
-#                                                                     traj_paths=traj_paths,
-#                                                                     top_path=top_path,
-#                                                                     modal_cluster=True)
+
+# %%
+combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_modal1",
+                                                                    times=[0, 0.5, 5.0],
+                                                                    expt_name=expt_name,
+                                                                    n_reps=2,
+                                                                    split_mode='R3',
+                                                                    hdx_path=hdx_path,
+                                                                    segs_path=segs_path,
+                                                                    traj_paths=traj_paths,
+                                                                    top_path=top_path,
+                                                                    modal_cluster=True)
 
 # %%
 
-combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_mean",
+combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_mean1",
                                                                     times=[0, 0.5, 5.0],
                                                                     expt_name=expt_name,
                                                                     n_reps=2,

@@ -161,9 +161,12 @@ cython_debug/
 #.dat files are dumped to the local directo
 
 initial_weights_*.dat
+# ignore zip files in the root directory
+*.zip
 
 raw_data/
 data/
 logs/
 results/
 plots/
+

@@ -364,10 +364,12 @@ class ValDXer(Experiment):
         # read in reweighted data using opt_gamma if train
         if train:
             RW_path = os.path.join(predictHDX_dir, 
-                                    self.settings.RW_outprefix+f"{int(opt_gamma_coefficient)}x10^{opt_gamma_exponent}final_segment_fractions.dat")
+                                    self.settings.RW_outprefix+
+                                    f"{int(opt_gamma_coefficient)}x10^{opt_gamma_exponent}final_segment_fractions.dat")
         elif train_gamma is not None:
             RW_path = os.path.join(predictHDX_dir, 
-                                    self.settings.RW_outprefix+f"{int(train_gamma_coefficient)}x10^{train_gamma_exponent}final_segment_fractions.dat")
+                                    self.settings.RW_outprefix+
+                                    f"{int(train_gamma_coefficient)}x10^{train_gamma_exponent}final_segment_fractions.dat")
         print(RW_path)
         reweighted_df = dfracs_to_df(path=RW_path, 
                                         names=self.settings.times)
@@ -411,8 +413,6 @@ class ValDXer(Experiment):
         print(f"Residues for recalculation: {residues}")
 
 
-
-
         LogPf_by_res = calc_traj_LogP_byres(universe=traj,
                                             B_C=cr_bc_bh[1],
                                             B_H=cr_bc_bh[2],
@@ -420,7 +420,10 @@ class ValDXer(Experiment):
                                             residues=residues,
                                             weights=cr_bc_bh[0])
         
-        LogPfs_to_add = pd.DataFrame({"LogPf": [LogPf_by_res], "calc_name": [dataset_name], "Residues": [residues], "name": self.settings.name})
+        LogPfs_to_add = pd.DataFrame({"LogPf": [LogPf_by_res], 
+                                      "calc_name": [dataset_name], 
+                                      "Residues": [residues], 
+                                      "name": self.settings.name})
         
         self.LogPfs = pd.concat([self.LogPfs, LogPfs_to_add], ignore_index=True)
 
@@ -476,7 +479,8 @@ class ValDXer(Experiment):
         """
         This method takes the current weights of the frames as well as the BV parameters Bc and Bh 
         and recalculates weighted HDX data from the ensemble across the enture protein.
-        We must also recaculate the segments of the residues that appear in both the experimental and predicted data. # not implemented yet
+        We must also recaculate the segments of the residues that appear in both the experimental and predicted data. 
+        # not implemented yet
         """
         rep_name = "_".join(["train", calc_name, str(rep)])
         val_name = "_".join(["val", calc_name, str(rep)])
@@ -707,7 +711,8 @@ class ValDXer(Experiment):
 
         print("Finished running VDX loop")
 
-        # evaluate HDX train vs val - how do we actually compare both? I guess we just take the average across the reps - how do we account for peptides?
+        # evaluate HDX train vs val - how do we actually compare both? 
+        # I guess we just take the average across the reps - how do we account for peptides?
         try:
             print("Evaluating HDX")
             self.evaluate_HDX(train_dfs=train_dfs, 
@@ -775,7 +780,7 @@ class ValDXer(Experiment):
         if RW and optimise:
             settings.RW_do_reweighting = True
             settings.RW_do_params = False
-            settings.gamma_range = (3, 4)
+            settings.gamma_range = (3, 4) # TODO should be set by user or grab from settings
         if not RW:
             settings.RW_do_reweighting = False
             settings.RW_do_params = True
@@ -1366,9 +1371,7 @@ class ValDXer(Experiment):
                         save_dir=save_dir)
         
         self.analysis = pd.concat([self.analysis, plot_df], ignore_index=True)
-        # except RuntimeError:
-        #     print("Unable to plot compare MSE plot for nan_df and therfore add plot_df to self.analysis")
-        ####
+ 
 
         if self.settings.plot:
             print("plotting AVG df")

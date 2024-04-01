@@ -860,7 +860,7 @@ def recluster_traj_by_weight(clustered_universe:mda.Universe,
     final_cluster_weights = np.array([np.sum(cluster_weights[cluster_labels == i]) for i in unique_labels])
 
     # normalize the weights to sum to 1
-    final_cluster_weights = final_cluster_weights/np.sum(final_cluster_weights)   
+    final_cluster_weights = (final_cluster_weights/np.sum(final_cluster_weights))*(n_final_frames/len(unique_labels))
 
     # multiply by the number of frames
      # HDXER requires weights that add up to the number of frames
@@ -870,7 +870,7 @@ def recluster_traj_by_weight(clustered_universe:mda.Universe,
     print(np.sum(final_cluster_weights))
     print(n_final_frames)
 
-    sum_weights = np.sum(final_cluster_weights).astype(int)
+    sum_weights = np.round(np.sum(final_cluster_weights)).astype(int)
 
     assert sum_weights == n_final_frames, f"Final sum of cluster weights {sum_weights} does not equal n_final_frames {n_final_frames}"
 

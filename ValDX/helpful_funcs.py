@@ -252,6 +252,8 @@ def run_MaxEnt(args: Tuple[Dict, int]):
 
 
     reweight_object = MaxEnt(do_reweight=args["do_reweight"],
+                             bv_bc=args["bv_bc"],
+                             bv_bh=args["bv_bh"],
                              do_params=args["do_params"],
                              stepfactor=args["stepfactor"],
                              random_initial=args["random_initial"])

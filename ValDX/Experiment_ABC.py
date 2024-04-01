@@ -26,6 +26,7 @@ class Experiment(ABC):
             self.name = name
         else:
             self.name = "ABC"
+
         self.calc_names = []
         self.paths = pd.DataFrame()
         self.rates = pd.DataFrame()
@@ -41,6 +42,10 @@ class Experiment(ABC):
         self.test_HDX_data = pd.DataFrame()
         self.LogPfs = pd.DataFrame()
         self.analysis_dump = {}
+
+        self.plot_dir = None
+        self.results_dir = None
+        self.logs_dir = None
 
     def prepare_HDX_data(self, 
                          calc_name: str=None): 
@@ -842,13 +847,27 @@ class Experiment(ABC):
         return top, traj
 
 
-    def generate_directory_structure(self, calc_name: str=None, overwrite=False, gen_only=False):
+    def generate_directory_structure(self, calc_name: str=None, overwrite=False, gen_only=False, analysis_name=None):
         """
         Generates directory structure for the experiment.
         Used during init with no calc_name to generate the experiment directory. Overwrite = False.
         Used during predict HDX to gen_only the path. Overwrite = False.
         Used during split segements to create the train and val segments directories per replicate. Overwrite = True.
         """
+        if analysis_name is not None:
+            plot_dir = os.path.join(self.settings.plot_dir, analysis_name)
+            os.makedirs(plot_dir, exist_ok=True)
+            results_dir = os.path.join(self.settings.results_dir, analysis_name)
+            os.makedirs(results_dir, exist_ok=True)
+            logs_dir = os.path.join(self.settings.logs_dir, analysis_name)
+            os.makedirs(logs_dir, exist_ok=True)
+
+            self.plot_dir = plot_dir
+            self.results_dir = results_dir
+            self.logs_dir = logs_dir
+            return analysis_name, plot_dir, results_dir, logs_dir
+
+
         if calc_name is None:
             name = self.name
             exp_dir = os.path.join(self.settings.data_dir, name)
@@ -880,10 +899,16 @@ class Experiment(ABC):
             self.name = name
             exp_dir = os.path.join(self.settings.data_dir, self.name)
             os.makedirs(exp_dir)
-            plot_dir = self.settings.plot_dir
+            plot_dir = os.path.join(self.settings.plot_dir, self.settings.name)
             os.makedirs(plot_dir, exist_ok=True)
             results_dir = os.path.join(self.settings.results_dir, self.settings.name)
             os.makedirs(results_dir, exist_ok=True)
+            logs_dir = os.path.join(self.settings.logs_dir, self.settings.name)
+            os.makedirs(logs_dir, exist_ok=True)
+
+            self.plot_dir = plot_dir
+            self.results_dir = results_dir
+            self.logs_dir = logs_dir
 
             return self.name, exp_dir
 
@@ -909,13 +934,13 @@ class Experiment(ABC):
             return calc_name, calc_dir
             
 
-    # @abstractmethod
     def prepare_config(self):
         """
         Prepares the configuration...for the environment setup.
         Includes HDXER env as well as the HDXER executable.
         """
-        pass
+        pass ### TODO: Implement instead of putting at the top of the script that runs the experiment
+        os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
 
 
 
@@ -929,7 +954,7 @@ class Experiment(ABC):
         unix_time = int(time.time())
         if save_name is not None:
             save_name = save_name+"_"+str(unix_time)+".pkl"
-            save_path = os.path.join(self.settings.logs_dir, save_name)
+            save_path = os.path.join(self.logs_dir, save_name)
 
             with open(save_path, 'wb') as f:
                 pickle.dump(self, f)
@@ -953,7 +978,7 @@ class Experiment(ABC):
 
 
         # If no explicit path is provided
-        search_dir = self.settings.logs_dir
+        search_dir = self.logs_dir
         print("Searching for experiment files in: ", search_dir)
 
         pkl_files = glob.glob(os.path.join(search_dir, "*.pkl"))

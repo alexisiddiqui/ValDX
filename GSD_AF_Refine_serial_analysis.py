@@ -3,6 +3,8 @@
 import os 
 import subprocess
 import shutil
+import cProfile
+import pstats
 BPTI_script = "/home/alexi/Documents/ValDX/GSD_AFS_RW_ValDXer_testing_BPTI_0.5split.py"
 
 BRD484_script = "/home/alexi/Documents/ValDX/GSD_AFS_RW_ValDXer_testing_BRD4_apo1_0.5split.py"
@@ -15,42 +17,67 @@ MBP_script = "/home/alexi/Documents/ValDX/GSD_AFS_RW_ValDXer_testing_MBP_wt1_0.5
 
 if __name__ == "__main__":
 
-    # data_dir = "/home/alexi/Documents/ValDX/data" # do NOT remove raw_data
-    # shutil.rmtree(data_dir)
-    # os.makedirs(data_dir)
+    data_dir = "/home/alexi/Documents/ValDX/data" # do NOT remove raw_data
+    shutil.rmtree(data_dir)
+    os.makedirs(data_dir)
 
-    # plots_dir = "/home/alexi/Documents/ValDX/plots"
-    # shutil.rmtree(plots_dir)
-    # os.makedirs(plots_dir)
+    plots_dir = "/home/alexi/Documents/ValDX/plots"
+    shutil.rmtree(plots_dir)
+    os.makedirs(plots_dir)
 
-    # results_dir = "/home/alexi/Documents/ValDX/results"
-    # shutil.rmtree(results_dir)
-    # os.makedirs(results_dir)
+    results_dir = "/home/alexi/Documents/ValDX/results"
+    shutil.rmtree(results_dir)
+    os.makedirs(results_dir)
+
+    logs_dir = "/home/alexi/Documents/ValDX/logs"
+    shutil.rmtree(logs_dir)
+    os.makedirs(logs_dir)
+
 
     # import subprocess
-    # try:
-    #     subprocess.run(["python", BPTI_script], check=True)
-    # except:
-    #     print("BPTI failed")
+    # # try:
+    # #     subprocess.run(["python", BPTI_script], check=True)
+    # # except:
+    # #     print("BPTI failed")
     
     # try:
     #     subprocess.run(["python", BRD484_script], check=True)
     # except:
     #     print("BRD484 failed")
 
-    try:
-        subprocess.run(["python", HOIP_script], check=True)
-    except:
-        print("HOIP failed")
+    # # # try:
+    # #     subprocess.run(["python", HOIP_script], check=True)
+    # # except:
+    # #     print("HOIP failed")
 
-    # try:    
-    #     subprocess.run(["python", LXRa200_script], check=True)
-    # except:
-    #     print("LXRa200 failed")
+    # # try:    
+    # #     subprocess.run(["python", LXRa200_script], check=True)
+    # # except:
+    # #     print("LXRa200 failed")
 
-    # try:
-    #     subprocess.run(["python", MBP_script], check=True)
-    # except:
-    #     print("MBP failed")
+    # # try:
+    # #     subprocess.run(["python", MBP_script], check=True)
+    # # except:
+    # #     print("MBP failed")
 
-    print("All scripts ran successfully")
+    # print("All scripts ran successfully")
+
+
+
+    scripts = [BPTI_script, BRD484_script, HOIP_script, LXRa200_script, MBP_script]
+    scripts = [BPTI_script]
+    for script in scripts:
+            try:
+                profile_filename = os.path.join(logs_dir, os.path.basename(script).replace(".py", "_profile.txt"))
+                # Create a Profile object and run the script under it
+                profiler = cProfile.Profile()
+                profiler.run(f'exec(open("{script}").read())')
+                # Create Stats object
+                stats = pstats.Stats(profiler).sort_stats('cumulative')
+                # Print to console
+                stats.print_stats()
+            
+            except Exception as e:
+                print(f"{script} failed: {e}")
+
+            # print("All scripts ran successfully with profiling.")

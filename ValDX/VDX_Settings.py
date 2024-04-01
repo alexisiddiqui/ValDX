@@ -18,15 +18,17 @@ class Settings:
         elif hdxer_path is None:
             self.HDXer_path = os.environ["HDXER_PATH"]
 
-        self.data_dir = 'data'
-        self.results_dir = 'results'
-        self.plot_dir = 'plots'
-        self.logs_dir = 'logs'
+        self.data_dir = os.path.join(os.getcwd(), 'data')
+        self.results_dir = os.path.join(os.getcwd(), 'results')
+        self.plot_dir = os.path.join(os.getcwd(), 'plots')
+        self.logs_dir = os.path.join(os.getcwd(), 'logs')
 
         if name is not None:
             self.name = name
         else:
             self.name = "VDX"
+
+        self.pre_process_features = True
 
         self.random_seed = 42
         self.train_frac = 0.8

@@ -42,6 +42,7 @@ class Experiment(ABC):
         self.test_HDX_data = pd.DataFrame()
         self.LogPfs = pd.DataFrame()
         self.analysis_dump = {}
+        self.features = tuple()
 
         self.plot_dir = None
         self.results_dir = None

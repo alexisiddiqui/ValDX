@@ -1024,5 +1024,9 @@ class MaxEnt():
                        self.methodparams['bv_bc'],
                        self.methodparams['bv_bh']))
 
+
+        # merge contacts and hbonds into a single array
+        features = np.stack((self.runvalues['contacts'], self.runvalues['hbonds']), axis=-1)
+
         # return frame weights B_C and B_H
-        return self.runvalues['currweights'], self.methodparams['bv_bc'], self.methodparams['bv_bh']
+        return self.runvalues['currweights'], self.methodparams['bv_bc'], self.methodparams['bv_bh'], features

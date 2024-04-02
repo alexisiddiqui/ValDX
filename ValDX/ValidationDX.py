@@ -29,7 +29,7 @@ from icecream import ic
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
-from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames
+from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, read_MaxEnt_features, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames
 from ValDX.HDX_plots import *
 import matplotlib
 
@@ -198,6 +198,8 @@ class ValDXer(Experiment):
 
         if self.load_HDXer():
             ### how do we add times
+            raise DeprecationWarning("This method is deprecated. Enable pre_process_features() instead.")
+
             calc_hdx_command = [python,
                                 calc_hdx,
                                 "-t", *trajs,
@@ -285,6 +287,15 @@ class ValDXer(Experiment):
             
             self.load_intrinsic_rates(out_prefix + "Intrinsic_rates.dat", 
                                       calc_name=expt_name)
+
+            self.features = read_MaxEnt_features(out_dir)
+
+            print("Features")
+            print(self.features)
+            print(self.features[0].shape)
+            print(self.features[1].shape)
+
+            # raise NotImplementedError("This method is not yet implemented.")
 
             return out_dir
 
@@ -387,7 +398,6 @@ class ValDXer(Experiment):
 
                 with concurrent.futures.ProcessPoolExecutor(max_workers=20) as executor:
                     outputs_cr_bc_bh = list(executor.map(run_MaxEnt, args_r))
-
             except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
                 print("Running directly")
                 outputs_cr_bc_bh = []
@@ -473,6 +483,8 @@ class ValDXer(Experiment):
 
         stride = self.settings.HDXer_stride
 
+        assert stride == 1, "Stride must be 1"
+
         # segs = self.segs[self.segs["calc_name"] == segs_name].copy()
 
         df = segs.drop(columns=["calc_name"]).copy()
@@ -488,10 +500,18 @@ class ValDXer(Experiment):
         print(f"Residues for recalculation: {residues}")
         print(residues)
         print(rates.keys())
-        # filter residues that dont exist in rates using numpy
         residues = np.array([res for res in residues if res in rates.keys()])
 
         print(f"Residues for recalculation: {residues}")
+
+
+
+
+        # LogPf_by_res = calc_avg_Pf_from_features(self.features,
+        #                                         weights=cr_bc_bh[0],
+        #                                         bc=cr_bc_bh[1],
+        #                                         bh=cr_bc_bh[2],
+        #                                         residues=residues)
 
 
         LogPf_by_res = calc_traj_LogP_byres(universe=traj,
@@ -512,6 +532,8 @@ class ValDXer(Experiment):
             print("LogPf_by_res shape")
             print(LogPf_by_res.shape)
             print(LogPf_by_res)
+
+            # raise NotImplementedError("This method is not yet implemented.")
 
             dfracs_by_res_overtime = calc_dfrac_uptake_from_LogPf(LogPf_by_res,
                                                                 kints=rates,
@@ -551,7 +573,7 @@ class ValDXer(Experiment):
             df = df.drop(columns=["Residues"])
             print("Dataframe being appending")
             print(df)
-            self.HDX_data = pd.concat([self.HDX_data, df], ignore_index=True)
+            # self.HDX_data = pd.concat([self.HDX_data, df], ignore_index=True)
 
             return df
     
@@ -581,38 +603,6 @@ class ValDXer(Experiment):
         rates = self.rates[self.rates["calc_name"] == expt_name]["rates"].values[0]
         print(f"rates: {rates}")
         print(rates)
-
-        # train_segs = self.train_segs[self.train_segs["calc_name"] == rep_name].copy()
-
-        # self.recalculate_dataset(traj=traj,
-        #                         cr_bc_bh=cr_bc_bh,
-        #                         dataset_name=rep_name,
-        #                         segs=train_segs,
-        #                         rates=rates,
-        #                         train=True)
-
-        # expt_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
-
-        # no_weight_BV = ([None], 0.35, 2.0)
-        # no_weight_name = "_".join(["no_weight", calc_name, str(rep)])
-
-        # self.recalculate_dataset(traj=traj,
-        #                         cr_bc_bh=no_weight_BV,
-        #                         dataset_name=no_weight_name,
-        #                         segs=expt_segs,
-        #                         rates=rates,
-        #                         train=True)                                 
-
-
-
-        # val_segs = self.val_segs[self.val_segs["calc_name"] == val_name].copy()
-
-        # val_df = self.recalculate_dataset(traj=traj,
-        #                                 cr_bc_bh=cr_bc_bh,
-        #                                 dataset_name=val_name,
-        #                                 segs=val_segs,
-        #                                 rates=rates)
-        # print(val_df)
 
         test_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
 
@@ -742,6 +732,9 @@ class ValDXer(Experiment):
             n_reps = self.settings.replicates
         if random_seeds is None:
             random_seeds = [self.settings.random_seed+i for i in range(n_reps)]
+
+        if HDX_features_dir is not None:
+            self.features = read_MaxEnt_features(HDX_features_dir)
 
         print(f"Random seeds: {random_seeds}")
         train_gammas = []
@@ -1275,6 +1268,8 @@ class ValDXer(Experiment):
                                                     bc=cr_bc_bh[1],
                                                     bh=cr_bc_bh[2],
                                                     rep=rep)
+        
+        self.HDX_data = pd.concat([self.HDX_data, val_df], ignore_index=True)
 
 
         # if HDX_features_dir is None:

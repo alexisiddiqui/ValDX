@@ -7,6 +7,8 @@ import MDAnalysis as mda
 from .reweighting import MaxEnt
 from scipy.optimize import curve_fit
 from typing import Tuple, Dict, List
+from HDXer.reweighting_functions import read_contacts_hbonds, calc_trial_ave_lnpi
+            
 from concurrent.futures import ProcessPoolExecutor
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
@@ -258,7 +260,7 @@ def run_MaxEnt(args: Tuple[Dict, int]):
                              stepfactor=args["stepfactor"],
                              random_initial=args["random_initial"])
     
-    (currweights, bv_bc, bv_bh) = reweight_object.run(gamma=args["basegamma"]*r,
+    (currweights, bv_bc, bv_bh, features) = reweight_object.run(gamma=args["basegamma"]*r,
                         data_folders=args["predictHDX_dir"], 
                         kint_file=args["kint_file"],
                         exp_file=args["exp_file"],
@@ -283,6 +285,58 @@ def run_MaxEnt(args: Tuple[Dict, int]):
 
 
     return (currweights, bv_bc, bv_bh)
+
+
+def read_MaxEnt_features(path: str):
+
+    print("Reading MaxEnt features")
+    print(path)
+
+    contacts, hbonds, _ = read_contacts_hbonds(folderlist=[path],
+                                               contacts_prefix="Contacts_chain_0_res_",
+                                                  hbonds_prefix="Hbonds_chain_0_res_")
+    features = (contacts, hbonds)
+
+    print("features", features)
+    print("contacts", contacts)
+    print("contacts", contacts.shape)
+    print("hbonds", hbonds)
+    print("hbonds", hbonds.shape)
+
+    # raise NotImplementedError("Need to implement this function")
+    return features
+
+
+def calc_avg_Pf_from_features(features: tuple, weights: np.array, bc, bh, residues):
+    print("features", features)
+    print(features[0].shape)
+    print(features[1].shape)
+
+    # raise NotImplementedError("Need to implement this function")
+
+    contacts = features[0]
+    hbonds = features[1]
+
+
+
+    # weights = n_frames contacts = n_residues*n_frames -> weighted_contacts = n_residues
+    weighted_contacts = np.multiply(contacts, weights.reshape(1,-1))*bc
+    weighted_hbonds = np.multiply(hbonds, weights.reshape(1,-1))*bh
+
+    # sum over residues, pairwise addition of weighted_contacts and weighted_hbonds
+    avg_Log_Pf = np.sum(weighted_contacts, axis=1) + np.sum(weighted_hbonds, axis=1)
+    print("avg_Log_Pf", avg_Log_Pf)
+    print(avg_Log_Pf.shape)
+    # raise NotImplementedError("Need to implement this function")
+    seg_indices = np.subtract(residues, 1)
+    seg_indices = seg_indices.astype(int)
+    print("seg_indices", seg_indices)
+    print(seg_indices.shape)
+
+    avg_Log_Pf = avg_Log_Pf[seg_indices]
+    raise NotImplementedError("Need to implement this function")
+    return avg_Log_Pf
+
 
 def restore_trainval_peptide_nos(calc_name: str, 
                                  expt_name: str,
@@ -625,6 +679,7 @@ def merge_kint_dicts_into_df(kint_dicts:List[dict]):
 
 def calc_dfrac_uptake_from_LogPf(LogPf_by_res, kints:dict, times:list, residues:list):
     print("LogPf_by_res", LogPf_by_res)
+
     assert len(LogPf_by_res) == len(residues), "LogPf_by_res and kints must be the same length"
     Pf_by_res = np.exp(LogPf_by_res)
     print("Pf_by_res", Pf_by_res)
@@ -941,34 +996,4 @@ def write_pdb_by_frame(traj:mda.Universe, frames, out_dir, pdb_name):
             W.write(traj)
 
 
-
-def worker_function(args):
-    idx, mode, settings, split_names, hdx_path, segs_path, top_path, traj_paths, rates_path, out_dir, weights, random_seeds = args
-
-    settings.name = split_names[idx]
-    # split_name = split_names[idx]
-    print(f"Running {mode} split mode")
-    settings.split_mode = mode
-    from ValDX.ValidationDX import ValDXer
-    _VDX = ValDXer(settings=settings)
-    _VDX.settings.plot = False
-    _VDX.load_HDX_data(HDX_path=hdx_path,
-                        SEG_path=segs_path,
-                        calc_name=expt_name)
-    _VDX.load_structures(top_path=top_path,
-                        traj_paths=traj_paths,
-                        calc_name=system)
-    if rates_path is not None:
-        _VDX.load_intrinsic_rates(path=rates_path,
-                                    calc_name=expt_name)
-        
-    _ = _VDX.run_VDX(calc_name=system,
-                        weights=weights,
-                    HDX_features_dir=out_dir,
-                    expt_name=expt_name,
-                    random_seeds=random_seeds)
-
-    analysis_dump, df, name = _VDX.dump_analysis()
-    save_path = _VDX.save_experiment()
-    return analysis_dump, df, name, save_path
 

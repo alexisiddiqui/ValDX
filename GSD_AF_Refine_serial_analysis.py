@@ -5,6 +5,7 @@ import subprocess
 import shutil
 import cProfile
 import pstats
+import time
 BPTI_script = "/home/alexi/Documents/ValDX/GSD_AFS_RW_ValDXer_testing_BPTI_0.5split.py"
 
 BRD484_script = "/home/alexi/Documents/ValDX/GSD_AFS_RW_ValDXer_testing_BRD4_apo1_0.5split.py"
@@ -63,9 +64,10 @@ if __name__ == "__main__":
     # print("All scripts ran successfully")
 
 
+    start = time.time()
 
     scripts = [BPTI_script, BRD484_script, HOIP_script, LXRa200_script, MBP_script]
-    scripts = [BPTI_script]
+    # scripts = [BPTI_script]
     for script in scripts:
             try:
                 profile_filename = os.path.join(logs_dir, os.path.basename(script).replace(".py", "_profile.txt"))
@@ -81,3 +83,7 @@ if __name__ == "__main__":
                 print(f"{script} failed: {e}")
 
             # print("All scripts ran successfully with profiling.")
+                
+    end = time.time()
+
+    print(f"Time taken: {(end-start):.2f} seconds")

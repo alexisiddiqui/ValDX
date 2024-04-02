@@ -723,7 +723,8 @@ class Experiment(ABC):
             intersection_peptides = np.intersect1d(train_peptides, val_peptides)
 
             train_peptides = np.setdiff1d(train_peptides, intersection_peptides)
-            val_peptides = np.setdiff1d(val_peptides, intersection_peptides)
+            # keep validation peptides
+            # val_peptides = np.setdiff1d(val_peptides, intersection_peptides)
 
             train_segs = self.segs[self.segs['peptide'].isin(train_peptides)]
             val_segs = self.segs[self.segs['peptide'].isin(val_peptides)]

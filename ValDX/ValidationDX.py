@@ -778,7 +778,7 @@ class ValDXer(Experiment):
 
         # for rep in range(1,n_reps+1):
             # validation HDX
-            val_opt_gamma, val_df,test_df = self.validate_HDX(calc_name=calc_name,
+            val_opt_gamma, val_df = self.validate_HDX(calc_name=calc_name,
                                                         expt_name=expt_name,
                                                         mode=mode,
                                                         HDX_features_dir=out_dir,
@@ -790,7 +790,7 @@ class ValDXer(Experiment):
 
             val_gammas.append(val_opt_gamma)  
             val_dfs.append(val_df)
-            test_dfs.append(test_df)
+            # test_dfs.append(test_df)
 
         print("Finished running VDX loop")
 
@@ -802,7 +802,7 @@ class ValDXer(Experiment):
                           val_dfs=val_dfs, 
                           expt_name=expt_name, 
                           calc_name=calc_name, 
-                          test_dfs=test_dfs,
+                        #   test_dfs=test_dfs,
                           train_gammas=train_gammas, 
                           val_gammas=val_gammas,
                           n_reps=n_reps)
@@ -898,45 +898,6 @@ class ValDXer(Experiment):
             out_dir = HDX_features_dir
             rates_path = None
 
-
-        def worker_function(mode, 
-                            names_idx, 
-                            settings, 
-                            split_names, 
-                            hdx_path, 
-                            segs_path, 
-                            expt_name, 
-                            top_path, 
-                            traj_paths, 
-                            out_dir, 
-                            rates_path, 
-                            weights, 
-                            random_seeds):
-            # This function contains the code previously inside the loop.
-            settings.name = names[names_idx]
-            print(f"Running {mode} split mode")
-            settings.split_mode = mode
-            _VDX = ValDXer(settings=settings)
-            _VDX.settings.plot = False
-            _VDX.load_HDX_data(HDX_path=hdx_path,
-                            SEG_path=segs_path,
-                            calc_name=expt_name)
-            _VDX.load_structures(top_path=top_path,
-                                traj_paths=traj_paths,
-                                calc_name=system)
-            if rates_path is not None:
-                _VDX.load_intrinsic_rates(path=rates_path,
-                                        calc_name=expt_name)
-                
-            _ = _VDX.run_VDX(calc_name=system,
-                            weights=weights,
-                            HDX_features_dir=out_dir,
-                            expt_name=expt_name,
-                            random_seeds=random_seeds)
-            analysis_dump, df, name = _VDX.dump_analysis()
-            save_path = _VDX.save_experiment()
-            print("Analysis Dump", analysis_dump)
-            return analysis_dump, df, name, save_path
 
 
         
@@ -1336,13 +1297,13 @@ class ValDXer(Experiment):
 
 
 
-        return train_gamma, val_df, test_df
+        return train_gamma, val_df
     
 
     def evaluate_HDX(self, 
                      train_dfs: List[pd.DataFrame], 
                      val_dfs: List[pd.DataFrame], 
-                     test_dfs: List[pd.DataFrame],
+                    #  test_dfs: List[pd.DataFrame],
                      data: pd.DataFrame=None, 
                      expt_name: str=None, 
                      calc_name: str=None, 
@@ -1424,7 +1385,7 @@ class ValDXer(Experiment):
         data_to_dump = {
             "train_dfs": train_dfs,
             "val_dfs": val_dfs,
-            "test_dfs": test_dfs,
+            # "test_dfs": test_dfs,
             "expt_df": expt_df,
             "merge_df": merge_df,
             "expt_segs": expt_segs,

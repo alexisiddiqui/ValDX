@@ -939,3 +939,36 @@ def write_pdb_by_frame(traj:mda.Universe, frames, out_dir, pdb_name):
     with mda.Writer(pdb_path, traj.trajectory.n_frames, multiframe=True) as W:
         for ts in traj.trajectory[frames]:
             W.write(traj)
+
+
+
+def worker_function(args):
+    idx, mode, settings, split_names, hdx_path, segs_path, top_path, traj_paths, rates_path, out_dir, weights, random_seeds = args
+
+    settings.name = split_names[idx]
+    # split_name = split_names[idx]
+    print(f"Running {mode} split mode")
+    settings.split_mode = mode
+    from ValDX.ValidationDX import ValDXer
+    _VDX = ValDXer(settings=settings)
+    _VDX.settings.plot = False
+    _VDX.load_HDX_data(HDX_path=hdx_path,
+                        SEG_path=segs_path,
+                        calc_name=expt_name)
+    _VDX.load_structures(top_path=top_path,
+                        traj_paths=traj_paths,
+                        calc_name=system)
+    if rates_path is not None:
+        _VDX.load_intrinsic_rates(path=rates_path,
+                                    calc_name=expt_name)
+        
+    _ = _VDX.run_VDX(calc_name=system,
+                        weights=weights,
+                    HDX_features_dir=out_dir,
+                    expt_name=expt_name,
+                    random_seeds=random_seeds)
+
+    analysis_dump, df, name = _VDX.dump_analysis()
+    save_path = _VDX.save_experiment()
+    return analysis_dump, df, name, save_path
+

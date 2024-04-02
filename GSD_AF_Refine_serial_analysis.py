@@ -75,7 +75,7 @@ if __name__ == "__main__":
                 # Create Stats object
                 stats = pstats.Stats(profiler).sort_stats('cumulative')
                 # Print to console
-                stats.print_stats()
+                # stats.print_stats()
             
             except Exception as e:
                 print(f"{script} failed: {e}")

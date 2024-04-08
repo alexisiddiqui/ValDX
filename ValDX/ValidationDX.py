@@ -22,6 +22,7 @@ import seaborn as sns
 import datetime
 from typing import List, Tuple
 from icecream import ic
+
 # from .reweighting import MaxEnt
 
 # import copy
@@ -491,35 +492,37 @@ class ValDXer(Experiment):
 
         print(df)
         # convert segs df to list of residues from resstr to resend
-        segs["Residues"]= segs.apply(lambda x: np.array(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
-        residues = segs["Residues"].to_numpy()
-        residues = np.concatenate(residues)
-        residues = np.unique(residues)
-        start_res = np.sort(residues)[0]
-
-        print(f"Residues for recalculation: {residues}")
-        print(residues)
+        segs["Residues"] = segs.apply(lambda x: np.array(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
+        seg_residues = segs["Residues"].to_numpy()
+        seg_residues = np.concatenate(seg_residues)
+        seg_residues = np.unique(seg_residues)
+        start_res = np.sort(seg_residues)[0]
+        kint_residues = np.array(list(rates.keys()))
+        print(f"Residues for recalculation: {seg_residues}")
+        print(seg_residues)
         print(rates.keys())
-        residues = np.array([res for res in residues if res in rates.keys()])
+
+
+        residues = np.intersect1d(seg_residues, kint_residues)
+
+        kint_indexes = np.array([idx for idx, res in enumerate(kint_residues) if res in residues])        
+
+
 
         print(f"Residues for recalculation: {residues}")
+        LogPf_by_res = calc_avg_Pf_from_features(self.features,
+                                                weights=cr_bc_bh[0],
+                                                bc=cr_bc_bh[1],
+                                                bh=cr_bc_bh[2],
+                                                res_indexes=kint_indexes)
 
 
-
-
-        # LogPf_by_res = calc_avg_Pf_from_features(self.features,
-        #                                         weights=cr_bc_bh[0],
-        #                                         bc=cr_bc_bh[1],
-        #                                         bh=cr_bc_bh[2],
-        #                                         residues=residues)
-
-
-        LogPf_by_res = calc_traj_LogP_byres(universe=traj,
-                                            B_C=cr_bc_bh[1],
-                                            B_H=cr_bc_bh[2],
-                                            stride=stride,
-                                            residues=residues,
-                                            weights=cr_bc_bh[0])
+        # LogPf_by_res = calc_traj_LogP_byres(universe=traj,
+        #                                     B_C=cr_bc_bh[1],
+        #                                     B_H=cr_bc_bh[2],
+        #                                     stride=stride,
+        #                                     residues=residues,
+        #                                     weights=cr_bc_bh[0])
         
         LogPfs_to_add = pd.DataFrame({"LogPf": [LogPf_by_res], 
                                       "calc_name": [dataset_name], 
@@ -845,10 +848,6 @@ class ValDXer(Experiment):
             random_seeds = [self.settings.random_seed+i for i in range(n_reps)]
 
         # raw_run_outputs = {}
-        analysis_dumps = {}
-        analysis_df = pd.DataFrame()
-        names = []
-        save_paths = []
 
         if times is not None:
             self.settings.times = times
@@ -871,7 +870,7 @@ class ValDXer(Experiment):
         name = deepcopy(settings.name)
         print(f"Running benchmark for {name}")
         split_names = [f"{mode}_{name_mapping[mode]}" for mode in split_modes]
-        names = [f"{name}_{split_name}" for split_name in split_names]
+        set_names = [f"{name}_{split_name}" for split_name in split_names]
         settings.times = times
         settings.plot_dir = os.path.join(settings.plot_dir, name, "Benchmark")
         settings.results_dir = os.path.join(settings.results_dir, name, "Benchmark")
@@ -890,42 +889,124 @@ class ValDXer(Experiment):
         else:
             out_dir = HDX_features_dir
             rates_path = None
+    
 
-
-
-        
-
-        for idx, mode in enumerate(split_modes):
-            settings.name = names[idx]
-            # split_name = split_names[idx]
-            print(f"Running {mode} split mode")
-            settings.split_mode = mode
-            _VDX = ValDXer(settings=settings)
-            _VDX.settings.plot = False
-            _VDX.load_HDX_data(HDX_path=hdx_path,
-                                SEG_path=segs_path,
-                                calc_name=expt_name)
-            _VDX.load_structures(top_path=top_path,
-                                traj_paths=traj_paths,
-                                calc_name=system)
-            if rates_path is not None:
-                _VDX.load_intrinsic_rates(path=rates_path,
-                                          calc_name=expt_name)
+        # for idx, mode in enumerate(split_modes):
+        #     settings.name = names[idx]
+        #     # split_name = split_names[idx]
+        #     print(f"Running {mode} split mode")
+        #     settings.split_mode = mode
+        #     _VDX = ValDXer(settings=settings)
+        #     _VDX.settings.plot = False
+        #     _VDX.load_HDX_data(HDX_path=hdx_path,
+        #                         SEG_path=segs_path,
+        #                         calc_name=expt_name)
+        #     _VDX.load_structures(top_path=top_path,
+        #                         traj_paths=traj_paths,
+        #                         calc_name=system)
+        #     if rates_path is not None:
+        #         _VDX.load_intrinsic_rates(path=rates_path,
+        #                                   calc_name=expt_name)
                 
-            _ = _VDX.run_VDX(calc_name=system,
-                             weights=weights,
-                            HDX_features_dir=out_dir,
-                            expt_name=expt_name,
-                            random_seeds=random_seeds)
-            # raw_run_outputs[split_name] = run_outputs # we dont need the raw outputs
-            analysis_dump, df, name = _VDX.dump_analysis()
-            save_path = _VDX.save_experiment()
-            print("Analysis Dump", analysis_dump)
+        #     _ = _VDX.run_VDX(calc_name=system,
+        #                      weights=weights,
+        #                     HDX_features_dir=out_dir,
+        #                     expt_name=expt_name,
+        #                     random_seeds=random_seeds)
+        #     # raw_run_outputs[split_name] = run_outputs # we dont need the raw outputs
+        #     analysis_dump, df, name = _VDX.dump_analysis()
+        #     save_path = _VDX.save_experiment()
+        #     print("Analysis Dump", analysis_dump)
+        #     analysis_dumps.update(analysis_dump)
+        #     analysis_df = pd.concat([analysis_df, df], ignore_index=True)
+        #     names.append(name)
+        #     save_paths.append(save_path)
+        
+        # use worker_function to run VDX in parallel
+
+# def worker_function(mode, 
+#                     settings,
+#                     name, 
+#                     hdx_path, 
+#                     segs_path, 
+#                     expt_name, 
+#                     top_path, 
+#                     traj_paths, 
+#                     system, 
+#                     rates_path, 
+#                     weights, 
+#                     out_dir, 
+#                     random_seeds):
+#     print(f"Running {mode} split mode")
+#     settings.name = name
+#     settings.split_mode = mode
+    
+#     _VDX = ValDXer(settings=settings)
+#     _VDX.settings.plot = False
+#     _VDX.load_HDX_data(HDX_path=hdx_path, SEG_path=segs_path, calc_name=expt_name)
+#     _VDX.load_structures(top_path=top_path, traj_paths=traj_paths, calc_name=system)
+    
+#     if rates_path is not None:
+#         _VDX.load_intrinsic_rates(path=rates_path, calc_name=expt_name)
+        
+#     _ = _VDX.run_VDX(calc_name=system,
+#                      weights=weights,
+#                      HDX_features_dir=out_dir,
+#                      expt_name=expt_name,
+#                      random_seeds=random_seeds)
+    
+#     analysis_dump, df, name = _VDX.dump_analysis()
+#     save_path = _VDX.save_experiment()
+    
+#     print("Analysis Dump", analysis_dump)
+    
+#     # Return values that will need to be collected or processed after parallel execution
+#     return analysis_dump, df, name, save_path
+
+
+
+        analysis_dumps = {}
+        analysis_df = pd.DataFrame()
+        names = []
+        save_paths = []
+
+        try:
+            # trying concurrent.futures
+            print("Trying concurrent.futures")
+            args = [(mode, 
+                     settings, 
+                     name, 
+                     hdx_path, 
+                     segs_path, 
+                     expt_name, 
+                     top_path, 
+                     traj_paths, 
+                     system, 
+                     rates_path, 
+                     weights, 
+                     out_dir, 
+                     random_seeds) 
+                     for mode, name in zip(split_modes, set_names)]
+                                
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                outputs = list(executor.map(worker_function, args))
+
+        except:
+            UserWarning("Concurrent.futures failed. Trying without concurrent.futures")
+            print("Running directly")
+            outputs = []
+            for arg in args:
+                output = worker_function(*arg)
+                outputs.append(output)
+
+        # raise NotImplementedError("This method is not yet implemented.")
+        for output in outputs:
+            analysis_dump, df, name, save_path = output
             analysis_dumps.update(analysis_dump)
             analysis_df = pd.concat([analysis_df, df], ignore_index=True)
             names.append(name)
             save_paths.append(save_path)
-        
+
         print("Concatenated",analysis_dumps)
 
         combined_analysis_dump = {}
@@ -1655,3 +1736,43 @@ class ValDXer(Experiment):
                 dump["split_type"] = [self.settings.split_mode]*len(dump)
 
         return self.analysis_dump, self.analysis, name
+
+
+def worker_function(mode, 
+                    settings,
+                    name, 
+                    hdx_path, 
+                    segs_path, 
+                    expt_name, 
+                    top_path, 
+                    traj_paths, 
+                    system, 
+                    rates_path, 
+                    weights, 
+                    out_dir, 
+                    random_seeds):
+    print(f"Running {mode} split mode")
+    settings.name = name
+    settings.split_mode = mode
+    
+    _VDX = ValDXer(settings=settings)
+    _VDX.settings.plot = False
+    _VDX.load_HDX_data(HDX_path=hdx_path, SEG_path=segs_path, calc_name=expt_name)
+    _VDX.load_structures(top_path=top_path, traj_paths=traj_paths, calc_name=system)
+    
+    if rates_path is not None:
+        _VDX.load_intrinsic_rates(path=rates_path, calc_name=expt_name)
+        
+    _ = _VDX.run_VDX(calc_name=system,
+                     weights=weights,
+                     HDX_features_dir=out_dir,
+                     expt_name=expt_name,
+                     random_seeds=random_seeds)
+    
+    analysis_dump, df, name = _VDX.dump_analysis()
+    save_path = _VDX.save_experiment()
+    
+    print("Analysis Dump", analysis_dump)
+    
+    # Return values that will need to be collected or processed after parallel execution
+    return analysis_dump, df, name, save_path

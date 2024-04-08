@@ -11,9 +11,9 @@ from MDAnalysis.coordinates.XTC import XTCWriter
 
 settings = Settings(name='BRD4_484')
 settings.replicates = 1
-settings.gamma_range = (2,6)
+settings.gamma_range = (1,8)
 settings.train_frac = 0.5
-settings.RW_exponent = [0]
+settings.RW_exponent = [-1]
 settings.split_mode = 'R3'
 settings.stride = 1000
 # settings.HDXer_stride = 10000
@@ -356,16 +356,16 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 
                                                                         
 settings.cluster_frac1 = 0.1
-# combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"mode",
-#                                                                     times=[0.0, 15.0, 60.0, 600.0, 3600.0, 14400.0],
-#                                                                     expt_name=expt_name,
-#                                                                     n_reps=2,
-#                                                                     split_mode='R3',
-#                                                                     hdx_path=hdx_path,
-#                                                                     segs_path=segs_path,
-#                                                                     traj_paths=traj_paths,
-#                                                                     top_path=top_path,
-#                                                                     modal_cluster=True)
+combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"mode",
+                                                                    times=[0.0, 15.0, 60.0, 600.0, 3600.0, 14400.0],
+                                                                    expt_name=expt_name,
+                                                                    n_reps=2,
+                                                                    split_mode='R3',
+                                                                    hdx_path=hdx_path,
+                                                                    segs_path=segs_path,
+                                                                    traj_paths=traj_paths,
+                                                                    top_path=top_path,
+                                                                    modal_cluster=True)
                                                                     
 
 # %%

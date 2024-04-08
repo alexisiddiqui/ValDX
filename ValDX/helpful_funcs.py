@@ -307,7 +307,7 @@ def read_MaxEnt_features(path: str):
     return features
 
 
-def calc_avg_Pf_from_features(features: tuple, weights: np.array, bc, bh, residues):
+def calc_avg_Pf_from_features(features: tuple, weights: np.array, bc, bh, res_indexes):
     print("features", features)
     print(features[0].shape)
     print(features[1].shape)
@@ -328,13 +328,11 @@ def calc_avg_Pf_from_features(features: tuple, weights: np.array, bc, bh, residu
     print("avg_Log_Pf", avg_Log_Pf)
     print(avg_Log_Pf.shape)
     # raise NotImplementedError("Need to implement this function")
-    seg_indices = np.subtract(residues, 1)
-    seg_indices = seg_indices.astype(int)
-    print("seg_indices", seg_indices)
-    print(seg_indices.shape)
+    print("res_indexes", res_indexes)
+    print(res_indexes.shape)
 
-    avg_Log_Pf = avg_Log_Pf[seg_indices]
-    raise NotImplementedError("Need to implement this function")
+    avg_Log_Pf = avg_Log_Pf[res_indexes]
+    # raise NotImplementedError("Need to implement this function")
     return avg_Log_Pf
 
 

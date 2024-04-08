@@ -11,11 +11,12 @@ from icecream import ic
 
 settings = Settings(name='BPTI_shaw')
 settings.replicates = 3
-settings.gamma_range = (1,8)
+settings.gamma_range = (4,6)
 settings.train_frac = 0.5
 settings.RW_exponent = [0]
+# settings.RW_stepfactor = 10**-4
 settings.split_mode = 'R3'
-settings.stride = 1000
+# settings.strides = 1000
 # settings.HDXer_stride = 10000
 
 settings.RW_do_reweighting = False
@@ -162,12 +163,12 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 
 # %%
 ic.disable()
-VDX.settings.cluster_frac1 = 0.05
-VDX.settings.cluster_size2 = 5
+VDX.settings.cluster_frac1 = 0.1
+VDX.settings.cluster_size2 = 20
 combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_modal_cluster",
                                                                         times=[0.167, 1, 10, 120],
                                                                         expt_name=expt_name,
-                                                                        n_reps=3,
+                                                                        n_reps=1,
                                                                         split_mode='R3',
                                                                         # RW=True,
                                                                         
@@ -182,7 +183,7 @@ combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_
 combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_mean_cluster",
                                                                         times=[0.167, 1, 10, 120],
                                                                         expt_name=expt_name,
-                                                                        n_reps=3,
+                                                                        n_reps=1,
                                                                         split_mode='R3',
                                                                         # RW=True,
                                                                         

@@ -1129,8 +1129,10 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
     ### Optimiser ###
     # TODO change this to a more robust method - change this to find the kink in the curve
     # instead of calcing angle - rotate the curve and find the point where the gradient is 1
-    # 
+    # TODO there is a bug in this code when the signal is really flat - i think in that case take the lowest gamma
     angles = []
+    print(x)
+    print(y)
     for i in range(len(x)-1):
         angles.append(np.arctan((y[i+1]-y[i])/(x[i+1]-x[i])))
 

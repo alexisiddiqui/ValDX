@@ -81,6 +81,7 @@ if __name__ == "__main__":
             
             except Exception as e:
                 print(f"{script} failed: {e}")
+                break
 
             # print("All scripts ran successfully with profiling.")
                 

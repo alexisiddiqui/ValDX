@@ -17,11 +17,9 @@ settings.gamma_range = (2,6)
 settings.train_frac = 0.5
 settings.RW_exponent = [0]
 settings.split_mode = 'R3'
-settings.stride = 1000
+# settings.stride = 1000
 # settings.HDXer_stride = 10000
 
-settings.RW_do_reweighting = False
-settings.RW_do_params = True
 import pickle
 
 VDX = ValDXer(settings)

@@ -67,7 +67,7 @@ if __name__ == "__main__":
     start = time.time()
 
     scripts = [BPTI_script, BRD484_script, HOIP_script, LXRa200_script, MBP_script]
-    # scripts = [BPTI_script]
+    # scripts = [BPTI_script, HOIP_script]
     for script in scripts:
             try:
                 profile_filename = os.path.join(logs_dir, os.path.basename(script).replace(".py", "_profile.txt"))

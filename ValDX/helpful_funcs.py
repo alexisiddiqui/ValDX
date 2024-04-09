@@ -29,8 +29,9 @@ def conda_to_env_dict(env_name):
     If the environment is not found, returns None.
     """
     # Run the command 'conda env list' and get the output
+    result = subprocess.run(['conda', 'env', 'list'], stdout=subprocess.PIPE, shell=True)
     result = subprocess.run(['conda', 'env', 'list'], stdout=subprocess.PIPE)
-    
+
     # Decode result to string and split lines
     envs = result.stdout.decode().splitlines()
     print("envs", envs)

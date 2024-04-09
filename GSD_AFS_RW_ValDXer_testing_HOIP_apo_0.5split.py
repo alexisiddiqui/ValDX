@@ -14,15 +14,15 @@ from openmm.app import PDBFile
 
 settings = Settings(name='testHOIP')
 settings.replicates = 1
-settings.gamma_range = (2,6)
+settings.gamma_range = (1,8)
 settings.train_frac = 0.5
 settings.RW_exponent = [0]
 settings.split_mode = 'R3'
-settings.stride = 1000
+# settings.stride = 1000
 # settings.HDXer_stride = 10000
 
-settings.RW_do_reweighting = True
-settings.RW_do_params = False
+# settings.RW_do_reweighting = True
+# settings.RW_do_params = False
 import pickle
 
 VDX = ValDXer(settings)

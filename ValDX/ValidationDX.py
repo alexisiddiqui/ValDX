@@ -23,6 +23,8 @@ import datetime
 from typing import List, Tuple
 from icecream import ic
 
+from ValDX.VDX_dataclasses import AnalysisData, AnalysisInfo
+
 # from .reweighting import MaxEnt
 
 # import copy
@@ -37,23 +39,40 @@ import matplotlib
 class ValDXer(Experiment):
     def __init__(self, 
                  settings: Settings, 
-                 name=None):
+                 name=None,
+                 overwrite:bool=False,
+                 benchmark:bool=False,
+                 analysis_name:list=None):
         super().__init__(settings, name=None)
         if name is not None:
+                self.settings.name = name
                 self.name = name
         else:
              self.name = self.settings.name
-        self.settings.data_dir = os.path.join(os.getcwd(), self.settings.data_dir)
+        # self.settings.data_dir = os.path.join(os.getcwd(), self.settings.data_dir)
         self.HDXer_path = self.settings.HDXer_path
         self.HDXer_env = self.settings.HDXer_env
         self.load_HDXer()
-        self.generate_directory_structure(overwrite=False)
         self.analysis = pd.DataFrame()
+
+        if analysis_name is not None:
+            self.analysis_name = analysis_name
+            overwrite = True
+            # TODO implement analysis name method
+        else:
+            self.analysis_name = [""]
+        self.benchmark = benchmark
+        self.initialise_dir_structure(prefix=self.analysis_name,
+                                      paths_only=True,
+                                      overwrite_output=overwrite)
         # self.settings.plot_dir = os.path.join(self.settings.plot_dir, self.settings.name)
         if self.settings.save_figs:
             matplotlib.use('Agg')
         else:
             matplotlib.use('TkAgg')
+
+        self.analysis_info: AnalysisInfo = None
+        self.analysis_data: AnalysisData = None
     
     def load_HDX_data(self, 
                       HDX_path: str=None, 
@@ -175,8 +194,12 @@ class ValDXer(Experiment):
             rep_name = "_".join(["val", calc_name, str(rep)])
    
         # folder should exist
-        _, out_dir = self.generate_directory_structure(calc_name=rep_name, 
-                                                       gen_only=True)
+        # _, out_dir = self.generate_directory_structure(calc_name=rep_name, 
+        #                                                gen_only=True)
+        
+        out_dir, _, _, _ = self.create_path_str(prefix=self.analysis_name,
+                                           calc_name=rep_name)
+
         print(out_dir)
         calc_hdx = os.path.join(self.HDXer_path, "HDXer", "calc_hdx.py")
         print(calc_name)
@@ -243,8 +266,9 @@ class ValDXer(Experiment):
 
         rep_name = "_".join(["prep", self.name, str(0)])
 
-        _, out_dir = self.generate_directory_structure(calc_name=rep_name,
-                                                       overwrite=True)
+        out_dir = self.generate_data_path(prefix=self.analysis_name,
+                                                calc_name=rep_name,
+                                                overwrite=True)
         print(out_dir)
 
         top = self.paths["top"].dropna().values[0]
@@ -674,7 +698,7 @@ class ValDXer(Experiment):
         train_pdb_name = "_".join(["train", str(rep), name, mode ,time]) + ".pdb"
         val_pdb_name = "_".join(["val", str(rep), name, mode ,time]) + ".pdb"
 
-        out_dir = os.path.join(self.settings.results_dir, name)
+        out_dir = os.path.join(self.results_dir)
 
         train_pdb_path = os.path.join(out_dir, train_pdb_name)
         val_pdb_path = os.path.join(out_dir, val_pdb_name)
@@ -707,7 +731,7 @@ class ValDXer(Experiment):
 
         time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         pdb_name = "_".join(["RW", str(rep), name, mode ,time]) + ".pdb"
-        out_dir = os.path.join(self.settings.results_dir, name)
+        out_dir = os.path.join(self.results_dir)
 
         pdb_path = os.path.join(out_dir, pdb_name)
         os.makedirs(out_dir, exist_ok=True)
@@ -746,6 +770,9 @@ class ValDXer(Experiment):
         train_dfs = []
         val_dfs = []
         test_dfs = []
+
+        self.initialise_dir_structure(prefix=self.analysis_name,
+                                      paths_only=False)
 
         if self.settings.pre_process_features and HDX_features_dir is None:
             out_dir = self.pre_process_features(expt_name=expt_name)
@@ -787,6 +814,18 @@ class ValDXer(Experiment):
             val_gammas.append(val_opt_gamma)  
             val_dfs.append(val_df)
             # test_dfs.append(test_df)
+
+        self.analysis_info = AnalysisInfo(settings_name=self.settings.name,
+                                          analysis_name=self.analysis_name,
+                                          n_reps=n_reps,
+                                            split_mode=mode,
+                                            calc_name=calc_name,
+                                            expt_name=expt_name,
+                                            times=self.settings.times,
+                                            benchmark=self.benchmark)
+
+
+
 
         print("Finished running VDX loop")
 
@@ -831,6 +870,8 @@ class ValDXer(Experiment):
   
 
 
+
+
         name_mapping = {
             "r": "naive_random",
             "s": "naive_sequential",
@@ -860,21 +901,27 @@ class ValDXer(Experiment):
             settings.RW_do_reweighting = True
             settings.RW_do_params = False
             settings.gamma_range = self.settings.gamma_range
+            benchmark_name = "RW_bench"
         if not RW:
             settings.RW_do_reweighting = False
             settings.RW_do_params = True
+            benchmark_name = "BV_bench"
         if not optimise:
             settings.RW_do_reweighting = False
             settings.RW_do_params = False
             settings.gamma_range = (3, 4)
+            benchmark_name = "noBV_bench"
         name = deepcopy(settings.name)
         print(f"Running benchmark for {name}")
         split_names = [f"{mode}_{name_mapping[mode]}" for mode in split_modes]
         set_names = [f"{name}_{split_name}" for split_name in split_names]
         settings.times = times
-        settings.plot_dir = os.path.join(settings.plot_dir, name, "Benchmark")
-        settings.results_dir = os.path.join(settings.results_dir, name, "Benchmark")
-        settings.data_dir = os.path.join(settings.data_dir, name, "Benchmark")
+
+
+        settings.plot_dir = os.path.join(self.plot_dir, "Benchmark")
+        settings.logs_dir = os.path.join(self.logs_dir, "Benchmark")
+        settings.results_dir = os.path.join(self.results_dir,"Benchmark")
+        settings.data_dir = os.path.join(self.data_dir,  "Benchmark")
 
         _VDX = ValDXer(settings=settings)
         _VDX.load_HDX_data(HDX_path=hdx_path,
@@ -987,7 +1034,7 @@ class ValDXer(Experiment):
                      out_dir, 
                      random_seeds) 
                      for mode, name in zip(split_modes, set_names)]
-                                
+            raise NotImplementedError("This method is not yet implemented with concurrent futures.")
             with concurrent.futures.ProcessPoolExecutor() as executor:
                 outputs = list(executor.map(worker_function, args))
 
@@ -1065,7 +1112,7 @@ class ValDXer(Experiment):
         # split_benchmark_plot_MSE_by_protein_split(MSE_df)
 
         if self.settings.save_figs:
-            save_dir = os.path.join(settings.plot_dir, system, "Benchmark")
+            save_dir = os.path.join(self.plot_dir, system, "Benchmark")
             try:
                 os.removedirs(save_dir)
             except:
@@ -1116,18 +1163,15 @@ class ValDXer(Experiment):
         ### Currently only doing the mean - update to take the mode for cluster frac2
         # reinstantiate class 
 
-        self.settings.name = system
-        analysis_name = system+"-Refine-Ensemble"
-        self.settings.data_dir = os.path.join(self.settings.data_dir, analysis_name)
-
+        # self.settings.name = system
+        # analysis_name = system+"Refine-Ensemble"
+        # self.settings.data_dir = os.path.join(self.settings.data_dir, analysis_name)
+        analysis_name="Refine-Ensemble"
         settings = deepcopy(self.settings)
-        self = ValDXer(settings=settings)
-
-        analysis_name, plot_dir, results_dir, logs_dir = self.generate_directory_structure(analysis_name=analysis_name)
-
-        self.settings.plot_dir = plot_dir
-        self.settings.results_dir = results_dir
-        self.settings.logs_dir = logs_dir
+        self = ValDXer(settings=settings, name=system, analysis_name=analysis_name)
+        self.initialise_dir_structure(prefix=self.analysis_name)
+        plot_dir, results_dir, logs_dir = self.plot_dir, self.results_dir, self.logs_dir
+        # self.settings.logs_dir = logs_dir
 
 
 
@@ -1146,7 +1190,7 @@ class ValDXer(Experiment):
                             new_cluster_centers=cluster_centers,
                             cluster_labels=cluster_labels,
                             new_cluster_weights=iniweights,
-                            save=self.settings.save_figs, save_dir=self.settings.plot_dir)
+                            save=self.settings.save_figs, save_dir=self.plot_dir)
 
         # save clustered universe 
         clustered_traj_name = "_".join([system, "clustered", "cfrac1", str(self.settings.cluster_frac1), ".xtc"])
@@ -1181,7 +1225,8 @@ class ValDXer(Experiment):
         settings.RW_do_params = False
         settings.random_seed = settings.random_seed + 1
         
-        _VDX = ValDXer(settings=settings)
+        # _VDX = ValDXer(settings=settings, name=system, analysis_name=[analysis_name,"RW"]) # to try
+        _VDX = ValDXer(settings=settings, name=system)
 
         _VDX.load_HDX_data(HDX_path=hdx_path,
                             SEG_path=segs_path,
@@ -1205,7 +1250,7 @@ class ValDXer(Experiment):
                             new_cluster_centers=cluster_centers,
                             cluster_labels=cluster_labels[cluster_frames],
                             new_cluster_weights=avg_weights,
-                            save=self.settings.save_figs, save_dir=self.settings.plot_dir)
+                            save=self.settings.save_figs, save_dir=plot_dir)
 
         clustered_universe = mda.Universe(top_path, clustered_traj_path)
         # recluster to cluster frac2
@@ -1219,7 +1264,7 @@ class ValDXer(Experiment):
                                 new_cluster_centers=reclustered_centers,
                                 cluster_labels=reclustered_labels,
                                 new_cluster_weights=final_cluster2_weights,
-                                save=self.settings.save_figs, save_dir=self.settings.plot_dir)
+                                save=self.settings.save_figs, save_dir=plot_dir)
             print("Mean Cluster")
             print(recluster_frames)
             print(final_cluster2_weights)
@@ -1236,7 +1281,7 @@ class ValDXer(Experiment):
                                 new_cluster_centers=reclustered_centers,
                                 cluster_labels=cluster_labels,
                                 new_cluster_weights=final_cluster2_weights,
-                                save=self.settings.save_figs, save_dir=self.settings.plot_dir)
+                                save=self.settings.save_figs, save_dir=plot_dir)
 
 
             print("Modal Cluster")
@@ -1255,7 +1300,7 @@ class ValDXer(Experiment):
         self.settings.random_initialisation = False
 
         viz_reclustered_traj_name = "_".join([system, "reclustered", "csize2", str(self.settings.cluster_size2), ".pdb"])
-        viz_reclustered_traj_path = os.path.join(self.settings.results_dir, self.settings.name, viz_reclustered_traj_name)
+        viz_reclustered_traj_path = os.path.join(results_dir, viz_reclustered_traj_name)
 
         # align trajectory to first frame
     
@@ -1384,8 +1429,8 @@ class ValDXer(Experiment):
                      expt_name: str=None, 
                      calc_name: str=None, 
                      mode: str=None, 
-                     train_gammas: float=None, 
-                     val_gammas: float=None, 
+                     train_gammas: list=None, 
+                     val_gammas: list=None, 
                      n_reps: int=None):
         
 
@@ -1481,6 +1526,25 @@ class ValDXer(Experiment):
             "BV_constants": self.BV_constants,
             "LogPfs": self.LogPfs,
         }
+
+        self.analysis_data = AnalysisData(name=name,
+                                        train_dfs=train_dfs,
+                                        val_dfs=val_dfs,
+                                        expt_df=expt_df,
+                                        merge_df=merge_df,
+                                        expt_segs=expt_segs,
+                                        train_segs=self.train_segs,
+                                        val_segs=self.val_segs,
+                                        train_rep_names=train_rep_names,
+                                        val_rep_names=val_rep_names,
+                                        HDX_data=self.HDX_data,
+                                        train_gammas=train_gammas,
+                                        val_gammas=val_gammas,
+                                        weights=self.weights,
+                                        BV_constants=self.BV_constants,
+                                        LogPfs=self.LogPfs,
+                                        info=self.analysis_info)
+
         # add to dictionary
         self.analysis_dump[name] = data_to_dump
         print("dumped data")
@@ -1605,6 +1669,7 @@ class ValDXer(Experiment):
         
         self.analysis = pd.concat([self.analysis, plot_df], ignore_index=True)
  
+        self.analysis_data.analysis_df = self.analysis
 
         if self.settings.plot:
             print("plotting AVG df")
@@ -1710,7 +1775,7 @@ class ValDXer(Experiment):
         name = self.settings.name
         time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         csv_name = time + "_analysis.csv"
-        csv_dir = os.path.join(self.settings.results_dir, name)
+        csv_dir = os.path.join(self.results_dir)
         csv_path = os.path.join(csv_dir, csv_name)
         os.makedirs(csv_dir, exist_ok=True)
         self.analysis["name"] = [name]*len(self.analysis)
@@ -1737,7 +1802,7 @@ class ValDXer(Experiment):
 
         return self.analysis_dump, self.analysis, name
 
-
+## TODO move this to another python file so that it can be used with the parallel execution
 def worker_function(mode, 
                     settings,
                     name, 
@@ -1755,7 +1820,7 @@ def worker_function(mode,
     settings.name = name
     settings.split_mode = mode
     
-    _VDX = ValDXer(settings=settings)
+    _VDX = ValDXer(settings=settings, benchmark=True)
     _VDX.settings.plot = False
     _VDX.load_HDX_data(HDX_path=hdx_path, SEG_path=segs_path, calc_name=expt_name)
     _VDX.load_structures(top_path=top_path, traj_paths=traj_paths, calc_name=system)

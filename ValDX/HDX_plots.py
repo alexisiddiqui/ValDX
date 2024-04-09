@@ -1133,12 +1133,16 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
     angles = []
     print(x)
     print(y)
-    for i in range(len(x)-1):
-        angles.append(np.arctan((y[i+1]-y[i])/(x[i+1]-x[i])))
+    try:
+        for i in range(len(x)-1):
+            angles.append(np.arctan((y[i+1]-y[i])/(x[i+1]-x[i])))
 
-    # find the index of the angle closest to 45 degrees
-    closest = min(angles, key=lambda x:abs(x-math.pi/4))
-    ###
+        # find the index of the angle closest to 45 degrees
+        closest = min(angles, key=lambda x:abs(x-math.pi/4))
+        ###
+    except:
+        # if there is an error - return the middle value
+        closest = len(x)//2
 
     # compute regressionline
     m, b = np.polyfit(x, y, 1)
@@ -1461,8 +1465,8 @@ def plot_R_agreement_trainval(expt_name: str,
             ic(train_R)
             ic(val_R)
             # concat to plot_df
-            plot_df = pd.concat([plot_df, pd.DataFrame({"time": t, "Type": "Train", "R": train_R, str(key):train})], ignore_index=True)
-            plot_df = pd.concat([plot_df, pd.DataFrame({"time": t, "Type": "Val", "R": val_R, str(key):val})], ignore_index=True)
+            plot_df = pd.concat([plot_df, pd.DataFrame({"time": t, "Type": "Train", "R": train_R, str(key): train})], ignore_index=True)
+            plot_df = pd.concat([plot_df, pd.DataFrame({"time": t, "Type": "Val", "R": val_R, str(key): val})], ignore_index=True)
     ic("plot_df")
     plot_df = plot_df.dropna()
     ic(plot_df)

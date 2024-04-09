@@ -26,7 +26,7 @@ class Experiment(ABC):
             self.name = name
         else:
             self.name = "ABC"
-
+        self.analysis_name: list = None
         self.calc_names = []
         self.paths = pd.DataFrame()
         self.rates = pd.DataFrame()
@@ -44,9 +44,11 @@ class Experiment(ABC):
         self.analysis_dump = {}
         self.features = tuple()
 
-        self.plot_dir = None
-        self.results_dir = None
-        self.logs_dir = None
+        self.plot_dir :str = None
+        self.results_dir :str = None
+        self.logs_dir :str = None
+        self.data_dir :str = None
+
 
     def prepare_HDX_data(self, 
                          calc_name: str=None): 
@@ -748,8 +750,13 @@ class Experiment(ABC):
         # save to file
         train_segs_name = "_".join(["train",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])
         val_segs_name = "_".join(["val",self.settings.segs_name[0], calc_name, self.settings.segs_name[1]])
-        _, train_segs_dir = self.generate_directory_structure(calc_name=train_rep_name, overwrite=True)
-        _, val_segs_dir = self.generate_directory_structure(calc_name=val_rep_name, overwrite=True)
+
+        # _, train_segs_dir = self.generate_directory_structure(calc_name=train_rep_name, overwrite=True)
+        # _, val_segs_dir = self.generate_directory_structure(calc_name=val_rep_name, overwrite=True)
+
+        train_segs_dir = self.generate_data_path(prefix=self.analysis_name, calc_name=train_rep_name, overwrite=True)
+        val_segs_dir = self.generate_data_path(prefix=self.analysis_name, calc_name=val_rep_name, overwrite=True)
+
 
         train_segs_path = os.path.join(train_segs_dir, train_segs_name)
         val_segs_path = os.path.join(val_segs_dir, val_segs_name)
@@ -848,7 +855,7 @@ class Experiment(ABC):
 
         return top, traj
 
-
+#### THIS DOES WAY TOO MUCH STUFF - SPLIT IT UP - Generate Data_dir and (plot_dir and results_dir and logs_dir) separately
     def generate_directory_structure(self, calc_name: str=None, overwrite=False, gen_only=False, analysis_name=None):
         """
         Generates directory structure for the experiment.
@@ -856,7 +863,10 @@ class Experiment(ABC):
         Used during predict HDX to gen_only the path. Overwrite = False.
         Used during split segements to create the train and val segments directories per replicate. Overwrite = True.
         """
-        if analysis_name is not None:
+        DeprecationWarning("This function is doing too much. Split it up into separate functions.")
+        if analysis_name is not None and overwrite is False:
+            DeprecationWarning("Lets totally break this for now")
+
             plot_dir = os.path.join(self.settings.plot_dir, analysis_name)
             os.makedirs(plot_dir, exist_ok=True)
             results_dir = os.path.join(self.settings.results_dir, analysis_name)
@@ -869,8 +879,27 @@ class Experiment(ABC):
             self.logs_dir = logs_dir
             return analysis_name, plot_dir, results_dir, logs_dir
 
+        if analysis_name is not None and overwrite and calc_name is not None:
+            DeprecationWarning("Being moved to a separate function")
+
+            data_dir = os.path.join(self.settings.data_dir, analysis_name, calc_name)
+            os.makedirs(data_dir, exist_ok=True)
+      
+            plot_dir = os.path.join(self.settings.plot_dir, analysis_name, calc_name)
+            os.makedirs(plot_dir, exist_ok=True)
+            results_dir = os.path.join(self.settings.results_dir, analysis_name, calc_name)
+            os.makedirs(results_dir, exist_ok=True)
+            logs_dir = os.path.join(self.settings.logs_dir, analysis_name, calc_name)
+            os.makedirs(logs_dir, exist_ok=True)
+
+            self.data_dir = data_dir
+            self.plot_dir = plot_dir
+            self.results_dir = results_dir
+            self.logs_dir = logs_dir      
+
 
         if calc_name is None:
+            raise DeprecationWarning("This function is doing too much. Split it up into separate functions.")
             name = self.name
             exp_dir = os.path.join(self.settings.data_dir, name)
 
@@ -889,6 +918,8 @@ class Experiment(ABC):
                 exp_dir = os.path.join(self.settings.data_dir, self.name)
                 os.makedirs(exp_dir, exist_ok=True)
 
+                self.data_dir = exp_dir
+
                 return self.name, exp_dir
     
             count = 0
@@ -899,8 +930,11 @@ class Experiment(ABC):
                 exists = os.path.isdir(os.path.join(self.settings.data_dir, name))
             # when doesnt exist - set self.name to name
             self.name = name
+            
             exp_dir = os.path.join(self.settings.data_dir, self.name)
             os.makedirs(exp_dir)
+            DeprecationWarning("This function is doing too much. Split it up into separate functions.")
+
             plot_dir = os.path.join(self.settings.plot_dir, self.settings.name)
             os.makedirs(plot_dir, exist_ok=True)
             results_dir = os.path.join(self.settings.results_dir, self.settings.name)
@@ -908,6 +942,7 @@ class Experiment(ABC):
             logs_dir = os.path.join(self.settings.logs_dir, self.settings.name)
             os.makedirs(logs_dir, exist_ok=True)
 
+            self.data_dir = exp_dir
             self.plot_dir = plot_dir
             self.results_dir = results_dir
             self.logs_dir = logs_dir
@@ -915,6 +950,7 @@ class Experiment(ABC):
             return self.name, exp_dir
 
         elif calc_name is not None:
+            raise DeprecationWarning("This function is doing too much. Split it up into separate functions.")
             name = calc_name
             calc_dir = os.path.join(self.settings.data_dir, self.name, name)
 
@@ -933,8 +969,128 @@ class Experiment(ABC):
                 return calc_name, calc_dir
             
             os.makedirs(calc_dir)
+
+            DeprecationWarning("This function is doing too much. Split it up into separate functions.")
+
+            plot_dir = os.path.join(self.settings.plot_dir, name)
+            os.makedirs(plot_dir, exist_ok=True)
+            results_dir = os.path.join(self.settings.results_dir, name)
+            os.makedirs(results_dir, exist_ok=True)
+            logs_dir = os.path.join(self.settings.logs_dir, name)
+            os.makedirs(logs_dir, exist_ok=True)
+
+
+            self.data_dir = calc_dir
+            self.plot_dir = plot_dir
+            self.results_dir = results_dir
+            self.logs_dir = logs_dir
+
             return calc_name, calc_dir
             
+
+    
+
+    def create_path_str(self, prefix: list, suffix: str=None, calc_name: str=None):
+
+        if isinstance(prefix, list):
+            prefix = [str(os.sep.join(prefix))]
+        if isinstance(prefix, str) and not None:
+            prefix = [prefix]
+        if prefix is None:
+            prefix = [""]
+
+        if isinstance(suffix, list):
+            suffix = str(os.sep.join(suffix))
+        if isinstance(suffix, str) and not None:
+            suffix = suffix
+        if suffix is None:
+            suffix = ""
+
+        data_dir = os.path.join(self.settings.data_dir, *prefix, self.name, suffix)
+        plot_dir = os.path.join(self.settings.plot_dir, *prefix, self.settings.name, suffix)
+        results_dir = os.path.join(self.settings.results_dir, *prefix, self.settings.name, suffix)
+        logs_dir = os.path.join(self.settings.logs_dir, *prefix, self.settings.name, suffix)
+
+        if calc_name is not None:
+            data_dir = os.path.join(data_dir, calc_name)
+
+        return data_dir, plot_dir, results_dir, logs_dir
+
+
+
+
+
+
+    def generate_data_path(self, prefix: list, suffix: str=None, calc_name: str=None, overwrite=False):
+        data_dir, _, _, _ = self.create_path_str(prefix=prefix, suffix=suffix, calc_name=calc_name)
+
+        exists = os.path.isdir(data_dir)
+
+        _name = self.name
+        i = 0
+        while exists and not overwrite:
+            self.name = _name + str(i)
+            data_dir, _, _, _ = self.create_path_str(prefix, suffix)
+            exists = os.path.isdir(data_dir)
+            i += 1
+
+        if overwrite:
+            shutil.rmtree(data_dir, ignore_errors=True)
+        
+        os.makedirs(data_dir, exist_ok=True)
+
+        return data_dir
+
+
+    def generate_output_paths(self, prefix: list, suffix: str="", overwrite=False):
+        _, plot_dir, results_dir, logs_dir = self.create_path_str(prefix, suffix)
+
+        exists = any([os.path.isdir(plot_dir), os.path.isdir(results_dir), os.path.isdir(logs_dir)])
+
+
+        b = 0
+        while exists and not overwrite:
+            # backup old directories
+            suff = suffix + str(b) + "b"
+            _, new_plot_dir, new_results_dir, new_logs_dir = self.create_path_str(prefix, suff)
+            new_exists = any([os.path.isdir(new_plot_dir), os.path.isdir(new_results_dir), os.path.isdir(new_logs_dir)])
+            if not new_exists:
+                # copy files to new directories
+                shutil.copytree(plot_dir, new_plot_dir)
+                shutil.copytree(results_dir, new_results_dir)
+                shutil.copytree(logs_dir, new_logs_dir)
+                # remove old directories
+                shutil.rmtree(plot_dir, ignore_errors=True)
+                shutil.rmtree(results_dir, ignore_errors=True)
+                shutil.rmtree(logs_dir, ignore_errors=True)
+                break
+            b += 1
+
+        if overwrite:
+            shutil.rmtree(plot_dir, ignore_errors=True)
+            shutil.rmtree(results_dir, ignore_errors=True)
+            shutil.rmtree(logs_dir, ignore_errors=True)
+
+        os.makedirs(plot_dir, exist_ok=True)
+        os.makedirs(results_dir, exist_ok=True)
+        os.makedirs(logs_dir, exist_ok=True)
+
+        return plot_dir, results_dir, logs_dir
+    
+
+    def initialise_dir_structure(self, prefix: list, suffix: str="", paths_only=False, overwrite_output=False):
+
+        if paths_only:
+            data_dir, plot_dir, results_dir, logs_dir = self.create_path_str(prefix, suffix)
+        else:
+            data_dir = self.generate_data_path(prefix, suffix, overwrite=False)
+            plot_dir, results_dir, logs_dir = self.generate_output_paths(prefix, suffix, overwrite=overwrite_output)
+
+        self.data_dir = data_dir
+        self.plot_dir = plot_dir
+        self.results_dir = results_dir
+        self.logs_dir = logs_dir
+
 
     def prepare_config(self):
         """
@@ -962,6 +1118,9 @@ class Experiment(ABC):
                 pickle.dump(self, f)
                 print("Saving experiment to: ", save_path)
                 return save_path
+
+
+
 
     # @abstractmethod
     # add something to select by name?

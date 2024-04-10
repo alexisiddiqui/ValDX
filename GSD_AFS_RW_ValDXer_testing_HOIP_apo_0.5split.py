@@ -21,8 +21,8 @@ settings.split_mode = 'R3'
 settings.stride = 1000
 # settings.HDXer_stride = 10000
 
-settings.RW_do_reweighting = True
-settings.RW_do_params = False
+# settings.RW_do_reweighting = True
+# settings.RW_do_params = False
 import pickle
 
 VDX = ValDXer(settings)

@@ -17,11 +17,11 @@ settings.gamma_range = (1,9)
 settings.train_frac = 0.5
 settings.RW_exponent = [0]
 settings.split_mode = 'R3'
-settings.stride = 1000
+# settings.stride = 1000
 # settings.HDXer_stride = 10000
 
-settings.RW_do_reweighting = True
-settings.RW_do_params = False
+# settings.RW_do_reweighting = True
+# settings.RW_do_params = False
 import pickle
 
 VDX = ValDXer(settings)
@@ -317,7 +317,7 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 settings.replicates
 
 # %%
-settings.cluster_frac1 = 0.1
+settings.cluster_frac1 = 0.2
 combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_mode_cluster",
                                                                     times=[0.5,10.0],
                                                                     expt_name=expt_name,
@@ -331,14 +331,14 @@ combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_
               
               
 
-combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_mean_cluster",
-                                                                    times=[0.5,10.0],
-                                                                    expt_name=expt_name,
-                                                                    n_reps=2,
-                                                                    split_mode='R3',
-                                                                    hdx_path=hdx_path,
-                                                                    segs_path=segs_path,
-                                                                    traj_paths=traj_paths,
-                                                                    top_path=top_path,
-                                                                    modal_cluster=False)
+# combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_mean_cluster",
+#                                                                     times=[0.5,10.0],
+#                                                                     expt_name=expt_name,
+#                                                                     n_reps=4,
+#                                                                     split_mode='R3',
+#                                                                     hdx_path=hdx_path,
+#                                                                     segs_path=segs_path,
+#                                                                     traj_paths=traj_paths,
+#                                                                     top_path=top_path,
+#                                                                     modal_cluster=False)
               

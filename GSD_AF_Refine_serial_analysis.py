@@ -27,7 +27,11 @@ if __name__ == "__main__":
     # shutil.rmtree(results_dir)
     # os.makedirs(results_dir)
 
-    # import subprocess
+    # logs_dir = "/home/alexi/Documents/ValDX/logs"
+    # shutil.rmtree(logs_dir)
+    # os.makedirs(logs_dir)
+
+    import subprocess
     # try:
     #     subprocess.run(["python", BPTI_script], check=True)
     # except:
@@ -38,15 +42,15 @@ if __name__ == "__main__":
     # except:
     #     print("BRD484 failed")
 
-    try:
-        subprocess.run(["python", HOIP_script], check=True)
-    except:
-        print("HOIP failed")
-
-    # try:    
-    #     subprocess.run(["python", LXRa200_script], check=True)
+    # try:
+    #     subprocess.run(["python", HOIP_script], check=True)
     # except:
-    #     print("LXRa200 failed")
+    #     print("HOIP failed")
+
+    try:    
+        subprocess.run(["python", LXRa200_script], check=True)
+    except:
+        print("LXRa200 failed")
 
     # try:
     #     subprocess.run(["python", MBP_script], check=True)

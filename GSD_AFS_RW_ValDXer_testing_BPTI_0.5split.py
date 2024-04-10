@@ -15,11 +15,11 @@ settings.gamma_range = (1,8)
 settings.train_frac = 0.5
 settings.RW_exponent = [0]
 settings.split_mode = 'R3'
-settings.stride = 1000
-# settings.HDXer_stride = 10000
+# settings.stride = 1000
+# # settings.HDXer_stride = 10000
 
-settings.RW_do_reweighting = False
-settings.RW_do_params = True
+# settings.RW_do_reweighting = False
+# settings.RW_do_params = True
 import pickle
 
 VDX = ValDXer(settings)
@@ -162,7 +162,7 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 
 # %%
 ic.disable()
-VDX.settings.cluster_frac1 = 0.1
+VDX.settings.cluster_frac1 = 0.05
 VDX.settings.cluster_size2 = 20
 combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_modal_cluster",
                                                                         times=[0.167, 1, 10, 120],
@@ -179,16 +179,16 @@ combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_
 
 
 
-combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_mean_cluster",
-                                                                        times=[0.167, 1, 10, 120],
-                                                                        expt_name=expt_name,
-                                                                        n_reps=2,
-                                                                        split_mode='R3',
-                                                                        # RW=True,
+# combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_mean_cluster",
+#                                                                         times=[0.167, 1, 10, 120],
+#                                                                         expt_name=expt_name,
+#                                                                         n_reps=2,
+#                                                                         split_mode='R3',
+#                                                                         # RW=True,
                                                                         
-                                                                        hdx_path=hdx_path,
-                                                                        segs_path=segs_path,
-                                                                        traj_paths=traj_paths,
-                                                                        top_path=top_path,
-                                                                        modal_cluster=False)
+#                                                                         hdx_path=hdx_path,
+#                                                                         segs_path=segs_path,
+#                                                                         traj_paths=traj_paths,
+#                                                                         top_path=top_path,
+#                                                                         modal_cluster=False)
 

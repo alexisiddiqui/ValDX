@@ -1130,14 +1130,16 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
     # TODO change this to a more robust method - change this to find the kink in the curve
     # instead of calcing angle - rotate the curve and find the point where the gradient is 1
     # 
-    angles = []
-    for i in range(len(x)-1):
-        angles.append(np.arctan((y[i+1]-y[i])/(x[i+1]-x[i])))
+    try:
+        angles = []
+        for i in range(len(x)-1):
+            angles.append(np.arctan((y[i+1]-y[i])/(x[i+1]-x[i])))
 
-    # find the index of the angle closest to 45 degrees
-    closest = min(angles, key=lambda x:abs(x-math.pi/4))
-    ###
-
+        # find the index of the angle closest to 45 degrees
+        closest = min(angles, key=lambda x:abs(x-math.pi/4))
+        ###
+    except:
+        closest = len(x)//2
     # compute regressionline
     m, b = np.polyfit(x, y, 1)
 

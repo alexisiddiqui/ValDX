@@ -36,23 +36,37 @@ import matplotlib
 class ValDXer(Experiment):
     def __init__(self, 
                  settings: Settings, 
-                 name=None):
+                 name=None,
+                 overwrite=False,
+                 analysis_name:list=None):
         super().__init__(settings, name=None)
         if name is not None:
                 self.name = name
         else:
              self.name = self.settings.name
+
         self.settings.data_dir = os.path.join(os.getcwd(), self.settings.data_dir)
         self.HDXer_path = self.settings.HDXer_path
         self.HDXer_env = self.settings.HDXer_env
         self.load_HDXer()
-        self.generate_directory_structure(overwrite=False)
+        # self.generate_directory_structure(overwrite=False)
         self.analysis = pd.DataFrame()
         # self.settings.plot_dir = os.path.join(self.settings.plot_dir, self.settings.name)
         if self.settings.save_figs:
             matplotlib.use('Agg')
         else:
             matplotlib.use('TkAgg')
+
+        if analysis_name is not None:
+            self.analysis_name = analysis_name
+            overwrite = True
+            # TODO implement analysis name method
+        else:
+            self.analysis_name = [""]
+        # self.benchmark = benchmark
+        self.initialise_dir_structure(prefix=self.analysis_name,
+                                      paths_only=True,
+                                      overwrite_output=overwrite)
     
     def load_HDX_data(self, 
                       HDX_path: str=None, 
@@ -599,7 +613,7 @@ class ValDXer(Experiment):
         train_pdb_name = "_".join(["train", str(rep), name, mode ,time]) + ".pdb"
         val_pdb_name = "_".join(["val", str(rep), name, mode ,time]) + ".pdb"
 
-        out_dir = os.path.join(self.settings.results_dir, name)
+        out_dir = os.path.join(self.results_dir, name)
 
         train_pdb_path = os.path.join(out_dir, train_pdb_name)
         val_pdb_path = os.path.join(out_dir, val_pdb_name)
@@ -632,7 +646,7 @@ class ValDXer(Experiment):
 
         time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         pdb_name = "_".join(["RW", str(rep), name, mode ,time]) + ".pdb"
-        out_dir = os.path.join(self.settings.results_dir, name)
+        out_dir = os.path.join(self.results_dir)
 
         pdb_path = os.path.join(out_dir, pdb_name)
         os.makedirs(out_dir, exist_ok=True)
@@ -780,22 +794,33 @@ class ValDXer(Experiment):
         if RW and optimise:
             settings.RW_do_reweighting = True
             settings.RW_do_params = False
-            settings.gamma_range = (3, 4) # TODO should be set by user or grab from settings
+            settings.gamma_range = self.settings.gamma_range
+            benchmark_name = "RW_bench"
         if not RW:
             settings.RW_do_reweighting = False
             settings.RW_do_params = True
+            benchmark_name = "BV_bench"
         if not optimise:
             settings.RW_do_reweighting = False
             settings.RW_do_params = False
-            # settings.gamma_range = (3, 4)
+            settings.gamma_range = (3, 4)
+            benchmark_name = "noBV_bench"
+
+        settings.name = "_".join([system, benchmark_name])
         name = deepcopy(settings.name)
         print(f"Running benchmark for {name}")
         split_names = [f"{mode}_{name_mapping[mode]}" for mode in split_modes]
-        names = [f"{name}_{split_name}" for split_name in split_names]
+        set_names = [f"{name}_{split_name}" for split_name in split_names]
         settings.times = times
-        settings.results_dir = os.path.join(settings.results_dir, system, "Benchmark")
+
+
+        settings.plot_dir = os.path.join(self.plot_dir, "Benchmark")
+        settings.logs_dir = os.path.join(self.logs_dir, "Benchmark")
+        settings.results_dir = os.path.join(self.results_dir,"Benchmark")
+        settings.data_dir = os.path.join(self.data_dir,  "Benchmark")
+
         for idx, mode in enumerate(split_modes):
-            settings.name = names[idx]
+            settings.name = set_names[idx]
             # split_name = split_names[idx]
             print(f"Running {mode} split mode")
             settings.split_mode = mode
@@ -878,7 +903,7 @@ class ValDXer(Experiment):
         # split_benchmark_plot_MSE_by_protein_split(MSE_df)
 
         if self.settings.save_figs:
-            save_dir = os.path.join(settings.plot_dir, system, "Benchmark")
+            save_dir = os.path.join(self.plot_dir, system, "Benchmark")
             try:
                 os.removedirs(save_dir)
             except:
@@ -928,6 +953,16 @@ class ValDXer(Experiment):
                             modal_cluster: bool=False):
         ### Currently only doing the mean - update to take the mode for cluster frac2
 
+        analysis_name="Refine-Ensemble"
+        settings = deepcopy(self.settings)
+
+        self = ValDXer(settings=settings, name=system, analysis_name=analysis_name)
+        self.initialise_dir_structure(prefix=self.analysis_name)
+        plot_dir, results_dir, logs_dir = self.plot_dir, self.results_dir, self.logs_dir
+
+
+
+
         self.settings.split_mode = split_mode
         if times is not None:
             self.settings.times = times
@@ -943,11 +978,11 @@ class ValDXer(Experiment):
                             new_cluster_centers=cluster_centers,
                             cluster_labels=cluster_labels,
                             new_cluster_weights=iniweights,
-                            save=self.settings.save_figs, save_dir=self.settings.plot_dir)
+                            save=self.settings.save_figs, save_dir=self.plot_dir)
 
         # save clustered universe 
         clustered_traj_name = "_".join([system, "clustered", "cfrac1", str(self.settings.cluster_frac1), ".xtc"])
-        clustered_traj_path = os.path.join(self.settings.data_dir, self.settings.name, clustered_traj_name)
+        clustered_traj_path = os.path.join(self.data_dir, clustered_traj_name)
 
         with mda.Writer(clustered_traj_path, u.trajectory.n_frames) as W:
             for ts in u.trajectory[cluster_frames]:
@@ -979,7 +1014,7 @@ class ValDXer(Experiment):
         settings.name = "_".join([settings.name, system, "refine"])
         settings.random_seed = settings.random_seed + 1
         
-        _VDX = ValDXer(settings=settings)
+        _VDX = ValDXer(settings=settings, name=system+"_refine", analysis_name=["Refine-Ensemble","RW"])
 
         _VDX.load_HDX_data(HDX_path=hdx_path,
                             SEG_path=segs_path,
@@ -1003,7 +1038,7 @@ class ValDXer(Experiment):
                             new_cluster_centers=cluster_centers,
                             cluster_labels=cluster_labels[cluster_frames],
                             new_cluster_weights=avg_weights,
-                            save=self.settings.save_figs, save_dir=self.settings.plot_dir)
+                            save=self.settings.save_figs, save_dir=self.plot_dir)
 
         clustered_universe = mda.Universe(top_path, clustered_traj_path)
         # recluster to cluster frac2
@@ -1017,7 +1052,7 @@ class ValDXer(Experiment):
                                 new_cluster_centers=reclustered_centers,
                                 cluster_labels=reclustered_labels,
                                 new_cluster_weights=final_cluster2_weights,
-                                save=self.settings.save_figs, save_dir=self.settings.plot_dir)
+                                save=self.settings.save_figs, save_dir=self.plot_dir)
             print("Mean Cluster")
             print(recluster_frames)
             print(final_cluster2_weights)
@@ -1034,13 +1069,13 @@ class ValDXer(Experiment):
                                 new_cluster_centers=reclustered_centers,
                                 cluster_labels=cluster_labels,
                                 new_cluster_weights=final_cluster2_weights,
-                                save=self.settings.save_figs, save_dir=self.settings.plot_dir)
+                                save=self.settings.save_figs, save_dir=self.plot_dir)
 
 
             print("Modal Cluster")
 
         reclustered_traj_name = "_".join([system, "reclustered", "csize2", str(self.settings.cluster_size2), ".xtc"])
-        reclustered_traj_path = os.path.join(self.settings.data_dir, self.settings.name, reclustered_traj_name)
+        reclustered_traj_path = os.path.join(self.data_dir,reclustered_traj_name)
 
         with mda.Writer(reclustered_traj_path, u.trajectory.n_frames) as W:
             for ts in u.trajectory[recluster_frames]:
@@ -1053,7 +1088,7 @@ class ValDXer(Experiment):
         self.settings.random_initialisation = False
 
         viz_reclustered_traj_name = "_".join([system, "reclustered", "csize2", str(self.settings.cluster_size2), ".pdb"])
-        viz_reclustered_traj_path = os.path.join(self.settings.results_dir, self.settings.name, viz_reclustered_traj_name)
+        viz_reclustered_traj_path = os.path.join(self.results_dir, viz_reclustered_traj_name)
 
         # align trajectory to first frame
     
@@ -1160,7 +1195,7 @@ class ValDXer(Experiment):
 
         if self.settings.save_figs:
 
-            save_dir = os.path.join(self.settings.plot_dir, calc_name, 'Evaluate')
+            save_dir = os.path.join(self.plot_dir, 'Evaluate')
             try:
                 os.removedirs(save_dir)
             except:
@@ -1186,19 +1221,18 @@ class ValDXer(Experiment):
         # test_rep_names = ["_".join(["test", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
         print(train_rep_names)
         print(val_rep_names)
-        if self.settings.plot is None:
 
-            args = [expt_name, *train_rep_names]
-            print("plotting dfracs compare for train")
-            plot_dfracs_compare(args, 
-                                data=self.HDX_data, 
-                                times=self.settings.times)
+        args = [expt_name, *train_rep_names]
+        print("plotting dfracs compare for train")
+        plot_dfracs_compare(args, 
+                            data=self.HDX_data, 
+                            times=self.settings.times)
 
-            args = [expt_name, *val_rep_names]
-            print("plotting dfracs compare for val")
-            plot_dfracs_compare(args, 
-                                data=self.HDX_data, 
-                                times=self.settings.times)
+        args = [expt_name, *val_rep_names]
+        print("plotting dfracs compare for val")
+        plot_dfracs_compare(args, 
+                            data=self.HDX_data, 
+                            times=self.settings.times)
 
         # args = [expt_name, *test_rep_names]
         # plot_dfracs_compare(args, 
@@ -1255,28 +1289,28 @@ class ValDXer(Experiment):
         # print(merge_df)
         args = [expt_name, *train_rep_names,  *val_rep_names]
 
-        if self.settings.plot:
-            try:
-                print("plotting dfracs compare for merge_df")
-                plot_dfracs_compare(args, 
-                                data=merge_df, 
-                                times=self.settings.times,
-                                save=self.settings.save_figs,
-                                save_dir=save_dir)
-            except UserWarning:
-                print("Unable to plot compare plot for merge_df")
-            ####
+        # if self.settings.plot:
+        try:
+            print("plotting dfracs compare for merge_df")
+            plot_dfracs_compare(args, 
+                            data=merge_df, 
+                            times=self.settings.times,
+                            save=self.settings.save_figs,
+                            save_dir=save_dir)
+        except UserWarning:
+            print("Unable to plot compare plot for merge_df")
+        ####
 
 
-            try:    
-                print("plotting dfracs compare abs for merge_df")
-                plot_paired_errors(args,
-                                data=merge_df, 
-                                times=self.settings.times,
-                                save=self.settings.save_figs,
-                                save_dir=save_dir)
-            except UserWarning:
-                print("Unable to plot paired errors for merge_df")
+        try:    
+            print("plotting dfracs compare abs for merge_df")
+            plot_paired_errors(args,
+                            data=merge_df, 
+                            times=self.settings.times,
+                            save=self.settings.save_figs,
+                            save_dir=save_dir)
+        except UserWarning:
+            print("Unable to plot paired errors for merge_df")
 
 
         top_path = self.paths.loc[self.paths["calc_name"] == calc_name, "top"].dropna().values[0]
@@ -1479,7 +1513,7 @@ class ValDXer(Experiment):
         name = self.settings.name
         time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         csv_name = time + "_analysis.csv"
-        csv_dir = os.path.join(self.settings.results_dir, name)
+        csv_dir = os.path.join(self.results_dir)
         csv_path = os.path.join(csv_dir, csv_name)
         os.makedirs(csv_dir, exist_ok=True)
         self.analysis["name"] = [name]*len(self.analysis)

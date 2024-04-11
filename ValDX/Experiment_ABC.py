@@ -41,6 +41,7 @@ class Experiment(ABC):
         self.test_HDX_data = pd.DataFrame()
         self.LogPfs = pd.DataFrame()
         self.analysis_dump = {}
+        self.features = tuple()
 
         self.analysis_name:list = None
 
@@ -858,7 +859,7 @@ class Experiment(ABC):
         Used during predict HDX to gen_only the path. Overwrite = False.
         Used during split segements to create the train and val segments directories per replicate. Overwrite = True.
         """
-        DeprecationWarning("generate_directory_structure is deprecated. Use create_path_str instead.")
+        raise DeprecationWarning("generate_directory_structure is deprecated. Use create_path_str instead.")
         if calc_name is None:
             name = self.name
             exp_dir = os.path.join(self.settings.data_dir, name)

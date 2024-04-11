@@ -14,6 +14,7 @@ from sklearn.cluster import KMeans
 import cProfile
 import pstats
 import io
+from HDXer.reweighting_functions import read_contacts_hbonds
 
 def conda_to_env_dict(env_name):
     """
@@ -27,8 +28,11 @@ def conda_to_env_dict(env_name):
     If the environment is not found, returns None.
     """
     # Run the command 'conda env list' and get the output
-    result = subprocess.run(['conda', 'env', 'list'], stdout=subprocess.PIPE)
-    
+    try:
+        result = subprocess.run(['conda', 'env', 'list'], stdout=subprocess.PIPE)
+    except:
+        result = subprocess.run(['conda', 'env', 'list'], stdout=subprocess.PIPE,shell=True)
+
     # Decode result to string and split lines
     envs = result.stdout.decode().splitlines()
     print("envs", envs)
@@ -176,7 +180,7 @@ def avgfrac_to_df(path: str, names: list):
 
     return df
 
-def reweight_to_df(path: str, names: list):
+def reweight_to_df(path: str, names: list)->pd.DataFrame:
     """Read and create a pandas DataFrame using a reweighted deuterated fractions file.
     
     Args:
@@ -194,7 +198,7 @@ def reweight_to_df(path: str, names: list):
     return df
 
 
-def dfracs_to_df(path: str, names: list):
+def dfracs_to_df(path: str, names: list)->pd.DataFrame:
     print("Path", path)
     df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None)
     #add peptide numbers
@@ -276,11 +280,37 @@ def run_MaxEnt(args: Tuple[Dict, int]):
     # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
     # ps.print_stats()
     # print(s.getvalue())
+    print(f"Completed reweighting for {out_prefix}")
     print("Sum of Output Weights")
     print(np.sum(currweights))
 
 
     return (currweights, bv_bc, bv_bh)
+
+def run_MaxEnt_single(args: dict):
+    r = args["r"]
+    out_prefix = os.path.join(args["out_prefix"]+f"{r}x10^{args['exponent']}")
+
+    reweight_object = MaxEnt(do_reweight=args["do_reweight"],
+                             do_params=args["do_params"],
+                             stepfactor=args["stepfactor"],
+                             random_initial=args["random_initial"])
+    
+    (currweights, bv_bc, bv_bh) = reweight_object.run(gamma=args["gamma"],
+                        data_folders=args["predictHDX_dir"], 
+                        kint_file=args["kint_file"],
+                        exp_file=args["exp_file"],
+                        times=args["times"], 
+                        iniweights=args["iniweights"],
+                        restart_interval=args["restart_interval"], 
+                        out_prefix=out_prefix)
+
+    print(f"Completed reweighting for {out_prefix}")
+    print("Sum of Output Weights")
+    print(np.sum(currweights))
+
+    return (currweights, bv_bc, bv_bh)
+
 
 def restore_trainval_peptide_nos(calc_name: str, 
                                  expt_name: str,
@@ -937,3 +967,23 @@ def write_pdb_by_frame(traj:mda.Universe, frames, out_dir, pdb_name):
     with mda.Writer(pdb_path, traj.trajectory.n_frames, multiframe=True) as W:
         for ts in traj.trajectory[frames]:
             W.write(traj)
+
+
+def read_MaxEnt_features(path: str):
+
+    print("Reading MaxEnt features")
+    print(path)
+
+    contacts, hbonds, _ = read_contacts_hbonds(folderlist=[path],
+                                               contacts_prefix="Contacts_chain_0_res_",
+                                                  hbonds_prefix="Hbonds_chain_0_res_")
+    features = (contacts, hbonds)
+
+    print("features", features)
+    print("contacts", contacts)
+    print("contacts", contacts.shape)
+    print("hbonds", hbonds)
+    print("hbonds", hbonds.shape)
+
+    # raise NotImplementedError("Need to implement this function")
+    return features

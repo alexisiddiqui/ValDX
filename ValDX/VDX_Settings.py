@@ -28,6 +28,8 @@ class Settings:
         else:
             self.name = "VDX"
 
+        self.pre_process = True ### DoNot change this
+        
         self.random_seed = 42
         self.train_frac = 0.8
         self.replicates = 2
@@ -40,6 +42,7 @@ class Settings:
         self.stride = 100
         self.split_mode = "r"
         self.temp = 300
+        self.bc_bh = (0.35, 2.0)
 
         # reweighting
         self.RW_exponent = [0]

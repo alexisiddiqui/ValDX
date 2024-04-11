@@ -1101,8 +1101,8 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
         gamma_coefficient = gamma / 10**gamma_exponent
             
 
-    for i in np.arange(-4, 1): # Select the range of gamma (i in j*10^i)
-        for j in np.arange(1, 10): # Select the range of gamma (j in j*10^i)
+    for i in np.arange(-4, 4): # Select the range of gamma (i in j*10^i)
+        for j in np.arange(0, 11): # Select the range of gamma (j in j*10^i)
             # Read files containing work values from the smallest to the biggest gamma
             try:
                 work_path = os.path.join(RW_dir, f'{prefix}{j}x10^{i}work.dat')

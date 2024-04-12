@@ -31,6 +31,7 @@ from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
 from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames
 from ValDX.HDX_plots import *
+from ValDX.VDX_dataclasses import AnalysisData, AnalysisInfo, merge_AnalysisData_classes
 import matplotlib
 
 class ValDXer(Experiment):
@@ -38,7 +39,7 @@ class ValDXer(Experiment):
                  settings: Settings, 
                  name=None,
                  overwrite=False,
-                 analysis_name:list=None):
+                 analysis_name:List[str]=None):
         super().__init__(settings, name=None)
         if name is not None:
                 self.name = name
@@ -66,6 +67,14 @@ class ValDXer(Experiment):
         self.initialise_dir_structure(prefix=self.analysis_name,
                                       paths_only=True,
                                       overwrite_output=overwrite)
+        
+        self.analysis_info = AnalysisInfo(settings_name=self.settings.name,
+                                        analysis_name=self.analysis_name,
+                                        n_reps=self.settings.replicates,
+                                        split_mode=self.settings.split_mode,
+                                        times=self.settings.times)
+                                     
+        
     
     def load_HDX_data(self, 
                       HDX_path: str=None, 
@@ -1101,8 +1110,8 @@ class ValDXer(Experiment):
 
 
     def run_VDX(self, 
-                calc_name: str=None, 
-                expt_name: str=None, 
+                calc_name: str, 
+                expt_name: str, 
                 mode: str=None, # not implemented yet
                 n_reps: int=None, 
                 predictHDX_dir: str=None,
@@ -1116,6 +1125,13 @@ class ValDXer(Experiment):
             n_reps = self.settings.replicates
         if random_seeds is None:
             random_seeds = [self.settings.random_seed+i for i in range(n_reps)]
+
+        self.analysis_info.calc_name = calc_name
+        self.analysis_info.expt_name = expt_name
+        self.analysis_info.split_mode = mode
+        self.analysis_info.n_reps = n_reps
+
+
 
         print(f"Random seeds: {random_seeds}")
         train_gammas = []
@@ -1199,6 +1215,8 @@ class ValDXer(Experiment):
             print("Unable to evaluate HDX")
         finally:
             print(self.BV_constants)
+            print("Verifiying data")
+            self.analysis_data.verify()
             return train_dfs, val_dfs, train_gammas, val_gammas
         
 
@@ -1275,6 +1293,8 @@ class ValDXer(Experiment):
         settings.results_dir = os.path.join(self.results_dir,"Benchmark")
         settings.data_dir = os.path.join(self.data_dir,  "Benchmark")
 
+        data_list = []
+
         for idx, mode in enumerate(split_modes):
             settings.name = set_names[idx]
             # split_name = split_names[idx]
@@ -1294,13 +1314,14 @@ class ValDXer(Experiment):
                             expt_name=expt_name,
                             random_seeds=random_seeds)
             # raw_run_outputs[split_name] = run_outputs # we dont need the raw outputs
-            analysis_dump, df, name = _VDX.dump_analysis()
-            save_path = _VDX.save_experiment()
-            print("Analysis Dump", analysis_dump)
-            analysis_dumps.update(analysis_dump)
-            analysis_df = pd.concat([analysis_df, df], ignore_index=True)
+            _, _, name = _VDX.dump_analysis()
+            data_list.append(_VDX.analysis_data)
+            # save_path = _VDX.save_experiment()
+            # print("Analysis Dump", analysis_dump)
+            # analysis_dumps.update(analysis_dump)
+            # analysis_df = pd.concat([analysis_df, df], ignore_index=True)
             names.append(name)
-            save_paths.append(save_path)
+            # save_paths.append(save_path)
         
 
         # for idx, mode in enumerate(split_modes):
@@ -1328,53 +1349,56 @@ class ValDXer(Experiment):
         #     analysis_df = pd.concat([analysis_df, df], ignore_index=True)
         #     names.append(name)
         #     save_paths.append(save_path)
-        
-        print("Concatenated",analysis_dumps)
+        data = merge_AnalysisData_classes(data_list)
+        print("Data", data)
 
-        combined_analysis_dump = {}
-        # repack the outputs into concatentated dataframes for each key
-        key0 = names[0]
-        print(analysis_dumps.keys())
-        print()
-        for key in analysis_dumps[key0].keys():
-            test_dump = analysis_dumps[key0][key]
-            print(key)
-            print(type(test_dump))
+        # print("Concatenated",analysis_dumps)
 
-            # print(test_dump)
-            if isinstance(test_dump, pd.DataFrame):
-                print("DF found")
-                # print(key)
-                # print(test_dump)
-                combined_analysis_dump[key] = pd.concat([analysis_dumps[name][key] for name in names], ignore_index=True)
+        # combined_analysis_dump = {}
+        # # repack the outputs into concatentated dataframes for each key
+        # key0 = names[0]
+        # print(analysis_dumps.keys())
+        # print()
+        # for key in analysis_dumps[key0].keys():
+        #     test_dump = analysis_dumps[key0][key]
+        #     print(key)
+        #     print(type(test_dump))
 
-        combined_analysis_dump["analysis_df"] = analysis_df
-        combined_analysis_dump["save_paths"] = {name: save_path for name, save_path in zip(names, save_paths)}
+        #     # print(test_dump)
+        #     if isinstance(test_dump, pd.DataFrame):
+        #         print("DF found")
+        #         # print(key)
+        #         # print(test_dump)
+        #         combined_analysis_dump[key] = pd.concat([analysis_dumps[name][key] for name in names], ignore_index=True)
 
-        print("Adding info to analysis dump")
+        # combined_analysis_dump["analysis_df"] = analysis_df
+        # combined_analysis_dump["save_paths"] = {name: save_path for name, save_path in zip(names, save_paths)}
 
-        for key in combined_analysis_dump.keys():
-            dump = combined_analysis_dump[key]
-            print(key)
-            print(type(dump))
+        # print("Adding info to analysis dump")
 
-            if isinstance(dump, pd.DataFrame):
-                print("df found")
-                # print(dump)
-                try:
-                    dump["name_name"] = dump["name"]+"_"+dump["calc_name"]
-                    dump["protein"] = [i.split("_")[3] if len(i.split("_")) > 3 else "Experiment" for i in dump["name"]]
-                    # dump["split_type"] = [i.split("_")[0] for i in dump["name"]]
-                    dump["dataset"] = dump["calc_name"].apply(lambda x: x.split("_")[0])
-                    dump["class"] = dump["dataset"] + "_" + dump["split_type"]
-                except:
-                    print("Failed to add info to analysis dump")
-                    print(dump)
-                    raise ValueError("Failed to add info to analysis dump")
-                    # break
+        # for key in combined_analysis_dump.keys():
+        #     dump = combined_analysis_dump[key]
+        #     print(key)
+        #     print(type(dump))
+
+        #     if isinstance(dump, pd.DataFrame):
+        #         print("df found")
+        #         # print(dump)
+        #         try:
+        #             dump["name_name"] = dump["name"]+"_"+dump["calc_name"]
+        #             dump["protein"] = [i.split("_")[3] if len(i.split("_")) > 3 else "Experiment" for i in dump["name"]]
+        #             # dump["split_type"] = [i.split("_")[0] for i in dump["name"]]
+        #             dump["dataset"] = dump["calc_name"].apply(lambda x: x.split("_")[0])
+        #             dump["class"] = dump["dataset"] + "_" + dump["split_type"]
+        #         except:
+        #             print("Failed to add info to analysis dump")
+        #             print(dump)
+        #             raise ValueError("Failed to add info to analysis dump")
+        #             # break
  
         # plot the results
-        MSE_df = combined_analysis_dump["analysis_df"]
+        # MSE_df = combined_analysis_dump["analysis_df"]
+        MSE_df = data["analysis_df"]
         print("MSE df")
         print(MSE_df)
         # MSE for each protein
@@ -1404,7 +1428,8 @@ class ValDXer(Experiment):
 
         if not RW:
             # BV Constants
-            BV_df = combined_analysis_dump["BV_constants"]
+            # BV_df = combined_analysis_dump["BV_constants"]
+            BV_df = data["BV_constants"]
             print(BV_df)
             # BV Constants difference by protein
             # split_benchmark_BV_boxplot_by_protein(BV_df)
@@ -1419,7 +1444,7 @@ class ValDXer(Experiment):
 
 
 
-        return combined_analysis_dump, names, save_paths
+        return data, names, save_paths
 
 
 
@@ -1599,6 +1624,8 @@ class ValDXer(Experiment):
 
         settings.random_seed = settings.random_seed + 1
         # run BV Benchmark ensemble
+
+        # TODO - plot all the benchmark results together
         return self.run_benchmark_ensemble(system=system+"_recl_BVoptimised",
                                             times=times,
                                             expt_name=expt_name,
@@ -1713,8 +1740,8 @@ class ValDXer(Experiment):
                      expt_name: str=None, 
                      calc_name: str=None, 
                      mode: str=None, 
-                     train_gammas: float=None, 
-                     val_gammas: float=None, 
+                     train_gammas: List[float]=None, 
+                     val_gammas: List[float]=None, 
                      n_reps: int=None):
         
 
@@ -1811,6 +1838,25 @@ class ValDXer(Experiment):
         }
         # add to dictionary
         self.analysis_dump[name] = data_to_dump
+        self.analysis_data = AnalysisData(train_dfs=train_dfs,
+                                            val_dfs=val_dfs,
+                                            expt_df=expt_df,
+                                            merge_df=merge_df,
+                                            expt_segs=expt_segs,
+                                            train_segs=self.train_segs,
+                                            val_segs=self.val_segs,
+                                            train_rep_names=train_rep_names,
+                                            val_rep_names=val_rep_names,
+                                            HDX_data=self.HDX_data,
+                                            train_gammas=train_gammas,
+                                            val_gammas=val_gammas,
+                                            weights=self.weights,
+                                            BV_constants=self.BV_constants,
+                                            LogPfs=self.LogPfs,
+                                            info=self.analysis_info)
+        
+
+
         print("dumped data")
         ic(self.analysis_dump)
         # print(merge_df)
@@ -1933,6 +1979,9 @@ class ValDXer(Experiment):
         
         self.analysis = pd.concat([self.analysis, plot_df], ignore_index=True)
  
+        self.analysis_data.analysis_df = self.analysis
+
+
 
         if self.settings.plot:
             print("plotting AVG df")

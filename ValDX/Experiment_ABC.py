@@ -3,6 +3,8 @@
 from abc import ABC, abstractmethod
 from ValDX.VDX_Settings import Settings
 from ValDX.helpful_funcs import segs_to_df, dfracs_to_df, segs_to_file, HDX_to_file, PDB_to_DSSP
+from ValDX.VDX_dataclasses import AnalysisInfo
+
 import pandas as pd
 import numpy as np
 import os
@@ -49,6 +51,8 @@ class Experiment(ABC):
         self.results_dir :str = None
         self.logs_dir :str = None
         self.data_dir :str = None
+
+        self.analysis_info: AnalysisInfo = None
 
 
 

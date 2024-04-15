@@ -846,9 +846,6 @@ class ValDXer(Experiment):
 
         return args
 
-                      
-            
-
 
     def recalculate_dataset(self, traj, cr_bc_bh, dataset_name, segs, rates:dict, train=False):
         print(f"Recalculating {dataset_name}")
@@ -2065,8 +2062,6 @@ class ValDXer(Experiment):
         rates_dict = kints_to_dict(rates_path)
         rates_to_add = pd.DataFrame({"rates": [rates_dict], "calc_name": [calc_name]})
         self.rates = pd.concat([self.rates, rates_to_add], ignore_index=True)
-
-
 
 # rates are required for reweighting??? no they 
 # should add a method to add rates to the df

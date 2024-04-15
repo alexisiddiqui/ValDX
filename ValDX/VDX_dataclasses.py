@@ -4,7 +4,12 @@ import os
 from icecream import ic
 from dataclasses import dataclass
 from typing import List, Tuple, Union
+from ValDX.helpful_funcs import segs_to_df, PDB_to_DSSP
+import numpy as np
+import MDAnalysis as mda
 
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 
 @dataclass
 class AnalysisInfo:
@@ -48,6 +53,9 @@ class AnalysisData:
     info: AnalysisInfo = None
 
 
+    dataframe_names = ["train_dfs", "val_dfs", "expt_df", "merge_df", "expt_segs", "train_segs", "val_segs", "HDX_data", "weights", "BV_constants", "LogPfs", "analysis_df"]
+
+
     def verify(self, info: AnalysisInfo=None):
         if info is not None:
             self.info = info
@@ -70,24 +78,23 @@ class AnalysisData:
         }
 
 
-        for key in self.dataframes.keys():
-            df = self.dataframes[key]
+        for key, df in self.dataframes.items():
             if isinstance(df, list):
-                for sub_df in df:
+                for idx, sub_df in enumerate(df):
                     print(self.info)
-                    print(f"{key} verifying...")
+                    print(f"{key}, {idx} verifying...")
                     try:
-                        self.verify_dataframe(sub_df)
+                        self.dataframes[key][idx] = self.verify_dataframe(sub_df)
                     except:
-                        print(f"{key} failed")
+                        print(f"{key}, {idx} failed")
                         print(sub_df)
-                        raise ValueError(f"{key} failed")
+                        raise ValueError(f"{key,idx} failed")
 
             else:
                 print(self.info)
                 print(f"{key} verifying...")
                 try:
-                    self.verify_dataframe(df)
+                    self.dataframes[key] = self.verify_dataframe(df)
                 except:
                     print(f"{key} failed")
                     print(df)
@@ -98,8 +105,8 @@ class AnalysisData:
         assert isinstance(df, pd.DataFrame)
         assert not df.empty
         
-        if "name" not in df.columns:
-            df["name"] = [self.info.settings_name] * len(df)
+        # if "name" not in df.columns:
+        df["name"] = [self.info.settings_name] * len(df)
         df["system"] = [self.info.system_name] * len(df)
 
         df["analysis"] = [self.info.analysis_name] * len(df)
@@ -115,23 +122,507 @@ class AnalysisData:
         df["dataset"] = df["calc_name"].apply(lambda x: x.split("_")[0])
         df["class"] =  df["dataset"] + "_" + df["split_type"]
 
+        return df
 
 
 def merge_AnalysisData_classes(data_list: List[AnalysisData])->dict:
     """
-    Merge the dataframes in the AnalysisData classes into individual dataframes - one for each key in the AnalysisData class
+    Merge the dataframes in the AnalysisData classes into individual dataframes 
+    one for each key in the AnalysisData class
     """
-    keys = data_list[0].dataframes.keys()
+
+    keys = AnalysisData.dataframe_names
 
     merged_dfs = {}
     for key in keys:
         _df = data_list[0].dataframes[key]
         if isinstance(_df, pd.DataFrame):
             df_list = [data.dataframes[key] for data in data_list]
-            merged_dfs[key] = pd.concat(df_list, ignore_index=True)
+            merged_dfs[key] = pd.concat(df_list, axis=0, ignore_index=True)
         elif isinstance(_df, list):
             #flatten all lists
             df_list = [df for data in data_list for df in data.dataframes[key]]
-            merged_dfs[key] = pd.concat(df_list, ignore_index=True)
+            merged_dfs[key] = pd.concat(df_list, axis=0,  ignore_index=True)
 
     return merged_dfs
+
+
+
+
+
+class Segments():
+    """
+    takes in a dataframe of experimental hdx segments 
+    and contains the values of the peptides
+    """
+    def __init__(self, segs_df: pd.DataFrame, keys=['ResStr', 'ResEnd']):
+        self.segs_df = segs_df.copy()
+        self.keys = keys
+        if "peptide" not in self.segs_df.columns:
+            self.segs_df["peptide"] = np.arange(len(self.segs_df))
+        self.pep_nums = self.segs_df["peptide"].to_numpy()
+        assert len(self.segs_df["peptide"].unique()) == len(self.pep_nums), "Peptides are not unique"
+
+        self.res_nums = self.get_resnums(self.segs_df)
+        self.residues = self.get_residues(self.segs_df)
+        self.peptides = self.get_peptides(self.segs_df)
+        self.residue_centrality = self.get_residue_centrality(self.segs_df)
+        self.peptide_centrality = self.get_peptide_centrality(self.segs_df)
+
+    def get_resnums(self, df: pd.DataFrame, keys=None):
+        """
+        Get the residue numbers of the segments in the dataframe
+        """
+        if df is None:
+            df = self.segs_df
+        
+        if keys is None:
+            keys = self.keys
+        res_nums = df.apply(lambda x: np.arange(x[keys[0]], x[keys[1]]+1), 
+                            axis=1).values
+
+        return res_nums
+    
+    def get_peptides(self, df: pd.DataFrame=None):
+        """
+        Get the peptides from the dataframe,
+        creates a dictionary with the peptide number as the key and the residues as the values
+        """
+        if df is None:
+            df = self.segs_df
+        peptides = {pep: res for pep, res in zip(df["peptide"], 
+                                                 self.get_resnums(df))}
+        return peptides
+    
+    def get_residues(self, df: pd.DataFrame=None):
+        """
+        Get the residues from the dataframe
+        """
+        if df is None:
+            df = self.segs_df
+        residues = np.unique(np.concatenate(self.get_resnums(df)))
+
+        return residues
+    
+
+        
+    def get_residue_centrality(self, df: pd.DataFrame):
+        """
+        calculate the number of peptides that contain each residue
+        """
+
+        if df is None:
+            df = self.segs_df
+
+        res_nums = self.get_resnums(df)
+
+        res_cent = {res: 0 for res in self.residues}
+
+        for res in self.residues:
+            for res_num in res_nums:
+                if res in res_num:
+                    res_cent[res] += 1
+
+        return res_cent
+
+    def get_peptide_centrality(self, df: pd.DataFrame):
+        """
+        calculate the average residue centrality for each peptide
+        """
+
+        if df is None:
+            df = self.segs_df
+
+        peptides = self.get_peptides(df)
+        res_cent = self.get_residue_centrality(df)
+
+        pep_cent = {pep: np.mean([res_cent[res] for res in res_nums]) 
+                    for pep, res_nums in peptides.items()}
+
+        return pep_cent
+    
+    def update(self, df: pd.DataFrame=None):
+        """
+        Update the values of the class
+        """
+        self.segs_df = df.copy()
+        self.residues = self.get_residues(self.segs_df)
+        self.res_nums = self.get_resnums(self.segs_df)
+        self.peptides = self.get_peptides(self.segs_df)
+
+        self.residue_centrality = self.get_residue_centrality(self.segs_df)
+        self.peptide_centrality = self.get_peptide_centrality(self.segs_df)
+
+
+    def df_from_peptides(self, peptides: dict):
+        """
+        Update the dataframe with the peptides and residues
+        Peptide is the index of the dataframe
+        """
+        keys = self.keys
+        df = pd.DataFrame(columns=[keys[0], keys[1], "peptide"])
+    
+        for pep, res in peptides.items():
+            df = pd.concat([df, pd.DataFrame({keys[0]: res[0], 
+                                              keys[1]: res[-1], 
+                                              "peptide": pep}, 
+                                              index=[pep])])
+
+        return df
+    
+    def df_select_peptides(self, pep_nums: list):
+        """
+        Select the peptides from the dataframe
+        """
+        return self.segs_df.loc[pep_nums].copy()
+    
+    def df_remove_peptides(self, pep_nums: list):
+        """
+        Remove the peptides from the dataframe
+        """
+        return self.segs_df.loc[~self.segs_df["peptide"].isin(pep_nums)].copy()
+    
+    def df_select_residues(self, residues: list):
+        """
+        Select peptides from the dataframe based on the residues
+        """
+        unique_res = np.unique(residues)
+
+        selected_peptides = []
+        for pep, res in self.peptides.items():
+            if len(np.intersect1d(res, unique_res)) > 0:
+                selected_peptides.append(pep)
+        return self.df_select_peptides(selected_peptides).copy()
+
+    def df_remove_residues(self, residues: list):
+        """
+        Remove peptides from the dataframe based on the residues
+        """
+        unique_res = np.unique(residues)
+
+        selected_peptides = []
+        for pep, res in self.peptides.items():
+            if len(np.intersect1d(res, unique_res)) == 0:
+                selected_peptides.append(pep)
+        return self.df_select_peptides(selected_peptides).copy()
+
+    
+    def select_segments(self, 
+                        peptides: list=None, 
+                        residues: list=None, 
+                        new_segs_df: pd.DataFrame=None,
+                        remove: bool=False):
+        """
+        Update the segments class with new peptides or residues
+        Either remove or select the peptides or residues
+        First updates based on peptides, then updates based on residues
+        """
+        if new_segs_df is None:
+            new_segs_df = self.segs_df.copy()
+
+        
+        if remove:
+            peptide_update_function = self.df_remove_peptides
+            residue_update_function = self.df_remove_residues
+        else:
+            peptide_update_function = self.df_select_peptides
+            residue_update_function = self.df_select_residues
+
+        if peptides is not None:    
+            new_segs_df = peptide_update_function(peptides)
+
+        if residues is not None:
+            new_segs_df =  residue_update_function(residues)
+
+        self.update(new_segs_df)
+
+
+class PeptideSplitter():
+    """
+    Split the peptides into different splits
+    """
+    def __init__(self, 
+                 expt_segs_path: str=None, 
+                 expt_segs_df: pd.DataFrame=None,
+                 train_frac: float=0.5,
+                 random_seed: int=None,
+                 keys=['ResStr', 'ResEnd']):
+        if expt_segs_df is None and expt_segs_path is not None:
+            expt_segs_df = segs_to_df(expt_segs_path)
+        self.expt_segs_df = expt_segs_df
+        assert isinstance(self.expt_segs_df, pd.DataFrame), "expt_segs_df must be a pandas DataFrame"
+        self.keys = keys
+        self.train_frac = train_frac
+        self.expt_segments = Segments(self.expt_segs_df, keys=self.keys)
+        self.random_seed = random_seed
+        np.random.seed(random_seed)
+    
+
+    def peptide_centrality_split(self, 
+                                 split_fraction: float=0.1,
+                                 handle_intersection: bool=True):
+        """
+        Splits the peptides based on the peptide centrality,
+        random selection, weighted by the peptide centrality
+        """
+        pep_cent = self.expt_segments.peptide_centrality
+        
+        # Calculate the weights based on peptide centrality
+        weights = np.array(list(pep_cent.values()))
+        weights /= np.sum(weights)
+        
+        # Randomly select peptides based on the weights
+        train_peps = np.random.choice(list(pep_cent.keys()), 
+                                      size=int(len(pep_cent) * split_fraction), 
+                                      replace=False, 
+                                      p=weights)
+        
+        # Get the remaining peptides as validation peptides
+        val_peps = np.setdiff1d(list(pep_cent.keys()), train_peps)
+
+        if handle_intersection:
+            train_peps, val_peps = drop_intersection(train_peps, val_peps)
+
+        return train_peps, val_peps
+
+    def drop_centrality(self, split_fraction: float=0.1, drop: bool=True):
+        if drop:
+            _, val_peps = self.peptide_centrality_split(split_fraction=0.9,
+                                                                 handle_intersection=False)
+            expt_segments = self.expt_segments.df_remove_peptides(list(val_peps))
+        else:
+            expt_segments = self.expt_segments.segs_df.copy()
+
+        return expt_segments
+
+    def random_split(self, 
+                     train_frac: float=0.5,
+                     drop_centrality: bool=True,
+                     drop: bool=False,
+                     hard_intersection: bool=False):
+        """
+        Splits the peptides randomly based on the train_frac
+        Optionally drops the highest centrality peptides
+        """
+    
+        expt_segments = self.drop_centrality(split_fraction=0.1, drop=drop_centrality)
+
+        train_peps = np.random.choice(expt_segments["peptide"].to_numpy(), 
+                                      size=int(len(expt_segments) * train_frac), 
+                                      replace=False)
+        val_peps = np.setdiff1d(expt_segments["peptide"].to_numpy(), train_peps)
+
+        if drop:
+            return drop_intersection(train_peps, val_peps, hard=hard_intersection)
+        else:
+            return train_peps, val_peps
+
+
+    def sequence_split(self, 
+                     train_frac: float=0.5,
+                     drop_centrality: bool=True,
+                     drop: bool=False,
+                     hard_intersection: bool=True):
+        """
+        Splits the peptides based on the sequence
+        """
+
+        expt_segments = self.drop_centrality(split_fraction=0.1, drop=drop_centrality)
+
+        peptide_numbers = expt_segments.segs_df["peptide"].to_numpy()
+
+        sequence_mod = 1
+        if self.random_seed//2 == 0:
+            sequence_mod = -1
+
+        sequence_pep = int(len(peptide_numbers) * train_frac) * sequence_mod
+
+        train_peps = peptide_numbers[:sequence_pep]
+        val_peps = peptide_numbers[sequence_pep:]
+
+        if drop:
+            return drop_intersection(train_peps, val_peps, hard=hard_intersection)
+        else:
+            return train_peps, val_peps
+    
+        
+    
+    def redundant_sequence_split(self,
+                        train_frac: float=0.5,
+                        drop_centrality: bool=True,
+                        hard_intersection: bool=False):
+        """
+        Redundant split using KMeans clustering of the start and end residues for each peptide
+        """
+
+        expt_segments_df = self.drop_centrality(split_fraction=0.1, drop=drop_centrality)
+        new_expt_segs = Segments(expt_segments_df, keys=self.keys)
+
+        features = expt_segments_df[self.keys].to_numpy()
+        k_splits = int(len(expt_segments_df) * train_frac)
+        kmeans = KMeans(n_clusters=k_splits, random_state=self.random_seed).fit(features)
+        labels = kmeans.labels_
+        unique_labels = np.unique(labels)
+
+        train_labels = np.random.choice(unique_labels, int(k_splits * train_frac), replace=False)        
+        train_indexes = np.where(np.isin(train_labels, labels))[0]
+
+        train_peps = new_expt_segs.pep_nums[train_indexes]
+        val_peps = new_expt_segs.pep_nums[~np.isin(new_expt_segs.pep_nums, train_peps)]
+
+        return drop_intersection(train_peps, val_peps, hard=hard_intersection)
+
+
+    def structural_split(self,
+                         top_path:str,
+                         train_frac: float=0.5,
+                         loops: bool=True,
+                         compare: bool=True,
+                         drop_centrality: bool=True,
+                         hard_intersection: bool=False):
+        
+        expt_segments_df = self.drop_centrality(split_fraction=0.1, drop=drop_centrality)
+        new_expt_segs = Segments(expt_segments_df, keys=self.keys)
+
+        secondary_structure = PDB_to_DSSP(top_path)
+        loop_residues = np.where(secondary_structure == "L")[0]
+        helix_residues = np.where(secondary_structure == "H")[0]
+        sheet_residues = np.where(secondary_structure == "S")[0]
+
+        loop_peptides = new_expt_segs.df_select_residues(list(loop_residues))["peptide"].to_numpy()
+
+        if not loops:
+            # remove the loop peptides
+            new_expt_segs.select_segments(peptides=list(loop_peptides), remove=True)
+
+        helix_peptides = new_expt_segs.df_select_residues(list(helix_residues))["peptide"].to_numpy()
+        sheet_peptides = new_expt_segs.df_select_residues(list(sheet_residues))["peptide"].to_numpy()
+    
+        if compare:
+            # compare the helix and sheet peptides
+            return drop_intersection(helix_peptides, 
+                                     sheet_peptides, 
+                                     hard=hard_intersection)
+            
+        else:
+            # K means split of the remaining peptides
+            _peptide_splitter = PeptideSplitter(expt_segs_df=new_expt_segs.segs_df, 
+                                                train_frac=train_frac,
+                                                random_seed=self.random_seed)
+            return _peptide_splitter.redundant_sequence_split(train_frac=train_frac, 
+                                                    drop_centrality=False,
+                                                    hard_intersection=hard_intersection)
+
+
+    def neighbours_split(self,
+                        top: mda.Universe,
+                        train_frac: float=0.5,
+                        drop_centrality: bool=True,
+                        hard_intersection: bool=False):
+        """
+        Split the peptides based on neighbouring residues to a random residue
+        """
+        expt_segments_df = self.drop_centrality(split_fraction=0.1, drop=drop_centrality)
+        new_expt_segs = Segments(expt_segments_df, keys=self.keys)
+
+        top = mda.Universe(top)
+        residues = top.select_atoms("protein").residues
+        
+        HDX_residues = new_expt_segs.residues    
+
+        random_residue = np.random.choice(residues,1)[0]
+        random_CA = random_residue.atoms.select_atoms("name CA")
+        random_CA_coords = random_CA.positions
+
+        HDX_CA_atoms = top.select_atoms("resid "+ " ".join([str(res) for res in HDX_residues])).atoms.select_atoms("name CA")
+        HDX_CA_coords = HDX_CA_atoms.positions
+
+        distances = np.linalg.norm(HDX_CA_coords - random_CA_coords, axis=1)
+        distance_indexes = np.argsort(distances)
+
+        train_indexes = distance_indexes[:int(len(HDX_CA_coords) * train_frac)]
+        val_indexes = distance_indexes[int(len(HDX_CA_coords) * train_frac):]
+
+        train_peps = new_expt_segs.pep_nums[train_indexes]
+        val_peps = new_expt_segs.pep_nums[val_indexes]
+
+        return drop_intersection(train_peps, val_peps, hard=hard_intersection)
+
+
+    def spatial_split(self,
+                    top: mda.Universe,
+                    train_frac: float=0.5,
+                    drop_centrality: bool=True,
+                    PCA_dims: int=1, #TODO test multiple PCA dims
+                    kmeans_cluster: bool=True,
+                    hard_intersection: bool=False):
+        """
+        Split the peptides based on the spatial location of the residues
+        Spatial distribution is determined by PCA
+        """
+        expt_segments_df = self.drop_centrality(split_fraction=0.1, drop=drop_centrality)
+        new_expt_segs = Segments(expt_segments_df, keys=self.keys)
+
+        top = mda.Universe(top)
+        protein = top.select_atoms("protein and name CA")
+        protein_coords = protein.positions
+
+        pca = PCA(n_components=PCA_dims)
+
+        pca.fit(protein_coords)
+        pca_coords = pca.transform(protein_coords)
+
+        ksplits = 10
+
+        if kmeans_cluster:
+            kmeans = KMeans(n_clusters=ksplits, 
+                        random_state=self.random_seed).fit(pca_coords)
+
+            labels = kmeans.labels_
+            unique_labels = np.unique(labels)
+            train_labels = np.random.choice(unique_labels, int(ksplits * train_frac), replace=False)
+            train_indexes = np.where(np.isin(labels, train_labels))[0]
+
+            train_peptides = new_expt_segs.pep_nums[train_indexes]
+            val_peptides = new_expt_segs.pep_nums[~np.isin(new_expt_segs.pep_nums, train_peptides)]
+        else:
+            flat_pca = pca_coords.flatten()
+            pca_indexes = np.argsort(flat_pca)
+
+            sequence_mod = 1
+            if self.random_seed//2 == 0:
+                sequence_mod *= -1
+
+            sequence_pep = int(len(pca_indexes) * train_frac) * sequence_mod
+
+            train_residue_indexes = pca_indexes[:sequence_pep]
+            train_residues = protein.residues[train_residue_indexes]
+            
+            train_peptides = new_expt_segs.df_select_residues(train_residues.resids)["peptide"].to_numpy()
+            val_peptides = new_expt_segs.df_remove_residues(train_residues.resids)["peptide"].to_numpy()
+
+
+        return drop_intersection(train_peptides, val_peptides, hard=hard_intersection)
+
+
+
+
+
+
+def drop_intersection(train_peps: np.ndarray, 
+                        val_peps: np.ndarray,
+                        hard: bool=False):
+    """
+    Handle the intersection of the train and val peptides
+    If hard is False then remove the intersection
+    If hard is True then add the intersection to the val peptides
+    """
+
+    train_val_intersection = np.intersect1d(train_peps, val_peps)
+    if hard:
+        val_peps = np.concatenate([val_peps, train_val_intersection])
+    else:
+        val_peps = np.setdiff1d(val_peps, train_val_intersection)
+        train_peps = np.setdiff1d(train_peps, train_val_intersection)
+
+    return train_peps, val_peps

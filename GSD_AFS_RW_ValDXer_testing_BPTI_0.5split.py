@@ -10,7 +10,7 @@ from MDAnalysis.coordinates.XTC import XTCWriter
 from icecream import ic
 
 settings = Settings(name='BPTI_shaw')
-settings.replicates = 3
+settings.replicates = 2
 settings.gamma_range = (1,8)
 settings.train_frac = 0.5
 settings.RW_exponent = [0]

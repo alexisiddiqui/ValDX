@@ -175,7 +175,7 @@ class ValDXer(Experiment):
             raise EnvironmentError("HDXer failed to run. Check the HDXer environment and executable path.")
             return False
 
-
+### TODO Update this to be parallelised across replicates
     def featurise_HDX(self, 
                     calc_name: str=None, 
                     # mode: str=None, 
@@ -322,7 +322,7 @@ class ValDXer(Experiment):
 
 
     
-
+### TODO depreciate this method and use the split train, val, test methods
     def reweight_HDX(self, 
                      expt_name: str=None, 
                      calc_name: str=None, 
@@ -632,71 +632,71 @@ class ValDXer(Experiment):
 
         return opt_gammas, reweighted_dfs, cr_bc_bhs
 
-    def reweight_test_ensemble(self,
-                            calc_name: str=None,
-                            expt_name: str=None,
-                            predictHDX_dir: str=None,
-                            gamma_range: tuple=None,
-                            n_reps:int=None,
-                            segs_paths: list=None,
-                            weights: List[np.ndarray]=None):
-        gamma_range = (3, 4)
-        exp_range = [0]
-        if calc_name is None:
-            raise ValueError("Please provide a calculation name for the structures.")
-        if expt_name is None:
-            raise ValueError("Please provide an experimental name for the structures.")
-        if n_reps is None:
-            n_reps = self.settings.replicates
+    # def reweight_test_ensemble(self,
+    #                         calc_name: str=None,
+    #                         expt_name: str=None,
+    #                         predictHDX_dir: str=None,
+    #                         gamma_range: tuple=None,
+    #                         n_reps:int=None,
+    #                         segs_paths: list=None,
+    #                         weights: List[np.ndarray]=None):
+    #     gamma_range = (3, 4)
+    #     exp_range = [0]
+    #     if calc_name is None:
+    #         raise ValueError("Please provide a calculation name for the structures.")
+    #     if expt_name is None:
+    #         raise ValueError("Please provide an experimental name for the structures.")
+    #     if n_reps is None:
+    #         n_reps = self.settings.replicates
 
-        if segs_paths is None:
-            # pick expt segs
-            segs_path = self.paths.loc[self.paths["calc_name"] == expt_name, "SEG"].dropna().values[0]
+    #     if segs_paths is None:
+    #         # pick expt segs
+    #         segs_path = self.paths.loc[self.paths["calc_name"] == expt_name, "SEG"].dropna().values[0]
 
-        args_list = self.generate_MaxEnt_params(prefix_name="test",
-                                                n_reps=n_reps,
-                                                calc_name=calc_name,
-                                                expt_name=expt_name,
-                                                weights=weights,
-                                                segs_paths=segs_path,
-                                                predictHDX_dir=predictHDX_dir)
+    #     args_list = self.generate_MaxEnt_params(prefix_name="test",
+    #                                             n_reps=n_reps,
+    #                                             calc_name=calc_name,
+    #                                             expt_name=expt_name,
+    #                                             weights=weights,
+    #                                             segs_paths=segs_path,
+    #                                             predictHDX_dir=predictHDX_dir)
 
-        reweighted_dfs = []
+    #     reweighted_dfs = []
 
 
-        for _args_list in args_list:
-            # _gamma_list = zip([args["r"] for args in _args_list],[args["exponent"] for args in _args_list])
+    #     for _args_list in args_list:
+    #         # _gamma_list = zip([args["r"] for args in _args_list],[args["exponent"] for args in _args_list])
 
-            try:
-                print("Trying concurrent.futures")
-                with concurrent.futures.ProcessPoolExecutor() as executor:
-                    _ = list(executor.map(run_MaxEnt_single, _args_list))
+    #         try:
+    #             print("Trying concurrent.futures")
+    #             with concurrent.futures.ProcessPoolExecutor() as executor:
+    #                 _ = list(executor.map(run_MaxEnt_single, _args_list))
 
-            except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
-                print("Running directly")
-                # outputs_cr_bc_bh = []
-                for args in args_list:
-                    print(f"Reweighting {args['out_prefix']} with gamma = {args['gamma']}")
-                    _ = run_MaxEnt_single(args)
-                    # outputs_cr_bc_bh.append(output)
+    #         except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
+    #             print("Running directly")
+    #             # outputs_cr_bc_bh = []
+    #             for args in args_list:
+    #                 print(f"Reweighting {args['out_prefix']} with gamma = {args['gamma']}")
+    #                 _ = run_MaxEnt_single(args)
+    #                 # outputs_cr_bc_bh.append(output)
 
-            finally:
-                print("Finished reweighting")
-                print("_")
-                # add outpus to respective dfss
+    #         finally:
+    #             print("Finished reweighting")
+    #             print("_")
+    #             # add outpus to respective dfss
 
-            predictHDX_dir = _args_list[0]["predictHDX_dir"]
+    #         predictHDX_dir = _args_list[0]["predictHDX_dir"]
 
-            RW_path = os.path.join(predictHDX_dir,
-                                    self.settings.RW_outprefix+
-                                    f"{int(gamma_range[0])}x10^{exp_range[0]}final_segment_fractions.dat")
-            reweighted_df = dfracs_to_df(path=RW_path,
-                                        names=self.settings.times)
-            rep_name = _args_list[0]["rep_name"]
-            reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
+    #         RW_path = os.path.join(predictHDX_dir,
+    #                                 self.settings.RW_outprefix+
+    #                                 f"{int(gamma_range[0])}x10^{exp_range[0]}final_segment_fractions.dat")
+    #         reweighted_df = dfracs_to_df(path=RW_path,
+    #                                     names=self.settings.times)
+    #         rep_name = _args_list[0]["rep_name"]
+    #         reweighted_df["calc_name"] = [rep_name] * len(reweighted_df)
 
-            reweighted_dfs.append(reweighted_df)
-        return reweighted_dfs
+    #         reweighted_dfs.append(reweighted_df)
+    #     return reweighted_dfs
 
 
     def generate_MaxEnt_trainval_params(self,
@@ -815,7 +815,6 @@ class ValDXer(Experiment):
                 "restart_interval": self.settings.RW_restart_interval,
                 "stepfactor": self.settings.RW_stepfactor,
                 "times": self.settings.times, 
-                "restart_interval": self.settings.RW_restart_interval,
                 "random_initial": self.settings.random_initialisation,
                 "temp": self.settings.temp, 
                 'bv_bc': bc_bh[0],
@@ -1000,14 +999,14 @@ class ValDXer(Experiment):
         test_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
 
 
-        test_df = self.recalculate_dataset(traj=traj,
-                                        cr_bc_bh=cr_bc_bh,
-                                        dataset_name=test_name,
-                                        segs=test_segs,
-                                        rates=rates)
+        # test_df = self.recalculate_dataset(traj=traj,
+        #                                 cr_bc_bh=cr_bc_bh,
+        #                                 dataset_name=test_name,
+        #                                 segs=test_segs,
+        #                                 rates=rates)
         print(val_df)
 
-        return val_df, test_df
+        return val_df, val_df
 
     def write_data_split_PDB(self, calc_name, expt_name, rep):
         """
@@ -1121,6 +1120,7 @@ class ValDXer(Experiment):
 
         if mode is not None:
             self.settings.split_mode = mode
+        mode = self.settings.split_mode
         if n_reps is None:
             n_reps = self.settings.replicates
         if random_seeds is None:
@@ -1151,6 +1151,7 @@ class ValDXer(Experiment):
             _, train_rep_name, val_rep_name = self.split_segments(seg_name=expt_name,
                                                                   calc_name=calc_name, 
                                                                   rep=rep, 
+                                                                  mode=mode,
                                                                   random_seed=random_seeds[rep-1])
         for rep in range(1,n_reps+1):
             # train HDX
@@ -1205,7 +1206,7 @@ class ValDXer(Experiment):
                           val_dfs=val_dfs, 
                           expt_name=expt_name, 
                           calc_name=calc_name, 
-                          test_dfs=test_dfs,
+                        #   test_dfs=test_dfs,
                           train_gammas=train_gammas, 
                           val_gammas=val_gammas,
                           n_reps=n_reps)
@@ -1314,8 +1315,8 @@ class ValDXer(Experiment):
                             expt_name=expt_name,
                             random_seeds=random_seeds)
             # raw_run_outputs[split_name] = run_outputs # we dont need the raw outputs
-            _, _, name = _VDX.dump_analysis()
             data_list.append(_VDX.analysis_data)
+            _, _, name = _VDX.dump_analysis()
             # save_path = _VDX.save_experiment()
             # print("Analysis Dump", analysis_dump)
             # analysis_dumps.update(analysis_dump)
@@ -1735,7 +1736,7 @@ class ValDXer(Experiment):
     def evaluate_HDX(self, 
                      train_dfs: List[pd.DataFrame], 
                      val_dfs: List[pd.DataFrame], 
-                     test_dfs: List[pd.DataFrame],
+                    #  test_dfs: List[pd.DataFrame],
                      data: pd.DataFrame=None, 
                      expt_name: str=None, 
                      calc_name: str=None, 
@@ -1813,31 +1814,31 @@ class ValDXer(Experiment):
         merge_df = pd.concat([expt_df, merge_df], ignore_index=True)
         name = self.settings.name
         print("dumping data")
-        data_to_dump = {
-            "train_dfs": train_dfs,
-            "val_dfs": val_dfs,
-            "test_dfs": test_dfs,
-            "expt_df": expt_df,
-            "merge_df": merge_df,
-            "expt_segs": expt_segs,
-            "train_segs": self.train_segs,
-            "val_segs": self.val_segs,
-            "n_reps": n_reps,
-            "times": self.settings.times,
-            "expt_name": expt_name,
-            "calc_name": calc_name,
-            "train_rep_names": train_rep_names,
-            "val_rep_names": val_rep_names,
-            # "test_rep_names": test_rep_names,
-            "HDX_data": self.HDX_data,
-            "train_gammas": train_gammas,
-            "val_gammas": val_gammas,
-            "weights": self.weights,
-            "BV_constants": self.BV_constants,
-            "LogPfs": self.LogPfs,
-        }
-        # add to dictionary
-        self.analysis_dump[name] = data_to_dump
+        # data_to_dump = {
+        #     "train_dfs": train_dfs,
+        #     "val_dfs": val_dfs,
+        #     "test_dfs": test_dfs,
+        #     "expt_df": expt_df,
+        #     "merge_df": merge_df,
+        #     "expt_segs": expt_segs,
+        #     "train_segs": self.train_segs,
+        #     "val_segs": self.val_segs,
+        #     "n_reps": n_reps,
+        #     "times": self.settings.times,
+        #     "expt_name": expt_name,
+        #     "calc_name": calc_name,
+        #     "train_rep_names": train_rep_names,
+        #     "val_rep_names": val_rep_names,
+        #     # "test_rep_names": test_rep_names,
+        #     "HDX_data": self.HDX_data,
+        #     "train_gammas": train_gammas,
+        #     "val_gammas": val_gammas,
+        #     "weights": self.weights,
+        #     "BV_constants": self.BV_constants,
+        #     "LogPfs": self.LogPfs,
+        # }
+        # # add to dictionary
+        # self.analysis_dump[name] = data_to_dump
         self.analysis_data = AnalysisData(train_dfs=train_dfs,
                                             val_dfs=val_dfs,
                                             expt_df=expt_df,
@@ -1858,7 +1859,7 @@ class ValDXer(Experiment):
 
 
         print("dumped data")
-        ic(self.analysis_dump)
+        # ic(self.analysis_dump)
         # print(merge_df)
         args = [expt_name, *train_rep_names,  *val_rep_names]
 
@@ -2092,26 +2093,29 @@ class ValDXer(Experiment):
         csv_dir = os.path.join(self.results_dir)
         csv_path = os.path.join(csv_dir, csv_name)
         os.makedirs(csv_dir, exist_ok=True)
-        self.analysis["name"] = [name]*len(self.analysis)
-        self.analysis.to_csv(csv_path, index=False)
+
+        # self.analysis["name"] = [name]*len(self.analysis)
+
+        self.analysis_data.analysis_df.to_csv(csv_path, index=False)
+
         print(f"Analysis dumped to {csv_path}")
 
-        print(self.analysis_dump.keys())
-        print(self.analysis_dump[name].keys())
+        # print(self.analysis_dump.keys())
+        # print(self.analysis_dump[name].keys())
 
-        assert self.settings.split_mode is not None
+        # assert self.settings.split_mode is not None
 
-        self.analysis["name"] = [name]*len(self.analysis)
-        self.analysis["split_type"] = [self.settings.split_mode]*len(self.analysis)
+        # self.analysis["name"] = [name]*len(self.analysis)
+        # self.analysis["split_type"] = [self.settings.split_mode]*len(self.analysis)
 
-        for key in self.analysis_dump[name].keys():
-            dump = self.analysis_dump[name][key]
-            print(f"Key: {key}")
-            print(type(dump))
-            if isinstance(dump, pd.DataFrame):
-                # print("dump", dump)
-                print(f"Adding {name} to df {key}")
-                dump["name"] = [name]*len(dump)
-                dump["split_type"] = [self.settings.split_mode]*len(dump)
+        # for key in self.analysis_dump[name].keys():
+        #     dump = self.analysis_dump[name][key]
+        #     print(f"Key: {key}")
+        #     print(type(dump))
+        #     if isinstance(dump, pd.DataFrame):
+        #         # print("dump", dump)
+        #         print(f"Adding {name} to df {key}")
+        #         dump["name"] = [name]*len(dump)
+        #         dump["split_type"] = [self.settings.split_mode]*len(dump)
 
-        return self.analysis_dump, self.analysis, name
+        return self.analysis_data, self.analysis_data.analysis_df, name

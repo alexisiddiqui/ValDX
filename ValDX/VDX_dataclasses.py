@@ -242,7 +242,7 @@ class Segments():
 
     def get_peptide_centrality(self, df: pd.DataFrame):
         """
-        calculate the maximum residue centrality for each peptide
+        calculate the mean residue centrality for each peptide
         """
 
         print("Calculating peptide centrality")
@@ -251,7 +251,7 @@ class Segments():
         peptides = self.get_peptides(df)
         res_cent = self.get_residue_centrality(df)
 
-        pep_cent = {pep: np.max([res_cent[res] for res in res_nums]) 
+        pep_cent = {pep: np.mean([res_cent[res] for res in res_nums]) 
                     for pep, res_nums in peptides.items()}
         
         print(f"Peptide centrality calculated for {len(pep_cent)} peptides")
@@ -360,6 +360,16 @@ class Segments():
         self.update(new_segs_df)
 
 
+    def create_train_val_segs(self,
+                               train_peps: np.ndarray,
+                                 val_peps: np.ndarray):
+        
+        train_segs = self.df_select_peptides(list(train_peps))
+        val_segs = self.df_select_peptides(list(val_peps))
+
+        return train_segs, val_segs
+
+
 class PeptideSplitter():
     """
     Split the peptides into different splits
@@ -385,12 +395,15 @@ class PeptideSplitter():
     
 
     def peptide_centrality_split(self, 
-                                 split_fraction: float=0.5,
+                                 split_fraction: float=None,
                                  handle_intersection: bool=False):
         """
         Splits the peptides based on the peptide centrality,
         random selection, weighted by the peptide centrality
+        To implement: weighted k means clustering using peptide centrality
         """
+        if split_fraction is None:
+            split_fraction = self.train_frac
         print(f"Peptide centrality split with split_fraction {split_fraction}")
         print(f"Handle intersection {handle_intersection}")
         pep_cent = self.expt_segments.peptide_centrality
@@ -419,6 +432,7 @@ class PeptideSplitter():
         if drop:
             _, val_peps = self.peptide_centrality_split(split_fraction=split_fraction,
                                                         handle_intersection=False)
+            print(f"Dropping {len(val_peps)} peptides based on centrality")
             expt_segments = self.expt_segments.df_remove_peptides(list(val_peps))
         else:
             expt_segments = self.expt_segments.segs_df.copy()
@@ -426,7 +440,7 @@ class PeptideSplitter():
         return expt_segments
 
     def random_split(self, 
-                     train_frac: float=0.5,
+                     train_frac: float=None,
                      drop_centrality: bool=True,
                      drop: bool=False,
                      hard_intersection: bool=False):
@@ -434,6 +448,8 @@ class PeptideSplitter():
         Splits the peptides randomly based on the train_frac
         Optionally drops the highest centrality peptides
         """
+        if train_frac is None:
+            train_frac = self.train_frac
         print(f"Random split with train_frac {train_frac} and drop_centrality {drop_centrality}")
         print(f"Drop {drop} and hard_intersection {hard_intersection}")
         expt_segments = self.drop_centrality(drop=drop_centrality)
@@ -454,16 +470,18 @@ class PeptideSplitter():
 
 
     def sequence_split(self, 
-                     train_frac: float=0.5,
+                     train_frac: float=None,
                      drop_centrality: bool=True,
                      drop: bool=False,
                      hard_intersection: bool=True):
         """
         Splits the peptides based on the sequence
         """
+        if train_frac is None:
+            train_frac = self.train_frac
         print(f"Sequence split with train_frac {train_frac} and drop_centrality {drop_centrality}")
         print(f"Drop {drop} and hard_intersection {hard_intersection}")
-        expt_segments_df = self.drop_centrality(drop=drop_centrality)
+        expt_segments_df = self.drop_centrality(drop=drop_centrality) # should also increase this as well to improve randomness of split
         new_expt_segs = Segments(expt_segments_df, keys=self.keys)
 
         peptide_numbers = new_expt_segs.segs_df["peptide"].to_numpy()
@@ -493,12 +511,14 @@ class PeptideSplitter():
         
     
     def redundant_sequence_split(self,
-                        train_frac: float=0.5,
+                        train_frac: float=None,
                         drop_centrality: bool=True,
                         hard_intersection: bool=False):
         """
         Redundant split using KMeans clustering of the start and end residues for each peptide
         """
+        if train_frac is None:
+            train_frac = self.train_frac
         print(f"Redundant kmeans sequence split with train_frac {train_frac} and drop_centrality {drop_centrality}")
         print(f"and hard_intersection {hard_intersection}")
 
@@ -526,7 +546,7 @@ class PeptideSplitter():
 
     def structural_split(self,
                          top_path:str,
-                         train_frac: float=0.5,
+                         train_frac: float=None,
                          loops: bool=True,
                          compare: bool=True,
                          drop_centrality: bool=True,
@@ -534,7 +554,9 @@ class PeptideSplitter():
         print(f"Structural split with train_frac {train_frac} and drop_centrality {drop_centrality}")
         print(f"and hard_intersection {hard_intersection}")
         print(f"Loops {loops} and compare (alpha vs beta) {compare}")
-        raise ValueError("Not implemented yet")
+        raise ValueError("Not implemented yet: DSSP not working at the moment")
+        if train_frac is None:
+            train_frac = self.train_frac
         expt_segments_df = self.drop_centrality(drop=drop_centrality)
         new_expt_segs = Segments(expt_segments_df, keys=self.keys)
 
@@ -576,12 +598,14 @@ class PeptideSplitter():
 
     def neighbours_split(self,
                         top_path: str,
-                        train_frac: float=0.5,
+                        train_frac: float=None,
                         drop_centrality: bool=True,
                         hard_intersection: bool=False):
         """
         Split the peptides based on neighbouring residues to a random residue
         """
+        if train_frac is None:
+            train_frac = self.train_frac
         print(f"Neighbours split with train_frac {train_frac} and drop_centrality {drop_centrality}")
         print(f"and hard_intersection {hard_intersection}")
         expt_segments_df = self.drop_centrality(drop=drop_centrality)
@@ -617,13 +641,15 @@ class PeptideSplitter():
     def spatial_split(self,
                     top_path: str,
                     kmeans_cluster: bool,
-                    train_frac: float=0.5,
+                    train_frac: float=None,
                     PCA_dims: int=1, #TODO test multiple PCA dims
                     hard_intersection: bool=True):
         """
         Split the peptides based on the spatial location of the residues
         Spatial distribution is determined by PCA
         """
+        if train_frac is None:
+            train_frac = self.train_frac
         if kmeans_cluster:
             drop_centrality = False
         else:
@@ -632,7 +658,7 @@ class PeptideSplitter():
         print(f"and hard_intersection {hard_intersection}")
         print(f"PCA_dims {PCA_dims} and kmeans_cluster {kmeans_cluster}")
 
-        expt_segments_df = self.drop_centrality(drop=drop_centrality)
+        expt_segments_df = self.drop_centrality(drop=drop_centrality) # perhaps we can increase the drop_centrality %
         new_expt_segs = Segments(expt_segments_df, keys=self.keys)
         HDX_residues = new_expt_segs.residues    
 
@@ -652,7 +678,7 @@ class PeptideSplitter():
         if kmeans_cluster:
             ksplits = 10
             kmeans = KMeans(n_clusters=ksplits, 
-                        random_state=self.random_seed).fit(pca_coords)
+                        random_state=self.random_seed).fit(pca_coords) #weight kmeans by peptide centrality
 
             labels = kmeans.labels_
             unique_labels = np.unique(labels)
@@ -668,12 +694,8 @@ class PeptideSplitter():
         else:
 
             flat_pca = pca_coords.flatten()
-
             pca_indexes = np.argsort(flat_pca)
 
-            print(f"Random seed: {self.random_seed}")
-            
-            
             sequence_mod = int(len(pca_indexes) * train_frac)
 
             train_residue_indexes = pca_indexes[:sequence_mod]
@@ -691,8 +713,7 @@ class PeptideSplitter():
 
 
         return drop_intersection(new_expt_segs,train_peptides, val_peptides, hard=hard_intersection)
-
-
+    
 
 def drop_intersection(expt_segs: Segments,
                         train_peps: np.ndarray, 
@@ -727,3 +748,22 @@ def drop_intersection(expt_segs: Segments,
     print(f"Train %: {len(train_peps)/(len(train_peps)+len(val_peps)):.2f}")
 
     return train_peps, val_peps
+
+
+
+def create_train_val_dfs(expt_segs_df: pd.DataFrame,
+                        train_peps: np.ndarray,
+                        val_peps: np.ndarray,
+                        keys=['ResStr', 'ResEnd']):
+    """
+    Create the train and val dataframes from the experimental segments dataframe
+    """
+    print("Creating train and val dataframes")
+    train_df = expt_segs_df.loc[expt_segs_df["peptide"].isin(train_peps)].copy()
+    val_df = expt_segs_df.loc[expt_segs_df["peptide"].isin(val_peps)].copy()
+
+    print(f"Train peptides: {train_peps}")
+    print(f"Val peptides: {val_peps}")
+    print(f"Train %: {len(train_peps)/(len(train_peps)+len(val_peps)):.2f}")
+
+    return train_df, val_df

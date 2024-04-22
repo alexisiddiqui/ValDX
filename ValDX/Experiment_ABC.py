@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from ValDX.VDX_Settings import Settings
 from ValDX.helpful_funcs import segs_to_df, dfracs_to_df, segs_to_file, HDX_to_file, PDB_to_DSSP
-from ValDX.VDX_dataclasses import AnalysisInfo
+from ValDX.VDX_dataclasses import AnalysisInfo, Segments, PeptideSplitter
 
 import pandas as pd
 import numpy as np
@@ -136,20 +136,37 @@ class Experiment(ABC):
         if mode is None:
             mode = self.settings.split_mode
 
+        expt_path = self.paths.loc[self.paths['calc_name'] == seg_name]['SEG'].values[0]
+        splitter = PeptideSplitter(expt_segs_path=expt_path, 
+                                   random_seed=random_seed, 
+                                   train_frac=train_frac)
+
         if mode == 'r':
             print(f"Randomly splitting segments for {calc_name} with random seed {random_seed} and train fraction {train_frac}")
-            train_segs = self.segs.loc[self.segs['calc_name'] == seg_name].sample(frac=train_frac, random_state=random_seed)
-            val_segs = self.segs.loc[self.segs['calc_name'] == seg_name].drop(train_segs.index)
+
+            train_val_peps = splitter.random_split(drop_centrality=True)
+
+            train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
+
+            # train_segs = self.segs.loc[self.segs['calc_name'] == seg_name].sample(frac=train_frac, random_state=random_seed)
+            # val_segs = self.segs.loc[self.segs['calc_name'] == seg_name].drop(train_segs.index)
         elif mode == 's':
             print(f"Splitting segments for {calc_name} by N-terminal and C-terminal")
-            no_segs = len(self.segs.loc[self.segs['calc_name'] == seg_name])
-            no_segs = int(no_segs / 2)
-            # select first or second half based on random seed odd vs even
-            if random_seed % 2 == 0:
-                no_segs *= -1
-            # make sure to order by ResStr and then ResEnd
-            train_segs = self.segs.loc[self.segs['calc_name'] == seg_name].iloc[:no_segs]
-            val_segs = self.segs.loc[self.segs['calc_name'] == seg_name].iloc[no_segs:]
+
+
+            train_val_peps = splitter.sequence_split(drop_centrality=True)
+
+            train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
+
+
+            # no_segs = len(self.segs.loc[self.segs['calc_name'] == seg_name])
+            # no_segs = int(no_segs / 2)
+            # # select first or second half based on random seed odd vs even
+            # if random_seed % 2 == 0:
+            #     no_segs *= -1
+            # # make sure to order by ResStr and then ResEnd
+            # train_segs = self.segs.loc[self.segs['calc_name'] == seg_name].iloc[:no_segs]
+            # val_segs = self.segs.loc[self.segs['calc_name'] == seg_name].iloc[no_segs:]
         elif mode == 'R':
             segs = self.segs.copy()
             print(f"Splitting segments for {calc_name} by redundancy")
@@ -286,62 +303,68 @@ class Experiment(ABC):
                 val_segs = self.segs[self.segs['peptide'].isin(final_val_peptides)]
 
         elif mode == 'R3':
-            # Sample top 0.95 of peptides by centrality
-            print(f"Splitting segments for {calc_name} by redundancy mk III")
-            segs = self.segs.copy()
-            segs = segs.loc[segs['calc_name'] == seg_name].copy()
-            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
 
-            # Calculate centrality of peptides based on resnum overlap
-            res = segs.explode(column=['ResNums']).copy()
-            # print(res)
-            centrality = res.groupby('ResNums').value_counts().reset_index(name='centrality')
-            centrality = centrality.sort_values(by=['centrality', 'ResNums'], ascending=[False, True])
-            print(centrality.centrality.value_counts())
+            train_val_peps = splitter.redundant_sequence_split(drop_centrality=True)
 
-            segs_indexes = centrality.sample(frac=0.9, random_state=random_seed, weights='centrality')["peptide"].values
-            # print("segs_indexes: ", segs_indexes)
+            train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
+
+
+            # # Sample top 0.95 of peptides by centrality
+            # print(f"Splitting segments for {calc_name} by redundancy mk III")
+            # segs = self.segs.copy()
+            # segs = segs.loc[segs['calc_name'] == seg_name].copy()
+            # segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
+
+            # # Calculate centrality of peptides based on resnum overlap
+            # res = segs.explode(column=['ResNums']).copy()
+            # # print(res)
+            # centrality = res.groupby('ResNums').value_counts().reset_index(name='centrality')
+            # centrality = centrality.sort_values(by=['centrality', 'ResNums'], ascending=[False, True])
+            # print(centrality.centrality.value_counts())
+
+            # segs_indexes = centrality.sample(frac=0.9, random_state=random_seed, weights='centrality')["peptide"].values
+            # # print("segs_indexes: ", segs_indexes)
             
-            segs = segs.loc[segs.index.isin(segs_indexes)]
-            tot_segs = len(segs)
-            # print("segs: ", segs)
+            # segs = segs.loc[segs.index.isin(segs_indexes)]
+            # tot_segs = len(segs)
+            # # print("segs: ", segs)
 
-            k_splits = len(segs)//10
+            # k_splits = len(segs)//10
 
-            kmeans = KMeans(n_clusters=k_splits, random_state=random_seed).fit(segs[['ResStr', 'ResEnd']].values)
+            # kmeans = KMeans(n_clusters=k_splits, random_state=random_seed).fit(segs[['ResStr', 'ResEnd']].values)
 
-            labels = kmeans.labels_
+            # labels = kmeans.labels_
 
-            unique_labels = np.unique(labels)
-            # Sample train_frac of unique labels
-            train_labels = np.random.choice(unique_labels, int(k_splits * train_frac), replace=False)
+            # unique_labels = np.unique(labels)
+            # # Sample train_frac of unique labels
+            # train_labels = np.random.choice(unique_labels, int(k_splits * train_frac), replace=False)
             
-            train_labels_indexes = np.where(np.isin(labels, train_labels))[0]
+            # train_labels_indexes = np.where(np.isin(labels, train_labels))[0]
             
-            train_peptides = segs.iloc[train_labels_indexes]['peptide'].values
-            val_peptides = segs.loc[~segs.index.isin(train_labels_indexes)]['peptide'].values
+            # train_peptides = segs.iloc[train_labels_indexes]['peptide'].values
+            # val_peptides = segs.loc[~segs.index.isin(train_labels_indexes)]['peptide'].values
 
-            train_residues = segs[segs['peptide'].isin(train_peptides)]['ResNums'].explode().unique()
-            val_residues = segs[segs['peptide'].isin(val_peptides)]['ResNums'].explode().unique()
+            # train_residues = segs[segs['peptide'].isin(train_peptides)]['ResNums'].explode().unique()
+            # val_residues = segs[segs['peptide'].isin(val_peptides)]['ResNums'].explode().unique()
 
-            residue_intersection = np.intersect1d(train_residues, val_residues)
-            print("Residue intersection: ", residue_intersection)
+            # residue_intersection = np.intersect1d(train_residues, val_residues)
+            # print("Residue intersection: ", residue_intersection)
 
-            intersection_peptides = res.loc[res['ResNums'].isin(residue_intersection)]['peptide'].unique()
+            # intersection_peptides = res.loc[res['ResNums'].isin(residue_intersection)]['peptide'].unique()
 
-            print("Intersection peptides: ", intersection_peptides)
-            print(len(intersection_peptides)/tot_segs)
+            # print("Intersection peptides: ", intersection_peptides)
+            # print(len(intersection_peptides)/tot_segs)
 
-            train_peptides = np.setdiff1d(train_peptides, intersection_peptides)
-            val_peptides = np.setdiff1d(val_peptides, intersection_peptides)
-            print("Train peptides: ", train_peptides)
-            print(len(train_peptides)/tot_segs)
-            print("Val peptides: ", val_peptides)
-            print(len(val_peptides)/tot_segs)
+            # train_peptides = np.setdiff1d(train_peptides, intersection_peptides)
+            # val_peptides = np.setdiff1d(val_peptides, intersection_peptides)
+            # print("Train peptides: ", train_peptides)
+            # print(len(train_peptides)/tot_segs)
+            # print("Val peptides: ", val_peptides)
+            # print(len(val_peptides)/tot_segs)
 
 
-            train_segs = self.segs[self.segs['peptide'].isin(train_peptides)]
-            val_segs = self.segs[self.segs['peptide'].isin(val_peptides)]
+            # train_segs = self.segs[self.segs['peptide'].isin(train_peptides)]
+            # val_segs = self.segs[self.segs['peptide'].isin(val_peptides)]
 
         elif mode == 'x':
             print(f"Splitting segments for {calc_name} by spatial split across Xture (alpha vs beta)")
@@ -678,67 +701,72 @@ class Experiment(ABC):
 
         elif mode == 'Sp':
             print(f"Splitting segments for {calc_name} by spatial split: random point in space")
-            # spatial split by random point in space 
-            np.random.seed(random_seed)
-            segs = self.segs.copy()
-            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
-            res = segs.explode(column=['ResNums']).copy()
-            res['ResNums'] = res['ResNums'].astype(int)
-
-            hdx_residues = res['ResNums'].unique().astype(int)
-            # sort in ascending order
-            hdx_residues = np.sort(hdx_residues)
-            print("HDX residues: ", hdx_residues)
-
+            # # spatial split by random point in space ]
             top_path = self.paths.loc[self.paths['calc_name'] == calc_name]['top'].values[0]
-            top = mda.Universe(top_path)
+            train_val_peps = splitter.neighbours_split(top_path=top_path, drop_centrality=True)
 
-            # pick random residue in top
-            random_residue = np.random.choice(hdx_residues, 1)[0]
-            print("Random residue: ", random_residue)
+            train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
 
-            # get coordinates of CA atoms of random residue
-            random_CA = top.select_atoms(f"resnum {random_residue} and name CA")
-            random_coords = random_CA.positions
-            print("Random coords: ", random_coords)
+            # np.random.seed(random_seed)
+            # segs = self.segs.copy()
+            # segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
+            # res = segs.explode(column=['ResNums']).copy()
+            # res['ResNums'] = res['ResNums'].astype(int)
 
-            # get coordinates of CA atoms in hdx_residues
-            residue_selection_string = " or ".join([f"(resnum {residue} and name CA)" for residue in hdx_residues])
+            # hdx_residues = res['ResNums'].unique().astype(int)
+            # # sort in ascending order
+            # hdx_residues = np.sort(hdx_residues)
+            # print("HDX residues: ", hdx_residues)
 
-            print("Residue selection string: ", residue_selection_string)
-            hdx_CA = top.select_atoms(residue_selection_string)
-            hdx_coords = hdx_CA.positions
-            print("HDX coords: ", hdx_coords)
+            # top_path = self.paths.loc[self.paths['calc_name'] == calc_name]['top'].values[0]
+            # top = mda.Universe(top_path)
 
-            # calculate euclidean distance between random_coords and hdx_coords
-            distances = np.linalg.norm(hdx_coords - random_coords, axis=1)
-            print("Distances: ", distances)
+            # # pick random residue in top
+            # random_residue = np.random.choice(hdx_residues, 1)[0]
+            # print("Random residue: ", random_residue)
 
-            # sort distances and find indexes
-            distance_indexes = np.argsort(distances)
+            # # get coordinates of CA atoms of random residue
+            # random_CA = top.select_atoms(f"resnum {random_residue} and name CA")
+            # random_coords = random_CA.positions
+            # print("Random coords: ", random_coords)
 
-            # split distance_indexes into train and val
-            train_indexes = distance_indexes[:int(len(distance_indexes) * train_frac)]
-            val_indexes = distance_indexes[~np.isin(distance_indexes, train_indexes)]
+            # # get coordinates of CA atoms in hdx_residues
+            # residue_selection_string = " or ".join([f"(resnum {residue} and name CA)" for residue in hdx_residues])
 
-            train_residues = hdx_residues[train_indexes]
-            val_residues = hdx_residues[val_indexes]
+            # print("Residue selection string: ", residue_selection_string)
+            # hdx_CA = top.select_atoms(residue_selection_string)
+            # hdx_coords = hdx_CA.positions
+            # print("HDX coords: ", hdx_coords)
 
-            train_peptides = res.loc[res['ResNums'].isin(train_residues)]['peptide'].unique()
-            val_peptides = res.loc[res['ResNums'].isin(val_residues)]['peptide'].unique()
+            # # calculate euclidean distance between random_coords and hdx_coords
+            # distances = np.linalg.norm(hdx_coords - random_coords, axis=1)
+            # print("Distances: ", distances)
+
+            # # sort distances and find indexes
+            # distance_indexes = np.argsort(distances)
+
+            # # split distance_indexes into train and val
+            # train_indexes = distance_indexes[:int(len(distance_indexes) * train_frac)]
+            # val_indexes = distance_indexes[~np.isin(distance_indexes, train_indexes)]
+
+            # train_residues = hdx_residues[train_indexes]
+            # val_residues = hdx_residues[val_indexes]
+
+            # train_peptides = res.loc[res['ResNums'].isin(train_residues)]['peptide'].unique()
+            # val_peptides = res.loc[res['ResNums'].isin(val_residues)]['peptide'].unique()
 
 
-            # drop intersection peptides
-            intersection_peptides = np.intersect1d(train_peptides, val_peptides)
+            # # drop intersection peptides
+            # intersection_peptides = np.intersect1d(train_peptides, val_peptides)
 
-            train_peptides = np.setdiff1d(train_peptides, intersection_peptides)
-            val_peptides = np.setdiff1d(val_peptides, intersection_peptides)
+            # train_peptides = np.setdiff1d(train_peptides, intersection_peptides)
+            # val_peptides = np.setdiff1d(val_peptides, intersection_peptides)
 
-            train_segs = self.segs[self.segs['peptide'].isin(train_peptides)]
-            val_segs = self.segs[self.segs['peptide'].isin(val_peptides)]
+            # train_segs = self.segs[self.segs['peptide'].isin(train_peptides)]
+            # val_segs = self.segs[self.segs['peptide'].isin(val_peptides)]
 
-            print("Train peptides: ", train_peptides)
-            print("Val peptides: ", val_peptides)
+            # print("Train peptides: ", train_peptides)
+            # print("Val peptides: ", val_peptides)
 
         else:
             raise ValueError(f"Mode {mode} not implemented yet.")

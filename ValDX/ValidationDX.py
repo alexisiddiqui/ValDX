@@ -27,12 +27,16 @@ from icecream import ic
 # import copy
 
 
+
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
 from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames
 from ValDX.HDX_plots import *
 from ValDX.VDX_dataclasses import AnalysisData, AnalysisInfo, merge_AnalysisData_classes
 import matplotlib
+
+# from ValDX.worker_functions import process_mode
+
 
 class ValDXer(Experiment):
     def __init__(self, 
@@ -600,7 +604,8 @@ class ValDXer(Experiment):
                 with concurrent.futures.ProcessPoolExecutor() as executor:
                     outputs_cr_bc_bh = list(executor.map(run_MaxEnt_single, _args_list))
 
-            except UserWarning("Concurrent.futures failed. Trying without concurrent.futures"):
+            except:
+                UserWarning("Concurrent.futures failed. Trying without concurrent.futures")
                 print("Running directly")
                 outputs_cr_bc_bh = []
                 for args in args_list:
@@ -1293,37 +1298,9 @@ class ValDXer(Experiment):
 
         data_list = []
 
-        for idx, mode in enumerate(split_modes):
-            settings.name = set_names[idx]
-            # split_name = split_names[idx]
-            print(f"Running {mode} split mode")
-            settings.split_mode = mode
-            _VDX = ValDXer(settings=settings)
-            _VDX.settings.plot = False
-            _VDX.load_HDX_data(HDX_path=hdx_path,
-                                SEG_path=segs_path,
-                                calc_name=expt_name)
-            _VDX.load_structures(top_path=top_path,
-                                traj_paths=traj_paths,
-                                calc_name=system)
-
-            _ = _VDX.run_VDX(calc_name=system,
-                             weights=weights,
-                            expt_name=expt_name,
-                            random_seeds=random_seeds)
-            # raw_run_outputs[split_name] = run_outputs # we dont need the raw outputs
-            data_list.append(_VDX.analysis_data)
-            _, _, name = _VDX.dump_analysis()
-            # save_path = _VDX.save_experiment()
-            # print("Analysis Dump", analysis_dump)
-            # analysis_dumps.update(analysis_dump)
-            # analysis_df = pd.concat([analysis_df, df], ignore_index=True)
-            names.append(name)
-            # save_paths.append(save_path)
-        
-
-        # for idx, mode in enumerate(split_modes):
+        # for idx in range(len(split_modes)):
         #     settings.name = set_names[idx]
+        #     mode = split_modes[idx]
         #     # split_name = split_names[idx]
         #     print(f"Running {mode} split mode")
         #     settings.split_mode = mode
@@ -1335,67 +1312,45 @@ class ValDXer(Experiment):
         #     _VDX.load_structures(top_path=top_path,
         #                         traj_paths=traj_paths,
         #                         calc_name=system)
+
         #     _ = _VDX.run_VDX(calc_name=system,
         #                      weights=weights,
         #                     expt_name=expt_name,
         #                     random_seeds=random_seeds)
         #     # raw_run_outputs[split_name] = run_outputs # we dont need the raw outputs
-        #     analysis_dump, df, name = _VDX.dump_analysis()
-        #     save_path = _VDX.save_experiment()
-        #     print("Analysis Dump", analysis_dump)
-        #     analysis_dumps.update(analysis_dump)
-        #     analysis_df = pd.concat([analysis_df, df], ignore_index=True)
+        #     data_list.append(_VDX.analysis_data)
+        #     _, _, name = _VDX.dump_analysis()
         #     names.append(name)
-        #     save_paths.append(save_path)
+
+        with ProcessPoolExecutor() as executor:
+            futures = []
+            for idx in range(len(split_modes)):
+                mode = split_modes[idx]
+                settings.name = f"{system}_{mode}_{name_mapping[mode]}"
+                future = executor.submit(process_mode, 
+                                        idx=idx,
+                                        settings=settings,
+                                        set_names=set_names,
+                                        split_modes=split_modes,
+                                        hdx_path=hdx_path,
+                                        segs_path=segs_path,
+                                        expt_name=expt_name,
+                                        top_path=top_path,
+                                        traj_paths=traj_paths,
+                                        weights=weights,
+                                        random_seeds=random_seeds,
+                                        system=system)
+                futures.append(future)
+
+            results = [future.result() for future in futures]
+
+            data_list = [result[0] for result in results]
+            names = [result[1] for result in results]
+        
+
         data = merge_AnalysisData_classes(data_list)
         print("Data", data)
 
-        # print("Concatenated",analysis_dumps)
-
-        # combined_analysis_dump = {}
-        # # repack the outputs into concatentated dataframes for each key
-        # key0 = names[0]
-        # print(analysis_dumps.keys())
-        # print()
-        # for key in analysis_dumps[key0].keys():
-        #     test_dump = analysis_dumps[key0][key]
-        #     print(key)
-        #     print(type(test_dump))
-
-        #     # print(test_dump)
-        #     if isinstance(test_dump, pd.DataFrame):
-        #         print("DF found")
-        #         # print(key)
-        #         # print(test_dump)
-        #         combined_analysis_dump[key] = pd.concat([analysis_dumps[name][key] for name in names], ignore_index=True)
-
-        # combined_analysis_dump["analysis_df"] = analysis_df
-        # combined_analysis_dump["save_paths"] = {name: save_path for name, save_path in zip(names, save_paths)}
-
-        # print("Adding info to analysis dump")
-
-        # for key in combined_analysis_dump.keys():
-        #     dump = combined_analysis_dump[key]
-        #     print(key)
-        #     print(type(dump))
-
-        #     if isinstance(dump, pd.DataFrame):
-        #         print("df found")
-        #         # print(dump)
-        #         try:
-        #             dump["name_name"] = dump["name"]+"_"+dump["calc_name"]
-        #             dump["protein"] = [i.split("_")[3] if len(i.split("_")) > 3 else "Experiment" for i in dump["name"]]
-        #             # dump["split_type"] = [i.split("_")[0] for i in dump["name"]]
-        #             dump["dataset"] = dump["calc_name"].apply(lambda x: x.split("_")[0])
-        #             dump["class"] = dump["dataset"] + "_" + dump["split_type"]
-        #         except:
-        #             print("Failed to add info to analysis dump")
-        #             print(dump)
-        #             raise ValueError("Failed to add info to analysis dump")
-        #             # break
- 
-        # plot the results
-        # MSE_df = combined_analysis_dump["analysis_df"]
         MSE_df = data["analysis_df"]
         print("MSE df")
         print(MSE_df)
@@ -1439,6 +1394,7 @@ class ValDXer(Experiment):
             # split_benchmark_BV_boxplot_by_split_type_by_protein(BV_df)
             # # BV Constants by protein
             # split_benchmark_BV_boxplot_by_protein_by_split_type(BV_df)
+
 
 
 
@@ -2084,7 +2040,7 @@ class ValDXer(Experiment):
         """
         name = self.settings.name
         time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        csv_name = time + "_analysis.csv"
+        csv_name = time + f"_{name}_analysis.csv"
         csv_dir = os.path.join(self.results_dir)
         csv_path = os.path.join(csv_dir, csv_name)
         os.makedirs(csv_dir, exist_ok=True)
@@ -2094,6 +2050,15 @@ class ValDXer(Experiment):
         self.analysis_data.analysis_df.to_csv(csv_path, index=False)
 
         print(f"Analysis dumped to {csv_path}")
+
+        # save analysis_data to pkl
+        pkl_name = time + f"_{name}_analysis.pkl"
+        pkl_path = os.path.join(csv_dir, pkl_name)
+
+        with open(pkl_path, "wb") as f:
+            pickle.dump(self.analysis_data, f)
+        print(f"Analysis data dumped to {pkl_path}")
+    
 
         # print(self.analysis_dump.keys())
         # print(self.analysis_dump[name].keys())
@@ -2114,3 +2079,44 @@ class ValDXer(Experiment):
         #         dump["split_type"] = [self.settings.split_mode]*len(dump)
 
         return self.analysis_data, self.analysis_data.analysis_df, name
+
+
+
+def process_mode(idx: int,
+                 settings: Settings,
+                 set_names: list,
+                 split_modes: list,
+                 hdx_path: str,
+                 segs_path: str,
+                 expt_name: str,
+                 top_path: str,
+                 traj_paths: list,
+                 weights: np.ndarray,
+                 random_seeds: list,
+                 system: str):
+        
+    from ValDX.ValidationDX import ValDXer
+    settings.name = set_names[idx]
+    mode = split_modes[idx]
+    # split_name = split_names[idx]
+    print(f"Running {mode} split mode")
+    settings.split_mode = mode
+    _VDX = ValDXer(settings=settings)
+    _VDX.settings.plot = False
+    _VDX.load_HDX_data(HDX_path=hdx_path,
+                        SEG_path=segs_path,
+                        calc_name=expt_name)
+    _VDX.load_structures(top_path=top_path,
+                        traj_paths=traj_paths,
+                        calc_name=system)
+
+    _ = _VDX.run_VDX(calc_name=system,
+                        weights=weights,
+                    expt_name=expt_name,
+                    random_seeds=random_seeds)
+    # raw_run_outputs[split_name] = run_outputs # we dont need the raw outputs
+    # data_list.append(_VDX.analysis_data)
+    _, _, name = _VDX.dump_analysis()
+    # names.append(name)
+
+    return _VDX.analysis_data, name

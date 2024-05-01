@@ -31,21 +31,21 @@ if __name__ == "__main__":
     shutil.rmtree(logs_dir)
     os.makedirs(logs_dir)
 
-    # import subprocess
+    # # import subprocess
     # try:
-    subprocess.run(["python", BPTI_script], check=True)
+    #     subprocess.run(["python", BPTI_script], check=True)
     # except:
     #     print("BPTI failed")
     
-    # try:
-    # subprocess.run(["python", BRD484_script], check=True)
-    # except:
-    #     print("BRD484 failed")
+    # # try:
+    # # subprocess.run(["python", BRD484_script], check=True)
+    # # except:
+    # #     print("BRD484 failed")
 
-    # try:
-    #     subprocess.run(["python", HOIP_script], check=True)
-    # except:
-    #     print("HOIP failed")
+    # # try:
+    # #     subprocess.run(["python", HOIP_script], check=True)
+    # # except:
+    # #     print("HOIP failed")
 
     # try:    
     #     subprocess.run(["python", LXRa200_script], check=True)

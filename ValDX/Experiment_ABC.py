@@ -154,7 +154,7 @@ class Experiment(ABC):
             print(f"Splitting segments for {calc_name} by N-terminal and C-terminal")
 
 
-            train_val_peps = splitter.sequence_split(drop_centrality=True)
+            train_val_peps = splitter.sequence_split(drop_centrality=False)
 
             train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
 
@@ -304,7 +304,7 @@ class Experiment(ABC):
 
         elif mode == 'R3':
 
-            train_val_peps = splitter.redundant_sequence_split(drop_centrality=True)
+            train_val_peps = splitter.redundant_sequence_split(drop_centrality=False)
 
             train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
 
@@ -703,7 +703,7 @@ class Experiment(ABC):
             print(f"Splitting segments for {calc_name} by spatial split: random point in space")
             # # spatial split by random point in space ]
             top_path = self.paths.loc[self.paths['calc_name'] == calc_name]['top'].values[0]
-            train_val_peps = splitter.neighbours_split(top_path=top_path, drop_centrality=True)
+            train_val_peps = splitter.neighbours_split(top_path=top_path, drop_centrality=False, hard_intersection=False)
 
             train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
 

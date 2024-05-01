@@ -26,10 +26,11 @@ from icecream import ic
 
 # import copy
 
+from HDXer.reweighting_functions import read_contacts_hbonds
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
-from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames, run_calc_hdx
+from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames, run_calc_hdx, read_LogPfs, calc_ave_lnpi
 from ValDX.HDX_plots import *
 from ValDX.VDX_dataclasses import AnalysisData, AnalysisInfo, merge_AnalysisData_classes
 import matplotlib
@@ -422,6 +423,7 @@ class ValDXer(Experiment):
         if expt_name is None:
             raise ValueError("Please provide an experimental name for the structures.")
         
+
         args_list = self.generate_MaxEnt_trainval_params(train=True,
                                                 n_reps=n_reps,
                                                 calc_name=calc_name,
@@ -433,38 +435,38 @@ class ValDXer(Experiment):
         opt_gammas = []
         reweighted_dfs = []
         cr_bc_bhs = []
-
+        # flatten args_list
         _args_list = [args[0] for args in args_list]
             
         print(_args_list)
-        for _args_list in args_list:
+        # for _args_list in args_list:
 
-            try:
-                print("Trying concurrent.futures")
-                # raise NotImplementedError("Concurrent.futures not implemented")
-                with concurrent.futures.ProcessPoolExecutor() as executor:
-                    outputs_cr_bc_bh = list(executor.map(run_MaxEnt_single, _args_list))
+        try:
+            print("Trying concurrent.futures")
+            # raise NotImplementedError("Concurrent.futures not implemented")
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                outputs_cr_bc_bh = list(executor.map(run_MaxEnt_single, _args_list))
 
-            except:
-                UserWarning("Concurrent.futures failed. Trying without concurrent.futures")
-                print("Running directly")
-                outputs_cr_bc_bh = []
-                for args in args_list:
-                    print(f"Reweighting {args['out_prefix']} with gamma = {args['gamma']}")
-                    output = run_MaxEnt_single(args)
-                    outputs_cr_bc_bh.append(output)
+        except:
+            UserWarning("Concurrent.futures failed. Trying without concurrent.futures")
+            print("Running directly")
+            outputs_cr_bc_bh = []
+            for args in args_list:
+                print(f"Reweighting {args['out_prefix']} with gamma = {args['gamma']}")
+                output = run_MaxEnt_single(args)
+                outputs_cr_bc_bh.append(output)
 
-            finally:
-                print("Finished reweighting")
-                print(outputs_cr_bc_bh)
-                # add outpus to respective dfss
-            print(_args_list)
+        finally:
+            print("Finished reweighting")
+            print(outputs_cr_bc_bh)
+            # add outpus to respective dfss
+        print(_args_list)
 
         # opt_gammas = []
         # reweighted_dfs = []
         # cr_bc_bhs = []
         
-        # for _args_list in args_list:
+        for _args_list in args_list:
 
 
             predictHDX_dir = _args_list[0]["predictHDX_dir"][0]
@@ -512,7 +514,7 @@ class ValDXer(Experiment):
                                 expt_name: str=None,
                                 predictHDX_dirs: list=None,
                                 gamma_range: tuple=None,
-                                weights: List[np.ndarray]=None):
+                                cr_bc_bhs: List=None):
         gamma_range = (3, 4)
         exp_range = [0]
         if calc_name is None:
@@ -520,6 +522,13 @@ class ValDXer(Experiment):
         if expt_name is None:
             raise ValueError("Please provide an experimental name for the structures.")
         
+        weights = [(cr_bc_bh[0]) for cr_bc_bh in cr_bc_bhs]
+        # each weights array shoudl be multipled by its length since its coming directly out of HDXer
+        weights = [_weights*len(_weights)/np.sum(_weights) for _weights in weights]
+
+        bc_bhs = [(cr_bc_bh[1], cr_bc_bh[2]) for cr_bc_bh in cr_bc_bhs]
+
+
         args_list = self.generate_MaxEnt_trainval_params(train=False,
                                                 n_reps=n_reps,
                                                 calc_name=calc_name,
@@ -527,7 +536,8 @@ class ValDXer(Experiment):
                                                 predictHDX_dirs=predictHDX_dirs,
                                                 gamma_range=gamma_range,
                                                 exp_range=exp_range,
-                                                weights=weights)
+                                                weights=weights,
+                                                bc_bhs=bc_bhs)
 
         opt_gammas = []
         reweighted_dfs = []
@@ -578,7 +588,7 @@ class ValDXer(Experiment):
             reweighted_dfs.append(reweighted_df)
             cr_bc_bhs.append(cr_bc_bh)
 
-        return opt_gammas, reweighted_dfs, cr_bc_bhs
+        return opt_gammas, reweighted_dfs
 
     # def reweight_test_ensemble(self,
     #                         calc_name: str=None,
@@ -656,7 +666,8 @@ class ValDXer(Experiment):
                                 # predictHDX_dir:str=None,
                                 gamma_range:tuple=None,
                                 exp_range:list=None,
-                                weights: np.ndarray=None):
+                                weights: List[np.ndarray]=None,
+                                bc_bhs:List[tuple]=[(0.35, 2.0)]):
         
         if gamma_range is None and train:
             gamma_range = self.settings.gamma_range
@@ -670,7 +681,11 @@ class ValDXer(Experiment):
             exp_range = [0]
 
         if weights is not None:
-            assert np.round(np.sum(weights)) == len(weights), "input weights must sum to length" # check this is true
+            if isinstance(weights, np.ndarray):
+                assert np.round(np.sum(weights)) == len(weights), f"input weights must sum {np.sum(weights)} to length {len(weights)}" # check this is true
+            if isinstance(weights, list):
+                for weight in weights:
+                    assert np.round(np.sum(weight)) == len(weight), f"input weights must sum {np.sum(weight)} to length {len(weight)}" # check this is true
 
         if calc_name is None:
             raise ValueError("Please provide a calculation name for the structures.")
@@ -690,13 +705,14 @@ class ValDXer(Experiment):
                                                                 calc_name=calc_name,
                                                                 expt_name=expt_name,
                                                                 weights=weights,
+                                                                bc_bhs=bc_bhs,
                                                                 exp_paths=exp_paths,
                                                                 predictHDX_dirs=predictHDX_dirs)
 
         elif train is False:
             rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1, n_reps+1)]
             exp_paths = [
-                self.train_HDX_data.loc[self.train_HDX_data["calc_name"] == rep_name, "path"].dropna().values[0]
+                self.val_HDX_data.loc[self.val_HDX_data["calc_name"] == rep_name, "path"].dropna().values[0]
                 for rep_name in rep_names
             ]
             base_args_list = self.generate_MaxEnt_params(prefix_name="val",
@@ -704,6 +720,7 @@ class ValDXer(Experiment):
                                                                 calc_name=calc_name,
                                                                 expt_name=expt_name,
                                                                 weights=weights,
+                                                                bc_bhs=bc_bhs,
                                                                 exp_paths=exp_paths,
                                                                 predictHDX_dirs=predictHDX_dirs)
         print(base_args_list)
@@ -733,10 +750,10 @@ class ValDXer(Experiment):
                             n_reps:int=None,
                             calc_name:str=None,
                             expt_name:str=None,
-                            weights: np.ndarray=None,
+                            weights: List[np.ndarray]=None,
                             exp_paths:list=None,
                             predictHDX_dirs:list=None,
-                            bc_bh:tuple=(0.35, 2.0)):
+                            bc_bhs:List[tuple]=[(0.35, 2.0)]):
 
         rep_names = ["_".join([prefix_name, calc_name, str(rep)]) for rep in range(1, n_reps+1)]
 
@@ -765,6 +782,20 @@ class ValDXer(Experiment):
             predictHDX_dirs = predictHDX_dirs * n_reps
 
 
+        if isinstance(bc_bhs, tuple):
+            bc_bhs = [bc_bhs]
+        if isinstance(bc_bhs, list) and len(bc_bhs) == 1:
+            bc_bhs = bc_bhs * n_reps
+
+        if weights is not None:
+            if isinstance(weights, np.ndarray):
+                weights = [weights]
+            if isinstance(weights, list) and len(weights) == 1:
+                weights = weights * n_reps
+        else:
+            weights = [None] * n_reps
+
+
         assert len(predictHDX_dirs) == n_reps, "predictHDX_dirs must be a list of length n_reps"
 
 
@@ -783,9 +814,6 @@ class ValDXer(Experiment):
                 "times": self.settings.times, 
                 "random_initial": self.settings.random_initialisation,
                 "temp": self.settings.temp, 
-                'bv_bc': bc_bh[0],
-                'bv_bh': bc_bh[1],
-                'iniweights': weights
                 }
         # if weights is not None:
         # base_args["iniweights"] = weights
@@ -799,6 +827,8 @@ class ValDXer(Experiment):
             out_prefix = os.path.join(predictHDX_dir, self.settings.RW_outprefix)
             arg = deepcopy(base_args)
             exp = exp_paths[idx]
+            bc_bh = bc_bhs[idx]
+            i_w = weights[idx]
             arg["predictHDX_dir"] = [predictHDX_dir]
             arg["out_prefix"] = out_prefix
             arg["exp_file"] = exp
@@ -806,6 +836,9 @@ class ValDXer(Experiment):
             arg["do_reweight"] = do_RW
             arg["do_params"] = do_params
             arg["rep_name"] = rep_name
+            arg['bv_bc']= bc_bh[0]
+            arg['bv_bh']= bc_bh[1]
+            arg['iniweights']= i_w
             # if weights is not None:
             # arg["iniweights"] = weights[idx]
 
@@ -814,7 +847,14 @@ class ValDXer(Experiment):
         return args
 
 
-    def recalculate_dataset(self, traj, cr_bc_bh, dataset_name, segs, rates:dict, train=False):
+    def recalculate_dataset(self, 
+                            traj, 
+                            cr_bc_bh, 
+                            predictHDX_dir,
+                            dataset_name, 
+                            segs, 
+                            rates:dict, 
+                            train=False):
         print(f"Recalculating {dataset_name}")
         times = self.settings.times
 
@@ -824,7 +864,7 @@ class ValDXer(Experiment):
 
         df = segs.drop(columns=["calc_name"]).copy()
 
-        print(df)
+        # print(df)
         # convert segs df to list of residues from resstr to resend
         segs["Residues"]= segs.apply(lambda x: np.array(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
         residues = segs["Residues"].to_numpy()
@@ -832,78 +872,107 @@ class ValDXer(Experiment):
         residues = np.unique(residues)
         start_res = np.sort(residues)[0]
 
-        print(f"Residues for recalculation: {residues}")
+        # print(f"Residues for recalculation: {residues}")
         print(residues)
         print(rates.keys())
         # filter residues that dont exist in rates using numpy
         residues = np.array([res for res in residues if res in rates.keys()])
 
-        print(f"Residues for recalculation: {residues}")
+        # print(f"Residues for recalculation: {residues}")
 
 
-        LogPf_by_res = calc_traj_LogP_byres(universe=traj,
-                                            B_C=cr_bc_bh[1],
-                                            B_H=cr_bc_bh[2],
-                                            stride=stride,
-                                            residues=residues,
-                                            weights=cr_bc_bh[0])
+        # LogPf_by_res = calc_traj_LogP_byres(universe=traj,
+        #                                     B_C=cr_bc_bh[1],
+        #                                     B_H=cr_bc_bh[2],
+        #                                     stride=stride,
+        #                                     residues=residues,
+        #                                     weights=cr_bc_bh[0])
         
-        LogPfs_to_add = pd.DataFrame({"LogPf": [LogPf_by_res], 
-                                      "calc_name": [dataset_name], 
-                                      "Residues": [residues], 
-                                      "name": self.settings.name})
+        # out_prefix = os.path.join(predictHDX_dir, self.settings.RW_outprefix)
+
+        # read contacts
+        contacts_prefix = "Contacts_chain_0_res_"
+        hbonds_prefix = "Hbonds_chain_0_res_"
+
+        contacts, hbonds, _ = read_contacts_hbonds([predictHDX_dir], contacts_prefix, hbonds_prefix)
+
+        weights = cr_bc_bh[0]
+        bv_bc = cr_bc_bh[1]
+        bv_bh = cr_bc_bh[2]
+
+        LogPfs = calc_ave_lnpi(contacts=contacts,
+                                hbonds=hbonds,
+                                weights=weights,
+                                bc=bv_bc,
+                                bh=bv_bh)
         
+        assert len(LogPfs) == len(rates.keys()), f"LogPfs must be the same length {len(LogPfs)} as the number of residues {len(rates.keys())}"
+
+
+        print(len(list(rates.keys())))
+        print(LogPfs.shape)
+        LogPfs_to_add = pd.DataFrame({"Residues": list(rates.keys()), 
+                                      "LogPf": LogPfs, 
+                                      "calc_name": [dataset_name]*len(LogPfs)})
+
+
+
         self.LogPfs = pd.concat([self.LogPfs, LogPfs_to_add], ignore_index=True)
 
-        if not train:
-            print("LogPf_by_res shape")
-            print(LogPf_by_res.shape)
-            print(LogPf_by_res)
+        # if not train:
+        #     print("LogPf_by_res shape")
+        #     # print(LogPf_by_res.shape)
+        #     # print(LogPf_by_res)
 
-            dfracs_by_res_overtime = calc_dfrac_uptake_from_LogPf(LogPf_by_res,
-                                                                kints=rates,
-                                                                times=self.settings.times,
-                                                                residues=residues)
-            print("dfracs_by_res_overtime shape")
-            print(dfracs_by_res_overtime.shape)
-            print(dfracs_by_res_overtime)
-            # reshape dfracs_by_res_overtime to be in the same format as the HDX data
-            # this means converting residues back to segments
+        #     dfracs_by_res_overtime = calc_dfrac_uptake_from_LogPf(LogPf_by_res,
+        #                                                         kints=rates,
+        #                                                         times=self.settings.times,
+        #                                                         residues=residues)
+        #     print("dfracs_by_res_overtime shape")
+        #     print(dfracs_by_res_overtime.shape)
+        #     print(dfracs_by_res_overtime)
+        #     # reshape dfracs_by_res_overtime to be in the same format as the HDX data
+        #     # this means converting residues back to segments
             
-            df["calc_name"] = [dataset_name]*len(df)
-            df["Residues"] = df.apply(lambda x: list(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
-            print(df)
+        #     df["calc_name"] = [dataset_name]*len(df)
+        #     df["Residues"] = df.apply(lambda x: list(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
+        #     print(df)
 
-            peptides = df["peptide"].to_list()
-            print(peptides)
-            for p in peptides:
-                print(p)
-                # collect all dfrac updates for each residue in the peptide
-                peptide_residues = df.loc[(df["peptide"] == p), "Residues"].to_list()[0]
-                print(peptide_residues)
-                # convert to indices based on order in residues
-                peptide_indices = [idx for idx, res in enumerate(residues) if res in peptide_residues]
+        #     peptides = df["peptide"].to_list()
+        #     print(peptides)
+        #     for p in peptides:
+        #         print(p)
+        #         # collect all dfrac updates for each residue in the peptide
+        #         peptide_residues = df.loc[(df["peptide"] == p), "Residues"].to_list()[0]
+        #         print(peptide_residues)
+        #         # convert to indices based on order in residues
+        #         peptide_indices = [idx for idx, res in enumerate(residues) if res in peptide_residues]
                 
-                dfracs = dfracs_by_res_overtime[:, peptide_indices]
-                print(dfracs.shape)
-                # average the dfrac updates for each residue in the peptide
-                dfracs = np.mean(dfracs, axis=1)
+        #         dfracs = dfracs_by_res_overtime[:, peptide_indices]
+        #         print(dfracs.shape)
+        #         # average the dfrac updates for each residue in the peptide
+        #         dfracs = np.mean(dfracs, axis=1)
 
-                for idx, t in enumerate(times):
-                    print(idx, t, dfracs[idx])
-                    # select column t and peptide p
-                    df.loc[(df["peptide"] == p), t] = dfracs[idx]
+        #         for idx, t in enumerate(times):
+        #             print(idx, t, dfracs[idx])
+        #             # select column t and peptide p
+        #             df.loc[(df["peptide"] == p), t] = dfracs[idx]
         
 
-            df = df.drop(columns=["Residues"])
-            print("Dataframe being appending")
-            print(df)
-            self.HDX_data = pd.concat([self.HDX_data, df], ignore_index=True)
+        #     df = df.drop(columns=["Residues"])
+        #     print("Dataframe being appending")
+        #     print(df)
+        #     self.HDX_data = pd.concat([self.HDX_data, df], ignore_index=True)
 
-            return df
+        #     return df
     
 
-    def recalculate_test_and_val(self, cr_bc_bh, calc_name, expt_name, rep=None):
+    def recalculate_test_and_val(self, 
+                                 cr_bc_bh, 
+                                 predictHDX_dir,
+                                 calc_name, 
+                                 expt_name, 
+                                 rep=None):
         """
         This method takes the current weights of the frames as well as the BV parameters Bc and Bh 
         and recalculates weighted HDX data from the ensemble across the enture protein.
@@ -926,7 +995,7 @@ class ValDXer(Experiment):
         top, traj = self.prepare_structures(calc_name=calc_name)
 
         rates = self.rates[self.rates["calc_name"] == rep_name]["rates"].values[0]
-        print(f"rates: {rates}")
+        # print(f"rates: {rates}")
         print(rates)
 
         # train_segs = self.train_segs[self.train_segs["calc_name"] == rep_name].copy()
@@ -954,23 +1023,24 @@ class ValDXer(Experiment):
 
         val_segs = self.val_segs[self.val_segs["calc_name"] == val_name].copy()
 
-        val_df = self.recalculate_dataset(traj=traj,
+        self.recalculate_dataset(traj=traj,
                                         cr_bc_bh=cr_bc_bh,
+                                        predictHDX_dir=predictHDX_dir,
                                         dataset_name=val_name,
                                         segs=val_segs,
                                         rates=rates)
 
-        test_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
+        # # test_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
 
 
-        # test_df = self.recalculate_dataset(traj=traj,
-        #                                 cr_bc_bh=cr_bc_bh,
-        #                                 dataset_name=test_name,
-        #                                 segs=test_segs,
-        #                                 rates=rates)
-        print(val_df)
+        # # test_df = self.recalculate_dataset(traj=traj,
+        # #                                 cr_bc_bh=cr_bc_bh,
+        # #                                 dataset_name=test_name,
+        # #                                 segs=test_segs,
+        # #                                 rates=rates)
+        # print(val_df)
 
-        return val_df, val_df
+        # return 
 
     def write_data_split_PDB(self, calc_name, expt_name, rep):
         """
@@ -1077,7 +1147,7 @@ class ValDXer(Experiment):
                 expt_name: str, 
                 mode: str=None, # not implemented yet
                 n_reps: int=None, 
-                predictHDX_dir: str=None,
+                # predictHDX_dir: str=None,
                 weights: np.ndarray=None,
                 random_seeds: list=None):
         print("Running VDX loop")
@@ -1129,6 +1199,17 @@ class ValDXer(Experiment):
                                                                             predictHDX_dirs=predictHDX_dirs,
                                                                             weights=weights)
 
+        _, _, predictHDX_dirs, _ = self.featurise_HDX_all_reps(calc_name=calc_name,
+                                                            n_reps=n_reps,
+                                                            train=False)
+        
+        # raise ValueError("DEBUGGING")
+        val_gammas, val_dfs = self.reweight_val_ensemble(n_reps=n_reps,
+                                                            calc_name=calc_name,
+                                                            expt_name=expt_name,
+                                                            predictHDX_dirs=predictHDX_dirs,
+                                                            cr_bc_bhs=cr_bc_bhs)
+        
 
 
         # for idx, rep in enumerate(range(1,n_reps+1)):
@@ -1161,16 +1242,17 @@ class ValDXer(Experiment):
             # validation HDX
             cr_bc_bh = cr_bc_bhs[idx]
             train_opt_gamma = train_gammas[idx]
-            val_opt_gamma, val_df,test_df = self.validate_HDX(calc_name=calc_name,
+            val_opt_gamma = self.validate_HDX(calc_name=calc_name,
                                                         expt_name=expt_name,
                                                         mode=mode,
                                                         rep=rep,
+                                                        predictHDX_dir=predictHDX_dirs[idx],
                                                         train_gamma=train_opt_gamma,
                                                         cr_bc_bh=cr_bc_bh)
             val_gammas.append(val_opt_gamma)  
-            val_dfs.append(val_df)
-            test_dfs.append(test_df)
-            
+            # val_dfs.append(val_df)
+            # test_dfs.append(test_df)
+            test_dfs = val_dfs
             if self.settings.plot:
                 self.write_data_split_PDB(calc_name=calc_name,
                                             expt_name=expt_name,
@@ -1711,13 +1793,14 @@ class ValDXer(Experiment):
 
 
         #TODO - implement predictHDX_dir pass through
-        val_df, test_df = self.recalculate_test_and_val(cr_bc_bh=cr_bc_bh,
-                                                        calc_name=calc_name,
-                                                        expt_name=expt_name,
-                                                        rep=rep)
+        self.recalculate_test_and_val(cr_bc_bh=cr_bc_bh,
+                                        calc_name=calc_name,
+                                        predictHDX_dir=predictHDX_dir,
+                                        expt_name=expt_name,
+                                        rep=rep)
         # plot in evaluate_HDX
 
-        return train_gamma, val_df, test_df
+        return train_gamma
     
 
     def evaluate_HDX(self, 

@@ -987,3 +987,64 @@ def read_MaxEnt_features(path: str):
 
     # raise NotImplementedError("Need to implement this function")
     return features
+
+
+
+def run_calc_hdx(args:dict):
+
+    trajs = args["trajs"]
+    top = args["top"]
+    hdx_method = args["hdx_method"]
+    log = args["log"]
+    out_prefix = args["out_prefix"]
+    segs = args["segs"]
+    mopt = args["mopt"]
+    times = args["times"]
+    stride = args["stride"]
+    rep_name = args["rep_name"]
+    out_dir = args["out_dir"]
+    calc_hdx = args["calc_hdx"]
+    HDXer_env = args["HDXer_env"]
+
+
+
+
+    python = "python"
+    python = "conda run -n HDXER_ENV python"
+    times_as_str_list = [str(time) for time in times]
+    times_as_str = ' '.join(times_as_str_list)
+
+
+        ### how do we add times
+    calc_hdx_command = [python,
+                        calc_hdx,
+                        "-t", *trajs,
+                        "-p", top,
+                        "-m", hdx_method,
+                        "-log", log,
+                        "-out", out_prefix, 
+                        "-seg", segs,
+                        "-mopt", mopt,
+                        "--times", times_as_str,
+                        "-str", stride]
+                        
+    calc_hdx_command  =  " ".join(calc_hdx_command)
+    # calc_hdx_command.extend(["-t", traj] for traj in trajs)
+    print(calc_hdx_command)
+    # print(" ".join(calc_hdx_command))
+    env_path = conda_to_env_dict(HDXer_env)
+
+    subprocess.run(calc_hdx_command, 
+                    env=env_path, 
+                    shell=True,
+                    check=True,
+                    cwd=out_dir)
+
+
+    df = dfracs_to_df(out_prefix + "Segment_average_fractions.dat", 
+                        names=times)
+
+    df["calc_name"] = [rep_name for i in range(len(df))]
+
+
+    return df

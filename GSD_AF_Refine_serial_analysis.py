@@ -48,7 +48,7 @@ if __name__ == "__main__":
     #     print("HOIP failed")
 
     # try:    
-    #     subprocess.run(["python", LXRa200_script], check=True)
+    # subprocess.run(["python", LXRa200_script], check=True)
     # except:
     #     print("LXRa200 failed")
 

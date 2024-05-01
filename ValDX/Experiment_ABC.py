@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from ValDX.VDX_Settings import Settings
-from ValDX.helpful_funcs import segs_to_df, dfracs_to_df, segs_to_file, HDX_to_file, PDB_to_DSSP
+from ValDX.helpful_funcs import segs_to_df, dfracs_to_df, segs_to_file, HDX_to_file, PDB_to_DSSP, conda_to_env_dict
 from ValDX.VDX_dataclasses import AnalysisInfo, Segments, PeptideSplitter
 
 import pandas as pd
@@ -11,6 +11,7 @@ import os
 import time
 import glob
 import pickle
+import subprocess
 import shutil
 import MDAnalysis as mda
 from sklearn.cluster import KMeans
@@ -54,6 +55,9 @@ class Experiment(ABC):
 
         self.analysis_info: AnalysisInfo = None
 
+        self.HDXer_path = self.settings.HDXer_path
+        self.HDXer_env = self.settings.HDXer_env
+        self.load_HDXer()
 
 
     def prepare_HDX_data(self, 
@@ -89,6 +93,44 @@ class Experiment(ABC):
         
         return new_HDX_data, new_segs_data
 
+
+    def load_HDXer(self, 
+                   HDXer_env: dict=None, 
+                   HDXer_path: str=None):
+        """
+        Load HDXer: HDXer environment and HDXer executable.
+        """
+
+        if HDXer_env is not None:
+            self.HDXer_env = HDXer_env
+            self.HDXer_path = os.environ["HDXER_PATH"]
+        elif HDXer_path is not None:
+            self.HDXer_path = HDXer_path
+
+        calc_hdx = os.path.join(self.HDXer_path, "HDXer", "calc_hdx.py")
+
+
+        # test_HDX_command = ['python', calc_hdx, '-h']
+
+        # test_HDX_command = ['conda', 'run', '-n', 'HDXER_ENV', "python", calc_hdx, '-h']
+        env_path = conda_to_env_dict(self.HDXer_env)
+        print("calc_hdx")
+        print(calc_hdx)
+        test_HDX_command = f"""
+        conda activate HDXER_ENV
+        python {calc_hdx} -h
+        """
+        # print(" ".join(test_HDX_command))
+        try:
+            _ = subprocess.run(test_HDX_command, 
+                            shell=True, executable="/bin/bash",
+                        #    env=env_path, 
+                           check=True,
+                           capture_output=True)
+            return True
+        except:
+            raise EnvironmentError("HDXer failed to run. Check the HDXer environment and executable path.")
+            return False
 
 
 
@@ -1120,3 +1162,65 @@ class Experiment(ABC):
         print("Loading experiment from: ", load_path)
         with open(load_path, 'rb') as f:
             return pickle.load(f)
+
+
+    @abstractmethod
+    def featurise_HDX(self, 
+                    calc_name: str=None, 
+                    # mode: str=None, 
+                    rep: int=None, 
+                    train: bool=True):
+        """
+        Predict HDX data from MD trajectories.
+        HDX data from calc_name
+        Segs data from rep_name
+
+        """
+        if calc_name is None:
+            raise ValueError("Please provide a calculation name for the structures.")
+        if train:
+            rep_name = "_".join(["train", calc_name, str(rep)])
+        else:
+            rep_name = "_".join(["val", calc_name, str(rep)])
+
+    
+        out_dir, _, _, _ = self.create_path_str(prefix=self.analysis_name,
+                                           calc_name=rep_name)
+        print(out_dir)
+        calc_hdx = os.path.join(self.HDXer_path, "HDXer", "calc_hdx.py")
+        print(calc_name)
+        top = self.paths.loc[self.paths["calc_name"] == calc_name, "top"].dropna().values[0]
+        trajs = self.paths.loc[self.paths["calc_name"] == calc_name, "traj"].dropna().values[0]
+        log = os.path.join(out_dir, self.settings.logfile_name[0] + rep_name + self.settings.logfile_name[1])
+        if train:
+            segs = self.train_segs.loc[self.train_segs["calc_name"] == rep_name, "path"].dropna().values[0]
+        else:
+            segs = self.val_segs.loc[self.val_segs["calc_name"] == rep_name, "path"].dropna().values[0]
+        out_prefix = os.path.join(out_dir, "_".join([self.settings.outname, rep_name]))
+        print(out_prefix)
+        times = self.settings.times
+        HDXer_env = self.HDXer_env
+
+
+        stride = str(self.settings.HDXer_stride)
+        hdx_method = self.settings.HDX_method
+        mopt = self.settings.HDXer_mopt
+
+        args = {"python": "python",
+            "calc_hdx": calc_hdx,
+            "top": top,
+            "trajs": trajs,
+            "log": log,
+            "out_dir": out_dir,
+            "out_prefix": out_prefix,
+            'hdx_method': hdx_method,
+            "segs": segs,
+            "mopt": mopt,
+            "times": times,
+            "stride": stride,
+            "HDXer_env": HDXer_env,
+            "rep_name": rep_name
+        }
+
+        print(args)
+        return args

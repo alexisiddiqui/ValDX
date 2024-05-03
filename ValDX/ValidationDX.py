@@ -25,6 +25,7 @@ from icecream import ic
 # from .reweighting import MaxEnt
 
 # import copy
+from HDXer.reweighting_functions import read_contacts_hbonds
 
 
 from ValDX.VDX_Settings import Settings
@@ -435,6 +436,8 @@ class ValDXer(Experiment):
         cr_bc_bhs = []
 
         _args_list = [args[0] for args in args_list]
+        # _args_list = [arg for args in args_list for arg in args]
+
             
         print(_args_list)
         for _args_list in args_list:
@@ -814,7 +817,7 @@ class ValDXer(Experiment):
         return args
 
 
-    def recalculate_dataset(self, traj, cr_bc_bh, dataset_name, segs, rates:dict, train=False):
+    def recalculate_dataset(self, traj, cr_bc_bh, predictHDX_dir, dataset_name, segs, rates:dict, train=False):
         print(f"Recalculating {dataset_name}")
         times = self.settings.times
 
@@ -838,20 +841,44 @@ class ValDXer(Experiment):
         # filter residues that dont exist in rates using numpy
         residues = np.array([res for res in residues if res in rates.keys()])
 
+        residue_indexes = np.where(np.isin(residues, list(rates.keys())))[0]
+
+
         print(f"Residues for recalculation: {residues}")
 
 
-        LogPf_by_res = calc_traj_LogP_byres(universe=traj,
-                                            B_C=cr_bc_bh[1],
-                                            B_H=cr_bc_bh[2],
-                                            stride=stride,
-                                            residues=residues,
-                                            weights=cr_bc_bh[0])
+
+
+
+         # read contacts
+        contacts_prefix = "Contacts_chain_0_res_"
+        hbonds_prefix = "Hbonds_chain_0_res_"
+
+        contacts, hbonds, _ = read_contacts_hbonds([predictHDX_dir], contacts_prefix, hbonds_prefix)
+
+        weights = cr_bc_bh[0]
+        bv_bc = cr_bc_bh[1]
+        bv_bh = cr_bc_bh[2]
+
+        LogPf_by_res = calc_ave_lnpi(contacts=contacts,
+                                hbonds=hbonds,
+                                weights=weights,
+                                bc=bv_bc,
+                                bh=bv_bh)
         
-        LogPfs_to_add = pd.DataFrame({"LogPf": [LogPf_by_res], 
-                                      "calc_name": [dataset_name], 
-                                      "Residues": [residues], 
-                                      "name": self.settings.name})
+        assert len(LogPf_by_res) == len(rates.keys()), f"LogPfs must be the same length {len(LogPf_by_res)} as the number of residues {len(rates.keys())}"
+
+
+
+
+        print(len(list(rates.keys())))
+        print(LogPf_by_res.shape)
+        LogPfs_to_add = pd.DataFrame({"Residues": list(rates.keys()), 
+                                      "LogPf": LogPf_by_res, 
+                                      "calc_name": [dataset_name]*len(LogPf_by_res)})
+
+
+
         
         self.LogPfs = pd.concat([self.LogPfs, LogPfs_to_add], ignore_index=True)
 
@@ -860,7 +887,9 @@ class ValDXer(Experiment):
             print(LogPf_by_res.shape)
             print(LogPf_by_res)
 
-            dfracs_by_res_overtime = calc_dfrac_uptake_from_LogPf(LogPf_by_res,
+            residue_LogPfs = LogPf_by_res[residue_indexes]
+
+            dfracs_by_res_overtime = calc_dfrac_uptake_from_LogPf(residue_LogPfs,
                                                                 kints=rates,
                                                                 times=self.settings.times,
                                                                 residues=residues)
@@ -903,7 +932,7 @@ class ValDXer(Experiment):
             return df
     
 
-    def recalculate_test_and_val(self, cr_bc_bh, calc_name, expt_name, rep=None):
+    def recalculate_test_and_val(self, cr_bc_bh, predictHDX_dir, calc_name, expt_name, rep=None):
         """
         This method takes the current weights of the frames as well as the BV parameters Bc and Bh 
         and recalculates weighted HDX data from the ensemble across the enture protein.
@@ -956,6 +985,7 @@ class ValDXer(Experiment):
 
         val_df = self.recalculate_dataset(traj=traj,
                                         cr_bc_bh=cr_bc_bh,
+                                        predictHDX_dir=predictHDX_dir,
                                         dataset_name=val_name,
                                         segs=val_segs,
                                         rates=rates)
@@ -1161,10 +1191,12 @@ class ValDXer(Experiment):
             # validation HDX
             cr_bc_bh = cr_bc_bhs[idx]
             train_opt_gamma = train_gammas[idx]
+            predictHDX_dir = predictHDX_dirs[idx]
             val_opt_gamma, val_df,test_df = self.validate_HDX(calc_name=calc_name,
                                                         expt_name=expt_name,
                                                         mode=mode,
                                                         rep=rep,
+                                                        predictHDX_dir=predictHDX_dir,
                                                         train_gamma=train_opt_gamma,
                                                         cr_bc_bh=cr_bc_bh)
             val_gammas.append(val_opt_gamma)  
@@ -1713,6 +1745,7 @@ class ValDXer(Experiment):
         #TODO - implement predictHDX_dir pass through
         val_df, test_df = self.recalculate_test_and_val(cr_bc_bh=cr_bc_bh,
                                                         calc_name=calc_name,
+                                                        predictHDX_dir=predictHDX_dir,
                                                         expt_name=expt_name,
                                                         rep=rep)
         # plot in evaluate_HDX
@@ -2074,7 +2107,7 @@ class ValDXer(Experiment):
         """
         name = self.settings.name
         time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        csv_name = time + "_analysis.csv"
+        csv_name = time + f"_{name}_analysis.csv"
         csv_dir = os.path.join(self.results_dir)
         csv_path = os.path.join(csv_dir, csv_name)
         os.makedirs(csv_dir, exist_ok=True)
@@ -2084,6 +2117,15 @@ class ValDXer(Experiment):
         self.analysis_data.analysis_df.to_csv(csv_path, index=False)
 
         print(f"Analysis dumped to {csv_path}")
+
+        # save analysis_data to pkl
+        pkl_name = time + f"_{name}_analysis.pkl"
+        pkl_path = os.path.join(csv_dir, pkl_name)
+
+        with open(pkl_path, "wb") as f:
+            pickle.dump(self.analysis_data, f)
+        print(f"Analysis data dumped to {pkl_path}")
+    
 
         # print(self.analysis_dump.keys())
         # print(self.analysis_dump[name].keys())

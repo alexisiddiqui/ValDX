@@ -1048,3 +1048,38 @@ def run_calc_hdx(args:dict):
 
 
     return df
+
+
+def read_LogPfs(out_prefix):
+    logPf_path = out_prefix + "SUMMARY_logProtection_factors.dat"
+
+
+    logPf = pd.read_csv(logPf_path, sep="\s+",  index_col=0)
+
+
+    logPf = logPf[logPf['ResID'] > 0]
+
+    logPf["Residues"] = logPf.index
+    logPf["LogPf"] = logPf["ResID"]
+
+    logPf = logPf[["Residues", "LogPf"]]
+
+    return logPf
+
+
+def calc_ave_lnpi(contacts, hbonds, bc, bh, weights):
+    """calculate average ln(protection factors) using given  contacts & H-bonds,
+       and given beta values. The resulting array of protection factor for each residue is broadcast 
+       of shape [n_residues] 
+
+       Usage: calc_trial_ave_lnpi(ave_contacts, ave_hbonds, bc, bh, weights)
+
+       Returns: trial_ave_lnpi"""
+    
+    # multiply the contacts and hbonds by the weights
+    ave_contacts = np.sum(np.multiply(contacts, weights), axis=1)
+    ave_hbonds = np.sum(np.multiply(hbonds, weights), axis=1)
+    
+    trial_ave_lnpi = (bc * ave_contacts) + (bh * ave_hbonds)
+
+    return trial_ave_lnpi

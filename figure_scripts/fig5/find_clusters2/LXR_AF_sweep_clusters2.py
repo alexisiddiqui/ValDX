@@ -358,12 +358,12 @@ times = [0.5, 10.0]
 
 
 
-VDX.run_sweep_cluster_ensemble(system=test_name,
+VDX.run_sweep_cluster2_ensemble(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
                                 n_reps=3,
-                                denoms = np.array([10, 20, 100, 1000]),
-                                # split_modes=['R3'],
+                                # denoms = np.array([10, 20, 100, 1000]),
+                                split_modes=['R3'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,

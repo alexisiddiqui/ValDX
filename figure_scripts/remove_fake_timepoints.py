@@ -21,6 +21,9 @@ HOIP_HDX_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo.dat
 HOIP_times = [0, 0.5, 5.0]
 
 
+BPTI_HDX_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_expt_data/BPTI_expt_dfracs.dat"
+BPTI_times = [0.167, 1.0, 10.0, 120.0]
+
 
 
 # read in the HDX data
@@ -30,6 +33,8 @@ BRD4_HDX = dfracs_to_df(BRD4_HDX_path, BRD4_times)
 MBP_HDX = dfracs_to_df(MBP_HDX_path, MBP_times)
 
 HOIP_HDX = dfracs_to_df(HOIP_HDX_path, HOIP_times)
+
+BPTI_HDX = dfracs_to_df(BPTI_HDX_path, BPTI_times)
 
 
 # divide times in BRD4 and MBP by 60 to get minutes use times to get appropriate column names
@@ -47,12 +52,12 @@ for time in MBP_times:
 
 
 
-HDX_data = {"BRD4": BRD4_HDX, "MBP": MBP_HDX, "HOIP": HOIP_HDX}
+HDX_data = {"BRD4": BRD4_HDX, "MBP": MBP_HDX, "HOIP": HOIP_HDX, "BPTI": BPTI_HDX}
 
 # %%
 
 #remove really long or 0 timepoints
-fake_timepoints = {0}
+fake_timepoints = {0, 120, 14400/60}
 
 
 for key, df in HDX_data.items():
@@ -74,6 +79,8 @@ new_MBP_HDX_path = "/home/alexi/Documents/ValDX/raw_data/MBP/MaltoseBindingProte
 
 new_HOIP_HDX_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo_clean.dat"
 
+new_BPTI_HDX_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_expt_data/BPTI_expt_dfracs_clean.dat"
+
 
 HDX_to_file(new_BRD4_HDX_path, HDX_data["BRD4"])
 
@@ -82,5 +89,6 @@ HDX_to_file(new_MBP_HDX_path, HDX_data["MBP"])
 HDX_to_file(new_HOIP_HDX_path, HDX_data["HOIP"])
 
 
+HDX_to_file(new_BPTI_HDX_path, HDX_data["BPTI"])
 
 # %%

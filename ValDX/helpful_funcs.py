@@ -11,6 +11,8 @@ from concurrent.futures import ProcessPoolExecutor
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+from scipy.spatial.distance import pdist, squareform
+
 import cProfile
 import pstats
 import io
@@ -769,9 +771,47 @@ def PDB_to_DSSP(top_path: str, dssp_path: str=None, sim_name: str=None):
     return secondary_structures
 
 
-def cluster_traj_by_density(universe: mda.Universe,
-                            selection: str="name CA",
-                            cluster_frac1: float=0.5):
+def PCA_universe(universe: mda.Universe, 
+                 selection: str="name CA", 
+                 num_components: int=2,
+                 residues: np.array=None):
+
+    if residues is not None:
+        resi_selection = " or ".join([f"resid {res}" for res in residues])
+        selection = f"{selection} and ({resi_selection})"
+    print("Selection")
+    print(selection)
+
+    # Select atoms
+    CA_atoms = universe.select_atoms(selection)
+    
+    # Get number of atoms
+    n_atoms = len(CA_atoms)
+    
+    # Get number of frames
+    n_frames = len(universe.trajectory)
+    
+    # Initialize distance matrix
+    dist_matrix = np.zeros((n_frames, n_atoms * (n_atoms - 1) // 2))
+    
+    # Calculate distance matrix for each frame
+    for i, ts in enumerate(universe.trajectory):
+        coords = CA_atoms.positions
+        dist_matrix[i] = pdist(coords)
+    
+    print("Distance matrix shape")
+    print(dist_matrix.shape)
+    
+    # Perform PCA on the distance matrix
+    print("Performing PCA")
+    pca = PCA(n_components=num_components)
+    pca.fit(dist_matrix)
+    
+    # Project the data onto the first two principal components
+    return pca.transform(dist_matrix)
+
+
+def cluster_traj_by_density(projected: np.array, cluster_frac1: float=0.5):
     """
     PCA Clustering of CA coordinates,
     Clusters frames to the cluster_frac1 fraction of the total frames
@@ -779,25 +819,10 @@ def cluster_traj_by_density(universe: mda.Universe,
     also retuns the PCA object to transform new data
     """
     # Select atoms
-    CA_atoms = universe.select_atoms(selection)
-
-    # Get coordinates across all frames
-    coords = np.array([CA_atoms.positions.flatten() for ts in universe.trajectory])
-    print("Coords shape")
-    print(coords.shape)
-    # Get number of frames
-    n_frames = len(universe.trajectory)
-    n_final_frames = int(n_frames*cluster_frac1)
-    # Perform PCA
-    print("Performing PCA")
-    pca = PCA(n_components=2)
-    pca.fit(coords)
-
-    # Project the data onto the first two principal components
-    projected = pca.transform(coords)
     print("Transformed data")
     print(projected.shape)
-
+    n_frames = projected.shape[0]
+    n_final_frames = int(n_frames*cluster_frac1)
     # Perform KMeans clustering
     kmeans = KMeans(n_clusters=n_final_frames)
     print("Fitting KMeans")
@@ -838,13 +863,9 @@ def cluster_traj_by_density(universe: mda.Universe,
     return cluster_frames, cluster_weights, projected, cluster_centers, cluster_labels
 
 
-def recluster_traj_by_weight(clustered_universe:mda.Universe,
-                            #  pca_operator:PCA,
-                             projected:np.array,
+def recluster_traj_by_weight(projected:np.array,
                              cluster_weights:np.array,
-                            #  selection:str="name CA",
-                             cluster_size2:int=10,
-                             ):
+                             cluster_size2:int=10):
 
 
     # # Select atoms
@@ -863,7 +884,7 @@ def recluster_traj_by_weight(clustered_universe:mda.Universe,
     print(projected.shape)
 
     # Perform KMeans clustering by weight
-    n_frames = len(clustered_universe.trajectory)
+    n_frames = projected.shape[0]
     n_final_frames = int(cluster_size2)
 
     kmeans = KMeans(n_clusters=n_final_frames)

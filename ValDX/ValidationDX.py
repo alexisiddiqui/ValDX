@@ -30,9 +30,9 @@ from HDXer.reweighting_functions import read_contacts_hbonds
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
-from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames, run_calc_hdx
+from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames, run_calc_hdx, PCA_universe
 from ValDX.HDX_plots import *
-from ValDX.VDX_dataclasses import AnalysisData, AnalysisInfo, merge_AnalysisData_classes
+from ValDX.VDX_dataclasses import AnalysisData, AnalysisInfo, merge_AnalysisData_classes,Segments
 import matplotlib
 
 class ValDXer(Experiment):
@@ -436,38 +436,38 @@ class ValDXer(Experiment):
         cr_bc_bhs = []
 
         _args_list = [args[0] for args in args_list]
-        # _args_list = [arg for args in args_list for arg in args]
+        _args_list = [arg for args in args_list for arg in args]
 
             
         print(_args_list)
-        for _args_list in args_list:
+        # for _args_list in args_list:
 
-            try:
-                print("Trying concurrent.futures")
-                # raise NotImplementedError("Concurrent.futures not implemented")
-                with concurrent.futures.ProcessPoolExecutor() as executor:
-                    outputs_cr_bc_bh = list(executor.map(run_MaxEnt_single, _args_list))
+        try:
+            print("Trying concurrent.futures")
+            # raise NotImplementedError("Concurrent.futures not implemented")
+            with concurrent.futures.ProcessPoolExecutor(max_workers=20) as executor:
+                outputs_cr_bc_bh = list(executor.map(run_MaxEnt_single, _args_list))
 
-            except:
-                UserWarning("Concurrent.futures failed. Trying without concurrent.futures")
-                print("Running directly")
-                outputs_cr_bc_bh = []
-                for args in args_list:
-                    print(f"Reweighting {args['out_prefix']} with gamma = {args['gamma']}")
-                    output = run_MaxEnt_single(args)
-                    outputs_cr_bc_bh.append(output)
+        except:
+            UserWarning("Concurrent.futures failed. Trying without concurrent.futures")
+            print("Running directly")
+            outputs_cr_bc_bh = []
+            for args in args_list:
+                print(f"Reweighting {args['out_prefix']} with gamma = {args['gamma']}")
+                output = run_MaxEnt_single(args)
+                outputs_cr_bc_bh.append(output)
 
-            finally:
-                print("Finished reweighting")
-                print(outputs_cr_bc_bh)
-                # add outpus to respective dfss
-            print(_args_list)
+        finally:
+            print("Finished reweighting")
+            print(outputs_cr_bc_bh)
+            # add outpus to respective dfss
+        print(_args_list)
 
         # opt_gammas = []
         # reweighted_dfs = []
         # cr_bc_bhs = []
         
-        # for _args_list in args_list:
+        for _args_list in args_list:
 
 
             predictHDX_dir = _args_list[0]["predictHDX_dir"][0]
@@ -1500,7 +1500,9 @@ class ValDXer(Experiment):
 
         u = mda.Universe(top_path, *traj_paths)
 
-        cluster_frames, iniweights, projected, cluster_centers, cluster_labels = cluster_traj_by_density(u, 
+        projected = PCA_universe(u)
+
+        cluster_frames, iniweights, projected, cluster_centers, cluster_labels = cluster_traj_by_density(projected=projected,
                                                                   cluster_frac1=self.settings.cluster_frac1)
         plot_cluster_weights(projected_data=projected,
                             new_cluster_centers=cluster_centers,
@@ -1571,8 +1573,7 @@ class ValDXer(Experiment):
         clustered_universe = mda.Universe(top_path, clustered_traj_path)
         # recluster to cluster frac2
         if not modal_cluster:
-            recluster_frames, final_cluster2_weights, reclustered_centers, reclustered_labels = recluster_traj_by_weight(clustered_universe=clustered_universe, 
-                                                                                                                         projected=projected[cluster_frames],
+            recluster_frames, final_cluster2_weights, reclustered_centers, reclustered_labels = recluster_traj_by_weight(projected=projected[cluster_frames],
                                                                                                                         cluster_weights=avg_weights, 
                                                                                                                         cluster_size2=self.settings.cluster_size2)
             # plot 
@@ -2146,3 +2147,281 @@ class ValDXer(Experiment):
         #         dump["split_type"] = [self.settings.split_mode]*len(dump)
 
         return self.analysis_data, self.analysis_data.analysis_df, name
+
+
+    def run_sweep_cluster_ensemble(self,
+                                system: str=None,
+                                denoms: list=None,
+                                times: np.array=None,
+                                expt_name: str=None,
+                                n_reps: int=None,
+                                split_modes: list=['r', 's', 'R3', 'Sp'],
+                                hdx_path: str=None,
+                                segs_path: str=None,
+                                traj_paths: list=None,
+                                weights: np.array=None,
+                                top_path: str=None
+                                ):
+        
+
+
+        analysis_name="Sweep-Clusters"
+        settings = deepcopy(self.settings)
+
+        self = ValDXer(settings=settings, name=system, analysis_name=analysis_name)
+        self.initialise_dir_structure(prefix=self.analysis_name, overwrite_output=True)
+        plot_dir, results_dir, logs_dir = self.plot_dir, self.results_dir, self.logs_dir
+
+
+        if denoms is None:
+            denoms = [0, 10, 20, 100, 500, 1000]
+
+
+        _denoms = np.array(denoms).astype(float)
+    
+        cluster_fracs = np.divide(1, _denoms, out=np.ones_like(_denoms), where=_denoms!=0)
+
+
+        print("Cluster Fracs", cluster_fracs)
+
+
+        segs = Segments(segs_path=segs_path)
+
+        residues = segs.residues
+
+
+        u = mda.Universe(top_path, *traj_paths)
+
+        projected = PCA_universe(u, residues=residues)
+
+
+
+        for frac in cluster_fracs:
+
+            cluster_frames, iniweights, _, cluster_centers, cluster_labels = cluster_traj_by_density(projected=projected,
+                                                                    cluster_frac1=frac)
+            
+            plot_cluster_weights(projected_data=projected,
+                                new_cluster_centers=cluster_centers,
+                                cluster_labels=cluster_labels,
+                                new_cluster_weights=iniweights,
+                                save=self.settings.save_figs, save_dir=self.plot_dir,
+                                title_str=f"{system}_sweep_{str(frac)}")   
+
+
+            # save clustered universe 
+            clustered_traj_name = "_".join([system, "sweep", "cfrac", str(frac), ".xtc"])
+            clustered_traj_path = os.path.join(self.data_dir, clustered_traj_name)
+
+            with mda.Writer(clustered_traj_path, u.trajectory.n_frames) as W:
+                for ts in u.trajectory[cluster_frames]:
+                    W.write(u)
+            
+            clustered_universe = mda.Universe(top_path, clustered_traj_path)
+
+            assert clustered_universe.trajectory.n_frames == len(cluster_frames)
+
+            data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_sweep_{str(frac)}",
+                                        times=times,
+                                        expt_name=expt_name,
+                                        n_reps=n_reps,
+                                        hdx_path=hdx_path,
+                                        split_modes=split_modes,
+                                        optimise=True,
+                                        RW=True,
+                                        segs_path=segs_path,
+                                        traj_paths=[clustered_traj_path],
+                                        weights=weights,
+                                        top_path=top_path)
+        
+            # plot the weights - averaged for each split
+
+            for split in split_modes:
+                weights_df = data["weights"]
+                print(data["weights"].columns)
+                # select the split_type
+                split_df = weights_df[weights_df["split_type"] == split]
+                weights_vals = split_df["weights"].values
+                weights_vals = np.array([np.array(w) for w in weights_vals])
+                print(weights_vals)
+                # average weights
+                avg_weights = np.mean(weights_vals, axis=0)
+                # normalise to the length of the array
+                avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
+                print(avg_weights.shape)
+
+                plot_cluster_weights(projected_data=projected,
+                                    new_cluster_centers=cluster_centers,
+                                    cluster_labels=cluster_labels,
+                                    new_cluster_weights=avg_weights,
+                                    save=self.settings.save_figs, save_dir=self.plot_dir,
+                                    title_str=f"sweep {str(frac)} bench_{split}")
+
+
+
+    def run_sweep_cluster2_ensemble(self,
+                                system: str=None,
+                                frames: list=None,
+                                n_clusters: int=500,
+                                times: np.array=None,
+                                expt_name: str=None,
+                                n_reps: int=None,
+                                split_modes: list=['r', 's', 'R3', 'Sp'],
+                                hdx_path: str=None,
+                                segs_path: str=None,
+                                traj_paths: list=None,
+                                top_path: str=None
+                                ):
+        
+
+
+        analysis_name="Find-Clusters2"
+        settings = deepcopy(self.settings)
+
+        self = ValDXer(settings=settings, name=system, analysis_name=analysis_name)
+        self.initialise_dir_structure(prefix=self.analysis_name, overwrite_output=True)
+        plot_dir, results_dir, logs_dir = self.plot_dir, self.results_dir, self.logs_dir
+
+
+        if frames is None:
+            frames = list(range(20, 1, -2))
+            _frames = np.array(frames).astype(float)
+
+        print("Cluster Frames", _frames)
+    
+
+        segs = Segments(segs_path=segs_path)
+
+        residues = segs.residues
+
+
+        u = mda.Universe(top_path, *traj_paths)
+
+        projected = PCA_universe(u, residues=residues)
+
+        frac = n_clusters/projected.shape[0] 
+
+
+        cluster_frames, iniweights, cl_projected, cluster_centers, cluster_labels = cluster_traj_by_density(projected=projected,
+                                                                cluster_frac1=frac)
+        
+        # round to 2 decimal places
+        frac = round(frac, 2)
+
+        plot_cluster_weights(projected_data=projected,
+                            new_cluster_centers=cluster_centers,
+                            cluster_labels=cluster_labels,
+                            new_cluster_weights=iniweights,
+                            save=self.settings.save_figs, save_dir=self.plot_dir,
+                            title_str=f"{system}_init_{str(frac)}")   
+
+
+        # save clustered universe 
+        clustered_traj_name = "_".join([system, "init", "cfrac", str(frac), ".xtc"])
+        clustered_traj_path = os.path.join(self.data_dir, clustered_traj_name)
+
+        with mda.Writer(clustered_traj_path, u.trajectory.n_frames) as W:
+            for ts in u.trajectory[cluster_frames]:
+                W.write(u)
+        
+        clustered_universe = mda.Universe(top_path, clustered_traj_path)
+
+        assert clustered_universe.trajectory.n_frames == len(cluster_frames)
+
+        data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_ini_{str(frac)}",
+                                    times=times,
+                                    expt_name=expt_name,
+                                    n_reps=n_reps,
+                                    hdx_path=hdx_path,
+                                    split_modes=["R3"],
+                                    optimise=True,
+                                    RW=True,
+                                    segs_path=segs_path,
+                                    traj_paths=[clustered_traj_path],
+                                    top_path=top_path)
+        
+
+        split = "R3"
+        weights_df = data["weights"]
+        print(data["weights"].columns)
+        # select the split_type
+        split_df = weights_df[weights_df["split_type"] == split]
+        weights_vals = split_df["weights"].values
+        weights_vals = np.array([np.array(w) for w in weights_vals])
+        print(weights_vals)
+        # average weights
+        avg_weights = np.mean(weights_vals, axis=0)
+        # normalise to the length of the array
+        ini_avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
+        print(avg_weights.shape)
+
+        plot_cluster_weights(projected_data=projected,
+                            new_cluster_centers=cluster_centers,
+                            cluster_labels=cluster_labels,
+                            new_cluster_weights=ini_avg_weights,
+                            save=self.settings.save_figs, save_dir=self.plot_dir,
+                            title_str=f"ini {str(frac)} bench_{split}")
+        
+        self.settings.random_seed = self.settings.random_seed**2
+
+
+        for n_frames in frames:
+
+            # cfrac2 = n_frames/len(cluster_frames)
+            # #round to 2 decimal places
+            # cfrac2 = round(cfrac2, 2)
+
+            recluster_frames, final_cluster2_weights, reclustered_centers, reclustered_labels = recluster_traj_by_weight(projected=projected[cluster_frames],
+                                                                                                                        cluster_weights=ini_avg_weights, 
+                                                                                                                        cluster_size2=n_frames)
+            
+            plot_cluster_weights(projected_data=projected[cluster_frames],
+                                new_cluster_centers=reclustered_centers,
+                                cluster_labels=reclustered_labels,
+                                new_cluster_weights=final_cluster2_weights,
+                                save=self.settings.save_figs, save_dir=self.plot_dir,
+                                title_str=f"{system}_recl_{str(n_frames)}")
+            
+            reclustered_traj_name = "_".join([system, "recl", "csize2", str(n_frames), ".xtc"])
+            reclustered_traj_path = os.path.join(self.data_dir,reclustered_traj_name)
+
+            with mda.Writer(reclustered_traj_path, u.trajectory.n_frames) as W:
+                for ts in clustered_universe.trajectory[recluster_frames]:
+                    W.write(clustered_universe)
+
+            reclustered_universe = mda.Universe(top_path, reclustered_traj_path)
+
+            assert reclustered_universe.trajectory.n_frames == len(recluster_frames), f"Reclustered frames: {reclustered_universe.trajectory.n_frames} != {len(recluster_frames)}"
+
+            data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_recl2_{str(n_frames)}",
+                                        times=times,
+                                        expt_name=expt_name,
+                                        n_reps=n_reps,
+                                        hdx_path=hdx_path,
+                                        split_modes=split_modes,
+                                        optimise=True,
+                                        RW=True,
+                                        segs_path=segs_path,
+                                        traj_paths=[reclustered_traj_path],
+                                        top_path=top_path)
+            
+            for split in split_modes:
+                weights_df = data["weights"]
+                print(data["weights"].columns)
+                # select the split_type
+                split_df = weights_df[weights_df["split_type"] == split]
+                weights_vals = split_df["weights"].values
+                weights_vals = np.array([np.array(w) for w in weights_vals])
+                print(weights_vals)
+                # average weights
+                avg_weights = np.mean(weights_vals, axis=0)
+                # normalise to the length of the array
+                avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
+                print(avg_weights.shape)
+
+                plot_cluster_weights(projected_data=projected[cluster_frames],
+                                    new_cluster_centers=reclustered_centers,
+                                    cluster_labels=reclustered_labels,
+                                    new_cluster_weights=avg_weights,
+                                    save=self.settings.save_figs, save_dir=self.plot_dir,
+                                    title_str=f"recl2 {str(n_frames)} bench_{split}")

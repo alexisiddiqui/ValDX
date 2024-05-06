@@ -1116,20 +1116,26 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
     works.columns = ['gamma', 'MSE', 'RMSE', 'work']
     # calculate the value where the tangent of the point is at 45 degrees to the x axis
     # this is the optimal value of gamma
-    x = works['MSE'].values.tolist()
-    y = works['work'].values.tolist()
+    _works = works.dropna(subset=['MSE'])
+
+    x = _works['MSE'].values.tolist()
+    y = _works['work'].values.tolist()
     ic("MSE, work", x, y)
     # calculate the the angle made between each point and the next and the x axis
 
     # if only one value - return this value
     if len(x) == 1:
-        return works['gamma'].values[0], works
-
+        return _works['gamma'].values[0], _works
+    if len(x) == 0:
+        raise ValueError("No valid gamma values found")
+    m, b = np.polyfit(x, y, 1)
 
     ### Optimiser ###
     # TODO change this to a more robust method - change this to find the kink in the curve
     # instead of calcing angle - rotate the curve and find the point where the gradient is 1
     # 
+    closest = None
+
     try:
         angles = []
         for i in range(len(x)-1):
@@ -1137,40 +1143,57 @@ def plot_lcurve(calc_name, RW_range: tuple, RW_dir: str, prefix: str, gamma: flo
 
         # find the index of the angle closest to 45 degrees
         closest = min(angles, key=lambda x:abs(x-math.pi/4))
+
+        closest_gamma = works['gamma'][angles.index(closest)]
         ###
     except:
-        closest = len(x)//2
-    # compute regressionline
-    m, b = np.polyfit(x, y, 1)
+        UserWarning("Could not find the optimal gamma value via the angle method")
+        pass
 
+    if closest is None:
+        try:
+            # closest = len(x)//2
+        # compute regressionline
 
-    dists = []
-    for i in range(len(x)):
-        regression_coord = (m*x[i] + b, x[i])
-        curve_coord = (y[i], x[i])
-        # calculate the displacement between the regression line and the curve
-        dist = math.dist(curve_coord,regression_coord)
-        ic(dist)
-        # deternine if the displacement is positive or negative
-        if y[i] < (m*x[i] + b):
-            dist = dist * -1
+            dists = []
+            for i in range(len(x)):
+                regression_coord = (m*x[i] + b, x[i])
+                curve_coord = (y[i], x[i])
+                # calculate the displacement between the regression line and the curve
+                dist = math.dist(curve_coord,regression_coord)
+                ic(dist)
+                # deternine if the displacement is positive or negative
+                if y[i] < (m*x[i] + b):
+                    dist = dist * -1
 
-        dists.append(dist)
+                dists.append(dist)
 
-    ic(dists)
-    # remove positive values
-    dists = [d if d < 0 else 0 for d in dists]
-    ic(dists)
-    dists= [abs(d) for d in dists]
-    ic(dists)
-    # find the index of the largest absolute value
-    closest = max(dists)
+            ic(dists)
+            # remove positive values
+            dists = [d if d < 0 else 0 for d in dists]
+            ic(dists)
+            dists= [abs(d) for d in dists]
+            ic(dists)
+            # find the index of the largest absolute value
+            closest = max(dists)
 
-    ic(closest)
+            ic(closest)
+            closest_gamma = works['gamma'][dists.index(closest)]
+
+        except:
+            UserWarning("Could not find the optimal gamma value via the distance method")
+
+            pass
+            # pick lowest gamma with non nan mse
+            # drop nans
+    if closest is None:
+        try:
+            closest_gamma = _works['gamma'].values[0]
+        except:
+            raise ValueError("No valid gamma values found - tried all methods")
 
     # find the value of gamma at this index
     # closest_gamma = works['gamma'][angles.index(closest)]
-    closest_gamma = works['gamma'][dists.index(closest)]
     ic(closest_gamma)
 
     plt.figure(figsize=(11, 8.5))
@@ -2150,21 +2173,21 @@ def split_benchmark_BV_boxplot_by_split_type_by_protein(df,
         plt.close()
 
 
-def plot_cluster_weights(projected_data, cluster_labels, new_cluster_centers, new_cluster_weights, save, save_dir):
+def plot_cluster_weights(projected_data, cluster_labels, new_cluster_centers, new_cluster_weights, save, save_dir, title_str=None):
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))  # Create a figure with 1 row and 2 columns for subplots
 
     # Plot the first scatter plot (PCA of CA atoms from Clustered Trajectory)
-    axs[0].set_title("PCA of CA atoms from Trajectory")
+    axs[0].set_title(f"PCA of CA atoms from Trajectory {title_str}")
     axs[0].scatter(projected_data[:, 0], projected_data[:, 1], c=cluster_labels, s=50, cmap='viridis')
 
     # Plot the second scatter plot (PCA of Cluster Centers from Clustered Trajectory)
-    axs[1].set_title("PCA of Cluster Centers from Clustered Trajectory")
+    axs[1].set_title(f"PCA of Cluster Centers from Clustered Trajectory {title_str}")
     axs[1].scatter(new_cluster_centers[:, 0], new_cluster_centers[:, 1], c='red', s=100*new_cluster_weights, alpha=0.5)
 
     plt.tight_layout()  # Adjust layout to prevent overlapping
     if save is True and save_dir is not None:
-        time= datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        save_name = f"cluster_weights_{time}.png"
+        time= datetime.datetime.now().strftime("%Y%m%d-%H%M%S.%f")[:-3]
+        save_name = f"{title_str}_cluster_weights_{time}.png"
         save_path = os.path.join(save_dir, save_name)        
         plt.savefig(save_path, format='png', dpi=300)
     else:

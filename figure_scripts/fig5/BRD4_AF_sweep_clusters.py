@@ -288,7 +288,7 @@ def pre_process_main():
     segs_name = "BRD4_APO_segs.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "BRD4_APO.dat"
+    hdx_name = "BRD4_APO_clean.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -374,6 +374,7 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
                    
 
 times = [0.0, 15.0, 60.0, 600.0, 3600.0, 14400.0]
+times = [0.25,	1.0,	10.0,	60.0]
 
 # combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
 #                                                                         times=times,
@@ -400,12 +401,11 @@ times = [0.0, 15.0, 60.0, 600.0, 3600.0, 14400.0]
 #                                                                         segs_path=segs_path,
 #                                                                         traj_paths=traj_paths,
 #                                                                         top_path=top_path)
-VDX.run_sweep_cluster_ensemble(system=test_name,
+VDX.run_sweep_cluster2_ensemble(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
                                 n_reps=3,
-                                denoms = np.array([10, 20, 100, 1000]),
-                                split_modes=['R3'],
+                                # split_modes=['R3'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,

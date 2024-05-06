@@ -10,7 +10,7 @@ from ValDX.VDX_Settings import Settings
 import pandas as pd
 import MDAnalysis as mda
 from MDAnalysis.coordinates.XTC import XTCWriter
-
+import numpy as np
 from pdbfixer import PDBFixer
 from openmm.app import PDBFile
 settings = Settings(name='MBP')
@@ -263,7 +263,7 @@ def pre_process_main():
     segs_name = "MBP_wt1_segs.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "MBP_wt1.dat"
+    hdx_name = "MBP_wt1_clean.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -392,14 +392,15 @@ times = [30, 240, 1800, 14400]
 #                                                                         segs_path=segs_path,
 #                                                                         traj_paths=traj_paths,
 #                                                                         top_path=top_path)
-
+times = [0.5,	4.0,	30.0]
 
 
 VDX.run_sweep_cluster_ensemble(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
                                 n_reps=3,
-                                split_modes=['R3'],
+                                denoms = np.array([10, 20, 100, 1000]),
+                                # split_modes=['R3'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,

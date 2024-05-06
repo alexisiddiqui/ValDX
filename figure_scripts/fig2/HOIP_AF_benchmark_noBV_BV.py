@@ -385,7 +385,6 @@ combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=te
                                                                         top_path=top_path)
 
                                                                         
-
 # run BV optimisation
 
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,

@@ -12,7 +12,7 @@ from ValDX.VDX_Settings import Settings
 import pandas as pd
 import MDAnalysis as mda
 from MDAnalysis.coordinates.XTC import XTCWriter
-
+import numpy as np
 from pdbfixer import PDBFixer
 from openmm.app import PDBFile
 
@@ -284,7 +284,7 @@ def pre_process_main():
     segs_name = "HOIP_APO_segs.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "HOIP_apo.dat"
+    hdx_name = "HOIP_apo_clean.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -395,14 +395,16 @@ times = [0, 0.5, 5.0]
 #                                                                         segs_path=segs_path,
 #                                                                         traj_paths=traj_paths,
 #                                                                         top_path=top_path)
+times = [0.5, 5.0]
 
 
 VDX.run_sweep_cluster_ensemble(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
                                 n_reps=3,
+                                denoms = np.array([10, 20, 100, 1000]),
                                 hdx_path=hdx_path,
-                                split_modes=['R3'],
+                                # split_modes=['R3'],
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,
                                 top_path=top_path)

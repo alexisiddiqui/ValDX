@@ -4,12 +4,16 @@ import subprocess
 import numpy as np
 import pandas as pd
 import MDAnalysis as mda
+from MDAnalysis.analysis import rms
+from MDAnalysis.analysis.align import AlignTraj
+
 from .reweighting import MaxEnt
 from scipy.optimize import curve_fit
 from typing import Tuple, Dict, List
 from concurrent.futures import ProcessPoolExecutor
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
+
 from sklearn.cluster import KMeans
 from scipy.spatial.distance import pdist, squareform
 
@@ -809,6 +813,70 @@ def PCA_universe(universe: mda.Universe,
     
     # Project the data onto the first two principal components
     return pca.transform(dist_matrix)
+
+
+def calculate_rmsd(universe: mda.Universe,
+                    selection: str="name CA", 
+                 residues: np.array=None):
+
+    if residues is not None:
+        resi_selection = " or ".join([f"resid {res}" for res in residues])
+        selection = f"{selection} and ({resi_selection})"
+
+    print("Selection")
+    print(selection)
+
+    ref = universe.select_atoms(selection)
+    
+    rmsd = rms.RMSD(universe, ref, select=selection)
+    rmsd.run()
+    
+    return rmsd.results.rmsd[:, 2]
+
+
+
+def calc_intra_residue_dist(universe: mda.Universe,
+                    selection: str="name CA", 
+                 residues: np.array=None):
+    """after aligning the traj in memory 
+    we calculate the sum of the distances 
+    between the atoms of each residue for each frame"""
+
+
+    if residues is not None:
+        resi_selection = " or ".join([f"resid {res}" for res in residues])
+        selection = f"{selection} and ({resi_selection})"
+
+    print("Selection")
+    print(selection)
+
+    ref = universe.select_atoms(selection)
+
+    # Align the trajectory to the reference structure
+
+    alignment = AlignTraj(universe, ref, select="protein and name CA", in_memory=True).run()
+    
+    n_frames = len(universe.trajectory)
+    n_residues = len(ref.residues)
+
+    # calculate the intrares distances of atomgroup for each frame
+
+    calc_intra_residue_dist = np.zeros((n_frames, n_residues*(n_residues-1)//2))
+    # coords = np.zeros((n_frames, n_residues, 3))
+    for i, ts in enumerate(universe.trajectory):
+        coords = ref.positions
+
+        calc_intra_residue_dist[i] = pdist(coords)
+ 
+
+    print(calc_intra_residue_dist.shape)
+
+    # average the distances for each frame
+    avg_intra_residue_dist = np.mean(calc_intra_residue_dist, axis=1)
+
+    return avg_intra_residue_dist
+
+
 
 
 def cluster_traj_by_density(projected: np.array, cluster_frac1: float=0.5):

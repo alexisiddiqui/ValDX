@@ -111,8 +111,8 @@ def pre_process_main_BPTI():
 
 
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
+    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated.pdb"
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated.xtc"]
 
 
     # # top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
@@ -153,7 +153,7 @@ VDX.run_sweep_cluster2_ensemble(system=test_name,
                                 expt_name=expt_name,
                                 n_reps=3,
                                 # denoms = np.array([10, 20, 100, 1000]),
-                                split_modes=['R3'],
+                                # split_modes=['R3'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,

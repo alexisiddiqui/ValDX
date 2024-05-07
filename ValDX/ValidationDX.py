@@ -30,7 +30,8 @@ from HDXer.reweighting_functions import read_contacts_hbonds
 
 from ValDX.VDX_Settings import Settings
 from ValDX.Experiment_ABC import Experiment
-from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames, run_calc_hdx, PCA_universe
+from ValDX.helpful_funcs import *
+# from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames, run_calc_hdx, PCA_universe
 from ValDX.HDX_plots import *
 from ValDX.VDX_dataclasses import AnalysisData, AnalysisInfo, merge_AnalysisData_classes,Segments
 import matplotlib
@@ -2301,6 +2302,7 @@ class ValDXer(Experiment):
 
         frac = n_clusters/projected.shape[0] 
 
+        # calculate RMSD to topology
 
         cluster_frames, iniweights, cl_projected, cluster_centers, cluster_labels = cluster_traj_by_density(projected=projected,
                                                                 cluster_frac1=frac)
@@ -2325,6 +2327,10 @@ class ValDXer(Experiment):
                 W.write(u)
         
         clustered_universe = mda.Universe(top_path, clustered_traj_path)
+
+        rmsd = calculate_rmsd(universe=clustered_universe, residues=residues)
+        intra_res_dists = calc_intra_residue_dist(universe=clustered_universe, residues=residues)
+
 
         assert clustered_universe.trajectory.n_frames == len(cluster_frames)
 
@@ -2362,6 +2368,13 @@ class ValDXer(Experiment):
                             save=self.settings.save_figs, save_dir=self.plot_dir,
                             title_str=f"ini {str(frac)} bench_{split}")
         
+        plot_cluster_rmsd_intrares(rmsd=rmsd, 
+                            intra_res=intra_res_dists, 
+                            new_cluster_centers=cluster_centers,
+                            new_cluster_weights=ini_avg_weights,
+                            save=self.settings.save_figs, save_dir=self.plot_dir,
+                            title_str=f"ini {str(frac)} bench_{split}")
+
         self.settings.random_seed = self.settings.random_seed**2
 
 
@@ -2375,6 +2388,10 @@ class ValDXer(Experiment):
                                                                                                                         cluster_weights=ini_avg_weights, 
                                                                                                                         cluster_size2=n_frames)
             
+
+
+
+
             plot_cluster_weights(projected_data=projected[cluster_frames],
                                 new_cluster_centers=reclustered_centers,
                                 cluster_labels=reclustered_labels,
@@ -2390,6 +2407,10 @@ class ValDXer(Experiment):
                     W.write(clustered_universe)
 
             reclustered_universe = mda.Universe(top_path, reclustered_traj_path)
+
+            rmsd = calculate_rmsd(universe=clustered_universe, residues=residues)
+            intra_res_dists = calc_intra_residue_dist(universe=clustered_universe, residues=residues)
+
 
             assert reclustered_universe.trajectory.n_frames == len(recluster_frames), f"Reclustered frames: {reclustered_universe.trajectory.n_frames} != {len(recluster_frames)}"
 
@@ -2425,3 +2446,13 @@ class ValDXer(Experiment):
                                     new_cluster_weights=avg_weights,
                                     save=self.settings.save_figs, save_dir=self.plot_dir,
                                     title_str=f"recl2 {str(n_frames)} bench_{split}")
+                
+                plot_cluster_rmsd_intrares(rmsd=rmsd,
+                                    intra_res=intra_res_dists, 
+                                    new_cluster_centers=reclustered_centers,
+                                    new_cluster_weights=avg_weights,
+                                    save=self.settings.save_figs, save_dir=self.plot_dir,
+                                    title_str=f"recl2 {str(n_frames)} bench_{split}")
+                
+
+    def run_sweep_methods

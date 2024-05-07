@@ -2184,10 +2184,42 @@ def plot_cluster_weights(projected_data, cluster_labels, new_cluster_centers, ne
     axs[1].set_title(f"PCA of Cluster Centers from Clustered Trajectory {title_str}")
     axs[1].scatter(new_cluster_centers[:, 0], new_cluster_centers[:, 1], c='red', s=100*new_cluster_weights, alpha=0.5)
 
+    # set x and y lims to be the same
+    xlim = axs[0].get_xlim()
+    ylim = axs[0].get_ylim()
+    axs[1].set_xlim(xlim)
+    axs[1].set_ylim(ylim)
+
+
     plt.tight_layout()  # Adjust layout to prevent overlapping
     if save is True and save_dir is not None:
         time= datetime.datetime.now().strftime("%Y%m%d-%H%M%S.%f")[:-3]
         save_name = f"{title_str}_cluster_weights_{time}.png"
+        save_path = os.path.join(save_dir, save_name)        
+        plt.savefig(save_path, format='png', dpi=300)
+    else:
+        plt.show()
+        plt.close()
+
+
+
+
+def plot_cluster_rmsd_intrares(rmsd, intra_res, new_cluster_centers, new_cluster_weights, save, save_dir, title_str=None):
+    
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))  # Create a figure with 1 row and 2 columns for subplots
+
+    # Plot the first scatter plot (PCA of CA atoms from Clustered Trajectory)
+    axs[0].set_title(f"RMSD and Intra Res Dists of CA atoms from Trajectory {title_str}")
+    axs[0].scatter(rmsd, intra_res, c='red', s=100*new_cluster_weights, alpha=0.5)
+
+    # Plot the second scatter plot (PCA of Cluster Centers from Clustered Trajectory)
+    axs[1].set_title(f"PCA of Cluster Centers from Clustered Trajectory {title_str}")
+    axs[1].scatter(new_cluster_centers[:, 0], new_cluster_centers[:, 1], c='red', s=100*new_cluster_weights, alpha=0.5)
+
+    plt.tight_layout()  # Adjust layout to prevent overlapping
+    if save is True and save_dir is not None:
+        time= datetime.datetime.now().strftime("%Y%m%d-%H%M%S.%f")[:-3]
+        save_name = f"{title_str}_intrares_PCA_{time}.png"
         save_path = os.path.join(save_dir, save_name)        
         plt.savefig(save_path, format='png', dpi=300)
     else:

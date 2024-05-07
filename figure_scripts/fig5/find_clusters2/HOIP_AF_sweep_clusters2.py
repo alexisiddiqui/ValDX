@@ -104,106 +104,106 @@ import icecream as ic
 # %% [markdown]
 # 
 
-# %%
+# # %%
+
+
+# # %%
+
+
+# # %%
+# raw_hdx_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo_peptide.csv"
+# raw_hdx = pd.read_csv(raw_hdx_path)
+# raw_hdx.tail()
+
+# # %%
+# # drop Unnamed: 0	
+
+# raw_hdx = raw_hdx.drop(columns=['Unnamed: 0'])
+# raw_hdx.head()
+
+
+# # %%
+# # assign peptide number for each start and end residue using ngroup
+# raw_hdx['peptide'] = raw_hdx.groupby(['Start','End']).ngroup()
+
+# raw_hdx.head()
+
+# # %%
+
+# times = [0, 0.5, 5.0]
+
+# num_peptides = len(raw_hdx)//len(times)
+
+# exposure = times * num_peptides
+
+# raw_hdx['Exposure'] = exposure
+
+# raw_hdx.head()
+
+# # %%
+# raw_hdx['UptakeFraction'] = raw_hdx['Uptake'] / raw_hdx['MaxUptake']
+
+# raw_hdx.head()
+
+# # %%
+# # clamp UptakeFraction to 1
+# raw_hdx['UptakeFraction'] = raw_hdx['UptakeFraction'].clip(upper=1)
+
+# # %%
+# # # print entire dataframe
+# # pd.set_option('display.max_rows', None)
+# # pd.set_option('display.max_columns', None)
+# # pd.set_option('display.width', None)
+# # print(raw_hdx)
+
+
+
+# # %%
+
+
+# # %%
+
+
+# # # %%
+
+# # # pivot exposure and uptake fraction
+# # grouped = raw_hdx.pivot(index=['Start', 'End'], columns='Exposure', values='UptakeFraction').reset_index()
+
+# # # drop 
+# # grouped.head()
+
+
+# # # %%
+
+# # # print entire dataframe
+# # pd.set_option('display.max_rows', None)
+# # pd.set_option('display.max_columns', None)
+# # pd.set_option('display.width', None)
+# # print(grouped)
+
+# # # %%
+# # # conver to HDXer format ie start, end, exposure_1, exposure_2 
+
+# # # change Start to ResStr and End to ResEnd
+# # hdx = grouped.rename(columns={'Start': 'ResStr', 'End': 'ResEnd'})
+
+# # # drop the exposure column
+# # hdx.columns.name = None
+
+# # print(hdx)
 
 
 # %%
 
 
 # %%
-raw_hdx_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo_peptide.csv"
-raw_hdx = pd.read_csv(raw_hdx_path)
-raw_hdx.tail()
 
-# %%
-# drop Unnamed: 0	
-
-raw_hdx = raw_hdx.drop(columns=['Unnamed: 0'])
-raw_hdx.head()
+# hdx = hdx.round(5)
+# hdx.to_csv(os.path.join("raw_data", "HOIP", 'HOIP_apo.dat'), sep=' ', index=False)
 
 
 # %%
-# assign peptide number for each start and end residue using ngroup
-raw_hdx['peptide'] = raw_hdx.groupby(['Start','End']).ngroup()
-
-raw_hdx.head()
-
-# %%
-
-times = [0, 0.5, 5.0]
-
-num_peptides = len(raw_hdx)//len(times)
-
-exposure = times * num_peptides
-
-raw_hdx['Exposure'] = exposure
-
-raw_hdx.head()
-
-# %%
-raw_hdx['UptakeFraction'] = raw_hdx['Uptake'] / raw_hdx['MaxUptake']
-
-raw_hdx.head()
-
-# %%
-# clamp UptakeFraction to 1
-raw_hdx['UptakeFraction'] = raw_hdx['UptakeFraction'].clip(upper=1)
-
-# %%
-# # print entire dataframe
-# pd.set_option('display.max_rows', None)
-# pd.set_option('display.max_columns', None)
-# pd.set_option('display.width', None)
-# print(raw_hdx)
-
-
-
-# %%
-
-
-# %%
-
-
-# %%
-
-# pivot exposure and uptake fraction
-grouped = raw_hdx.pivot(index=['Start', 'End'], columns='Exposure', values='UptakeFraction').reset_index()
-
-# drop 
-grouped.head()
-
-
-# %%
-
-# print entire dataframe
-pd.set_option('display.max_rows', None)
-pd.set_option('display.max_columns', None)
-pd.set_option('display.width', None)
-print(grouped)
-
-# %%
-# conver to HDXer format ie start, end, exposure_1, exposure_2 
-
-# change Start to ResStr and End to ResEnd
-hdx = grouped.rename(columns={'Start': 'ResStr', 'End': 'ResEnd'})
-
-# drop the exposure column
-hdx.columns.name = None
-
-print(hdx)
-
-
-# %%
-
-
-# %%
-
-hdx = hdx.round(5)
-hdx.to_csv(os.path.join("raw_data", "HOIP", 'HOIP_apo.dat'), sep=' ', index=False)
-
-
-# %%
-segs = hdx[['ResStr', 'ResEnd']].drop_duplicates().sort_values(by=['ResStr', 'ResEnd']).reset_index(drop=True)
+# segs = hdx[['ResStr', 'ResEnd']].drop_duplicates().sort_values(by=['ResStr', 'ResEnd']).reset_index(drop=True)
 
 
 # %%
@@ -404,7 +404,7 @@ VDX.run_sweep_cluster2_ensemble(system=test_name,
                                 n_reps=3,
                                 # denoms = np.array([10, 20, 100, 1000]),
                                 hdx_path=hdx_path,
-                                split_modes=['R3'],
+                                # split_modes=['R3'],
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,
                                 top_path=top_path)

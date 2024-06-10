@@ -777,7 +777,7 @@ def PDB_to_DSSP(top_path: str, dssp_path: str=None, sim_name: str=None):
 
 def PCA_universe(universe: mda.Universe, 
                  selection: str="name CA", 
-                 num_components: int=2,
+                 num_components: int=100,
                  residues: np.array=None):
 
     if residues is not None:
@@ -854,7 +854,7 @@ def calc_intra_residue_dist(universe: mda.Universe,
 
     # Align the trajectory to the reference structure
 
-    alignment = AlignTraj(universe, ref, select="protein and name CA", in_memory=True).run()
+    alignment = AlignTraj(universe, ref, select=selection, in_memory=True).run()
     
     n_frames = len(universe.trajectory)
     n_residues = len(ref.residues)

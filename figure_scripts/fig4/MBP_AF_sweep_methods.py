@@ -2,10 +2,8 @@
 ### ValDXer testing
 import os
 os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
-
 import sys
 sys.path.append("/home/alexi/Documents/ValDX/")
-
 
 from ValDX.ValidationDX import ValDXer
 from ValDX.VDX_Settings import Settings
@@ -15,33 +13,34 @@ from MDAnalysis.coordinates.XTC import XTCWriter
 import numpy as np
 from pdbfixer import PDBFixer
 from openmm.app import PDBFile
-
-settings = Settings(name='HOIP')
+settings = Settings(name='MBP')
 # settings.replicates = 1
 settings.gamma_range = (1,8)
 settings.train_frac = 0.5
 settings.RW_exponent = [0]
 settings.split_mode = 'R3'
 # settings.stride = 1000
-# settings.HDXer_stride = 10000
+# # settings.HDXer_stride = 10000
 
-# settings.RW_do_reweighting = True
-# settings.RW_do_params = False
+# settings.RW_do_reweighting = False
+# settings.RW_do_params = True
 import pickle
 
 VDX = ValDXer(settings)
 expt_name = 'Experimental'
-test_name = "HOIP_af_small"
-import icecream as ic
-# ic.disable()
+test_name = "MBP_af_small"
 
-# %% [markdown]
-# 
+from icecream import ic
+
+ic.disable()
+
+# %%
+
 
 # %%
 # ### add code to read in sequence from CIF file instead of copying it manually
 
-# cif_file = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HOIP/HOIP_apo/AF-Q96EP0-F1-model_v4.cif"
+# cif_file = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/MBP/MaltoseBindingProtein/AF-P0AEX9-F1-model_v4.cif"
 
 # sequence_header = "_entity_poly.pdbx_seq_one_letter_code"
 # sequence = ""
@@ -93,8 +92,8 @@ import icecream as ic
 
 # %%
 
-# fasta_path = os.path.join("raw_data", "HOIP", 'HOIP_apo.fasta')
-# write_fasta(sequence, 'HOIPapo', fasta_path)
+# fasta_path = os.path.join("raw_data", "MBP", 'MBP_wt.fasta')
+# write_fasta(sequence, 'MBP_wt', fasta_path)
 
 
 
@@ -104,102 +103,102 @@ import icecream as ic
 # %% [markdown]
 # 
 
-# # %%
-
-
-# # %%
-
-
-# # %%
-# raw_hdx_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo_peptide.csv"
-# raw_hdx = pd.read_csv(raw_hdx_path)
-# raw_hdx.tail()
-
-# # %%
-# # drop Unnamed: 0	
-
-# raw_hdx = raw_hdx.drop(columns=['Unnamed: 0'])
-# raw_hdx.head()
-
-
-# # %%
-# # assign peptide number for each start and end residue using ngroup
-# raw_hdx['peptide'] = raw_hdx.groupby(['Start','End']).ngroup()
-
-# raw_hdx.head()
-
-# # %%
-
-# times = [0, 0.5, 5.0]
-
-# num_peptides = len(raw_hdx)//len(times)
-
-# exposure = times * num_peptides
-
-# raw_hdx['Exposure'] = exposure
-
-# raw_hdx.head()
-
-# # %%
-# raw_hdx['UptakeFraction'] = raw_hdx['Uptake'] / raw_hdx['MaxUptake']
-
-# raw_hdx.head()
-
-# # %%
-# # clamp UptakeFraction to 1
-# raw_hdx['UptakeFraction'] = raw_hdx['UptakeFraction'].clip(upper=1)
-
-# # %%
-# # # print entire dataframe
-# # pd.set_option('display.max_rows', None)
-# # pd.set_option('display.max_columns', None)
-# # pd.set_option('display.width', None)
-# # print(raw_hdx)
-
-
-
-# # %%
-
-
-# # %%
-
-
-# # # %%
-
-# # # pivot exposure and uptake fraction
-# # grouped = raw_hdx.pivot(index=['Start', 'End'], columns='Exposure', values='UptakeFraction').reset_index()
-
-# # # drop 
-# # grouped.head()
-
-
-# # # %%
-
-# # # print entire dataframe
-# # pd.set_option('display.max_rows', None)
-# # pd.set_option('display.max_columns', None)
-# # pd.set_option('display.width', None)
-# # print(grouped)
-
-# # # %%
-# # # conver to HDXer format ie start, end, exposure_1, exposure_2 
-
-# # # change Start to ResStr and End to ResEnd
-# # hdx = grouped.rename(columns={'Start': 'ResStr', 'End': 'ResEnd'})
-
-# # # drop the exposure column
-# # hdx.columns.name = None
-
-# # print(hdx)
+# %%
 
 
 # %%
+
+
+# %%
+# raw_hdx_path = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/MBP/MaltoseBindingProtein/MBP analysis final editing export 2020 10 05_tidy.csv"
+# raw_hdx = pd.read_csv(raw_hdx_path)
+# raw_hdx.tail()
+
+# %%
+# state = "WT Null"
+
+# raw_hdx = raw_hdx[raw_hdx['hx_sample'] == state]
+
+# # drop nans in column d
+# raw_hdx = raw_hdx.dropna(subset=['d'])
+
+# raw_hdx.head()
+
+
+# %%
+# # group by pep_start and pep_end and hx_time and take the mean of the d values
+# grouped = raw_hdx.groupby(['pep_start', 'pep_end',"hx_time"])["d"].mean().reset_index()
+
+# grouped.head()
+
+# # assign peptide number to each combination of pep_start and pep_end
+# grouped['peptide']= grouped.groupby(['pep_start', 'pep_end']).ngroup()
+
+
+
+# %%
+# # print entire dataframe
+# pd.set_option('display.max_rows', None)
+# pd.set_option('display.max_columns', None)
+# pd.set_option('display.width', None)
+
+# print(grouped)
+
+
+# %%
+# # add MaxUptake column for each peptide
+
+# # first, get the max uptake for each peptide
+# max_uptake = grouped.groupby('peptide')['d'].max().reset_index()
+
+# # assign the max uptake to each peptide
+# grouped = grouped.merge(max_uptake, on='peptide', suffixes=('', '_max'))
+
+# grouped.head()
+
+# %%
+# grouped['UptakeFraction'] = grouped['d'] / grouped['d_max']
+
+
+
+# columns_to_drop = ['d', 'd_max']
+# grouped = grouped.drop(columns=columns_to_drop)
+
+# grouped.head()
+
+# %%
+
+# # pivot exposure and uptake fraction
+# grouped = grouped.pivot(index=['pep_start', 'pep_end'], columns='hx_time', values='UptakeFraction').reset_index()
+
+# # drop 
+# grouped.head()
+
+
+# %%
+
+# # print entire dataframe
+# pd.set_option('display.max_rows', None)
+# pd.set_option('display.max_columns', None)
+# pd.set_option('display.width', None)
+# print(grouped)
+
+# %%
+# # conver to HDXer format ie start, end, exposure_1, exposure_2 
+
+# # change Start to ResStr and End to ResEnd
+# hdx = grouped.rename(columns={'pep_start': 'ResStr', 'pep_end': 'ResEnd'})
+
+# # drop the exposure column
+# hdx.columns.name = None
+
+# print(hdx)
 
 
 # %%
 
 # hdx = hdx.round(5)
-# hdx.to_csv(os.path.join("raw_data", "HOIP", 'HOIP_apo.dat'), sep=' ', index=False)
+# hdx.to_csv(os.path.join("raw_data", "MBP", 'MBP_wt1.dat'), sep=' ', index=False)
 
 
 # %%
@@ -218,13 +217,13 @@ import icecream as ic
 
 
 # # write list as new lines with space delimiter
-# with open(os.path.join("raw_data", "HOIP", 'HOIP_APO_segs.txt'), 'w') as f:
+# with open(os.path.join("raw_data", "MBP", 'MBP_wt1_segs.txt'), 'w') as f:
 #     for item in segs:
 #         f.write("%s\n" % ' '.join(map(str, item)))
 
 # %%
-# ### at the moment PDB fixer is adding different number of hydrogens to different structures... Need to change the code to use PROPKA to get H states and apply to all strucutres
-# BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HOIP/HOIP_apo/"
+
+# BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/MBP/MaltoseBindingProtein"
 # sim_dir = os.path.join(BPTI_dir, "alphafold_quick")
 
 # pdb_list = [f for f in os.listdir(sim_dir) if f.endswith('.pdb')]
@@ -237,7 +236,6 @@ import icecream as ic
 # os.makedirs(H_sim_dir, exist_ok=True)
 
 # for pdb in pdb_list:
-#     continue
 #     fixer = PDBFixer(os.path.join(sim_dir, pdb))
 #     fixer.addMissingHydrogens(7.0)
 #     H_pdb_name = pdb.replace('.pdb', '_H.pdb')
@@ -245,25 +243,6 @@ import icecream as ic
 
 # pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
 
-
-
-# top_path = os.path.join(H_sim_dir, pdb_list[0])
-# pdb_paths = [os.path.join(H_sim_dir, i) for i in pdb_list]
-
-# print(top_path)
-# print(pdb_paths)
-
-
-# small_traj_name = top_path.replace(".pdb","_small.xtc")
-# small_traj_path = os.path.join(H_sim_dir, small_traj_name)
-
-# u = mda.Universe(top_path)
-    
-# with XTCWriter(small_traj_path, n_atoms=u.atoms.n_atoms) as W:
-#     for ts in u.trajectory:
-#         W.write(u.atoms)
-#         W.write(u.atoms)
-#         break
 
 
 # %% [markdown]
@@ -274,17 +253,17 @@ import icecream as ic
 # %%
 def pre_process_main():
     # BPTI data
-    # BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HOIP/HOIP_apo/"
-    BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo"
+    # BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/MBP/MaltoseBindingProtein"
+    BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/MBP/MaltoseBindingProtein"
     # BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
 
-    sim_name = 'HOIP_apo_AF'
+    sim_name = 'MBPwt_AF'
     os.listdir(BPTI_dir)
 
-    segs_name = "HOIP_APO_segs_trimmed.txt"
+    segs_name = "MBP_wt1_segs.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "HOIP_apo_clean_trimmed.dat"
+    hdx_name = "MBP_wt1_clean.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -304,26 +283,38 @@ def pre_process_main():
 
     for pdb in pdb_list:
         continue
-        fixer = PDBFixer(os.path.join(H_sim_dir, pdb))
+        fixer = PDBFixer(os.path.join(sim_dir, pdb))
         fixer.addMissingHydrogens(7.0)
         H_pdb_name = pdb.replace('.pdb', '_H.pdb')
         PDBFile.writeFile(fixer.topology, fixer.positions, open(os.path.join(H_sim_dir, H_pdb_name), 'w'), keepIds=True)
-        break
+
     pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
 
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.pdb"
+    top_path = "/home/alexi/Documents/ValDX/raw_data/MBP/MBP_wt_1_af_sample_127_10000_protonated.pdb"
+
     # pdb_paths = [os.path.join(H_sim_dir, i) for i in pdb_list]
 
     # print(top_path)
     # print(pdb_paths)
 
 
+    # small_traj_name = top_path.replace(".pdb","_small.xtc")
+    # small_traj_path = os.path.join(sim_dir, small_traj_name)
+
+    # u = mda.Universe(top_path, pdb_paths)
+
 
         
-    # # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
+    # with XTCWriter(small_traj_path, n_atoms=u.atoms.n_atoms) as W:
+    #     for ts in u.trajectory:
+    #             W.write(u.atoms)
+
+    # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated_all_filtered.xtc"]
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/MBP/MBP_wt_1_af_sample_127_10000_protonated.xtc"]
+
+    # print(traj_paths)
     # u = mda.Universe(top_path, *traj_paths)
 
     # small_traj_name = top_path.replace(".pdb","_small.xtc")
@@ -335,40 +326,46 @@ def pre_process_main():
     #         W.write(u.atoms)
     #         # break
     # print(traj_paths)
-    # traj_paths = [small_traj_path]
+    # traj_paths = [small_traj_path]    
     return hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test_name
 
 
 # %%
 hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test_name = pre_process_main()
 
-# %%
-# # ic.disable()
-# combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
-#                                                                     times=[0, 0.5, 5.0],
-#                                                                     expt_name=expt_name,
-#                                                                     n_reps=1,
-#                                                                     optimise=False,
-#                                                                     # split_modes=['r'],
-#                                                                     hdx_path=hdx_path,
-#                                                                     segs_path=segs_path,
-#                                                                     traj_paths=traj_paths,
-#                                                                     top_path=top_path)
-
-# settings.cluster_frac1 = 0.1
-# combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_modal",
-#                                                                     times=[0, 0.5, 5.0],
-#                                                                     expt_name=expt_name,
-#                                                                     n_reps=2,
-#                                                                     split_mode='R3',
-#                                                                     hdx_path=hdx_path,
-#                                                                     segs_path=segs_path,
-#                                                                     traj_paths=traj_paths,
-#                                                                     top_path=top_path,
-#                                                                     modal_cluster=True)
+# # %%
+# ic.disable()
+# settings.cluster_frac1 = 0.5
+# combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_mode",
+#                                                                         times=[30, 240, 1800, 14400],
+#                                                                         expt_name=expt_name,
+#                                                                         n_reps=2,
+#                                                                         split_mode='R3',
+#                                                                         # RW=True,
+#                                                                         hdx_path=hdx_path,
+#                                                                         segs_path=segs_path,
+#                                                                         traj_paths=traj_paths,
+#                                                                         top_path=top_path,
+#                                                                         modal_cluster=True)
 
 
-times = [0, 0.5, 5.0]
+# # %%
+# combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_mean",
+#                                                                         times=[30, 240, 1800, 14400],
+#                                                                         expt_name=expt_name,
+#                                                                         n_reps=2,
+#                                                                         split_mode='R3',
+#                                                                         # RW=True,
+#                                                                         hdx_path=hdx_path,
+#                                                                         segs_path=segs_path,
+#                                                                         traj_paths=traj_paths,
+#                                                                         top_path=top_path,
+#                                                                         modal_cluster=False)
+
+
+           
+
+times = [30, 240, 1800, 14400]
 # # %%
 # combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
 #                                                                         times=times,
@@ -395,16 +392,15 @@ times = [0, 0.5, 5.0]
 #                                                                         segs_path=segs_path,
 #                                                                         traj_paths=traj_paths,
 #                                                                         top_path=top_path)
-times = [0.5, 5.0]
+times = [0.5,	4.0,	30.0]
 
 
-VDX.run_sweep_cluster2_ensemble(system=test_name,
+VDX.run_sweep_methods(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
                                 n_reps=3,
-                                # denoms = np.array([10, 20, 100, 1000]),
+                                split_modes=['R3'],
                                 hdx_path=hdx_path,
-                                # split_modes=['R3'],
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,
                                 top_path=top_path)

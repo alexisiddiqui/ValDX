@@ -436,7 +436,7 @@ class ValDXer(Experiment):
         reweighted_dfs = []
         cr_bc_bhs = []
 
-        _args_list = [args[0] for args in args_list]
+        # _args_list = [args[0] for args in args_list]
         _args_list = [arg for args in args_list for arg in args]
 
             
@@ -446,7 +446,7 @@ class ValDXer(Experiment):
         try:
             print("Trying concurrent.futures")
             # raise NotImplementedError("Concurrent.futures not implemented")
-            with concurrent.futures.ProcessPoolExecutor(max_workers=20) as executor:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
                 outputs_cr_bc_bh = list(executor.map(run_MaxEnt_single, _args_list))
 
         except:
@@ -460,7 +460,9 @@ class ValDXer(Experiment):
 
         finally:
             print("Finished reweighting")
+            
             print(outputs_cr_bc_bh)
+
             # add outpus to respective dfss
         print(_args_list)
 
@@ -468,7 +470,8 @@ class ValDXer(Experiment):
         # reweighted_dfs = []
         # cr_bc_bhs = []
         
-        for _args_list in args_list:
+        for idx,_args_list in enumerate(args_list):
+            idx = idx * len(_args_list)
 
 
             predictHDX_dir = _args_list[0]["predictHDX_dir"][0]
@@ -500,12 +503,15 @@ class ValDXer(Experiment):
             #find the correct index from _gamma_list
             gamma_index = [idx for idx, gamma in enumerate(_gamma_list) if gamma == (opt_gamma_coefficient, opt_gamma_exponent)][0]
             opt_gamma = opt_gamma_coefficient*10**opt_gamma_exponent
-            cr_bc_bh = outputs_cr_bc_bh[gamma_index]
+            cr_bc_bh = outputs_cr_bc_bh[idx+gamma_index]
             
             opt_gammas.append(opt_gamma)
             reweighted_dfs.append(reweighted_df)
             cr_bc_bhs.append(cr_bc_bh)
-
+        print(reweighted_dfs)
+        print(cr_bc_bhs)
+        # if self.settings.RW_do_params:
+        #     raise NotImplementedError("RW_do_params not implemented")
         return opt_gammas, reweighted_dfs, cr_bc_bhs
 
 
@@ -781,11 +787,16 @@ class ValDXer(Experiment):
         # if weights is None:
         #     weights = [None] * n_reps
 
+        if weights is not None:
+            random_initial = False
+        else:
+            random_initial = self.settings.random_initialisation
+
         base_args = {
                 "restart_interval": self.settings.RW_restart_interval,
                 "stepfactor": self.settings.RW_stepfactor,
                 "times": self.settings.times, 
-                "random_initial": self.settings.random_initialisation,
+                "random_initial": random_initial,
                 "temp": self.settings.temp, 
                 'bv_bc': bc_bh[0],
                 'bv_bh': bc_bh[1],
@@ -830,10 +841,13 @@ class ValDXer(Experiment):
 
         print(df)
         # convert segs df to list of residues from resstr to resend
-        segs["Residues"]= segs.apply(lambda x: np.array(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
-        residues = segs["Residues"].to_numpy()
-        residues = np.concatenate(residues)
-        residues = np.unique(residues)
+        # segs["Residues"]= segs.apply(lambda x: np.array(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
+
+        # segs["Residues"] = segs.apply(lambda x: list(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
+
+        segments = Segments(segs_df=segs)
+        residues = segments.residues
+
         start_res = np.sort(residues)[0]
 
         print(f"Residues for recalculation: {residues}")
@@ -901,7 +915,7 @@ class ValDXer(Experiment):
             # this means converting residues back to segments
             
             df["calc_name"] = [dataset_name]*len(df)
-            df["Residues"] = df.apply(lambda x: list(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
+            df["Residues"] = df.apply(lambda x: list(range(x["ResStr"]+1, x["ResEnd"]+1)), axis=1)
             print(df)
 
             peptides = df["peptide"].to_list()
@@ -1020,8 +1034,8 @@ class ValDXer(Experiment):
         train_segs = self.train_segs[self.train_segs["calc_name"] == rep_name].copy()
         val_segs = self.val_segs[self.val_segs["calc_name"] == val_name].copy()
 
-        train_segs["residues"] = train_segs.apply(lambda x: list(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
-        val_segs["residues"] = val_segs.apply(lambda x: list(range(x["ResStr"], x["ResEnd"]+1)), axis=1)
+        train_segs["residues"] = train_segs.apply(lambda x: list(range(x["ResStr"]+1, x["ResEnd"]+1)), axis=1)
+        val_segs["residues"] = val_segs.apply(lambda x: list(range(x["ResStr"]+1, x["ResEnd"]+1)), axis=1)
 
         train_residues = np.concatenate(train_segs["residues"].to_numpy())
         val_residues = np.concatenate(val_segs["residues"].to_numpy())
@@ -1136,7 +1150,7 @@ class ValDXer(Experiment):
         val_dfs = []
         test_dfs = []
 
-        cr_bc_bhs = []
+        # cr_bc_bhs = []
         # if self.settings.pre_process and predictHDX_dir is None:
         #     predictHDX_dir = self.pre_process_features(expt_name=expt_name)
 
@@ -1188,7 +1202,7 @@ class ValDXer(Experiment):
 
 
 
-        for idx, rep in enumerate(range(1,n_reps+1)):
+        for idx, rep in enumerate(list(range(1,n_reps+1))):
             # validation HDX
             cr_bc_bh = cr_bc_bhs[idx]
             train_opt_gamma = train_gammas[idx]
@@ -1208,10 +1222,10 @@ class ValDXer(Experiment):
                 self.write_data_split_PDB(calc_name=calc_name,
                                             expt_name=expt_name,
                                             rep=rep)
-                if (self.settings.RW_do_reweighting is True) and (self.settings.RW_do_params is False):
+                if (self.settings.RW_do_reweighting is True):
                     self.write_RW_representative_PDB(calc_name=calc_name,
                                                     rep=rep,
-                                                    weights=cr_bc_bh[0],
+                                                    weights=cr_bc_bh[idx],
                                                     cluster_size2=self.settings.cluster_size2)
         
 
@@ -1237,6 +1251,7 @@ class ValDXer(Experiment):
             print(self.BV_constants)
             print("Verifiying data")
             self.analysis_data.verify()
+            
             return train_dfs, val_dfs, train_gammas, val_gammas
         
 
@@ -1253,7 +1268,7 @@ class ValDXer(Experiment):
                                 traj_paths: list=None,
                                 weights: np.array=None,
                                 RW: bool=False,
-                                optimise: bool=True,
+                                BV: bool=False,
                                 top_path: str=None
                                 ):
         print(self.settings.gamma_range)
@@ -1286,16 +1301,22 @@ class ValDXer(Experiment):
             self.settings.times = times
             self.times = times
         settings = deepcopy(self.settings)
-        if RW and optimise:
+        if RW is True and BV is True:
+            settings.RW_do_reweighting = True
+            settings.RW_do_params = True
+            settings.gamma_range = self.settings.gamma_range
+            benchmark_name = "BVRW_bench"
+        if RW is True and BV is False:
             settings.RW_do_reweighting = True
             settings.RW_do_params = False
             settings.gamma_range = self.settings.gamma_range
             benchmark_name = "RW_bench"
-        if not RW:
+        if RW is False and BV is True:
             settings.RW_do_reweighting = False
             settings.RW_do_params = True
+            settings.gamma_range = (3, 4)
             benchmark_name = "BV_bench"
-        if not optimise:
+        if RW is False and BV is False:
             settings.RW_do_reweighting = False
             settings.RW_do_params = False
             settings.gamma_range = (3, 4)
@@ -1320,7 +1341,7 @@ class ValDXer(Experiment):
             # split_name = split_names[idx]
             print(f"Running {mode} split mode")
             settings.split_mode = mode
-            _VDX = ValDXer(settings=settings)
+            _VDX = ValDXer(settings=settings, analysis_name=benchmark_name)
             _VDX.settings.plot = False
             _VDX.load_HDX_data(HDX_path=hdx_path,
                                 SEG_path=segs_path,
@@ -1443,10 +1464,11 @@ class ValDXer(Experiment):
 
         split_benchmark_plot_MSE_by_split(MSE_df,
                                           save=settings.save_figs,
-                                        save_dir=save_dir,)
+                                        save_dir=save_dir,
+                                        title_str=system)
 
 
-        if not RW:
+        if BV:
             # BV Constants
             # BV_df = combined_analysis_dump["BV_constants"]
             BV_df = data["BV_constants"]
@@ -1456,7 +1478,9 @@ class ValDXer(Experiment):
             # BV Constants difference by split mode
             split_benchmark_BV_boxplot_by_split_type(BV_df,
                                                      save=settings.save_figs,
-                                                        save_dir=save_dir)
+                                                        save_dir=save_dir,
+                                                      title_str=system)
+
             # # BV Constants by split mode
             # split_benchmark_BV_boxplot_by_split_type_by_protein(BV_df)
             # # BV Constants by protein
@@ -1530,7 +1554,8 @@ class ValDXer(Experiment):
                                             expt_name=expt_name,
                                             n_reps=n_reps,
                                             hdx_path=hdx_path,
-                                            optimise=False,
+                                            RW=False,
+                                            BV=False,
                                             segs_path=segs_path,
                                             traj_paths=[clustered_traj_path],
                                             weights=iniweights,
@@ -2228,7 +2253,7 @@ class ValDXer(Experiment):
                                         n_reps=n_reps,
                                         hdx_path=hdx_path,
                                         split_modes=split_modes,
-                                        optimise=True,
+                                        # optimise=True,
                                         RW=True,
                                         segs_path=segs_path,
                                         traj_paths=[clustered_traj_path],
@@ -2274,8 +2299,6 @@ class ValDXer(Experiment):
                                 top_path: str=None
                                 ):
         
-
-
         analysis_name="Find-Clusters2"
         settings = deepcopy(self.settings)
 
@@ -2340,7 +2363,7 @@ class ValDXer(Experiment):
                                     n_reps=n_reps,
                                     hdx_path=hdx_path,
                                     split_modes=["R3"],
-                                    optimise=True,
+                                    # optimise=True,
                                     RW=True,
                                     segs_path=segs_path,
                                     traj_paths=[clustered_traj_path],
@@ -2367,32 +2390,20 @@ class ValDXer(Experiment):
                             new_cluster_weights=ini_avg_weights,
                             save=self.settings.save_figs, save_dir=self.plot_dir,
                             title_str=f"ini {str(frac)} bench_{split}")
-        
-        plot_cluster_rmsd_intrares(rmsd=rmsd, 
-                            intra_res=intra_res_dists, 
-                            new_cluster_centers=cluster_centers,
-                            new_cluster_weights=ini_avg_weights,
-                            save=self.settings.save_figs, save_dir=self.plot_dir,
-                            title_str=f"ini {str(frac)} bench_{split}")
 
         self.settings.random_seed = self.settings.random_seed**2
-
+        _projected = projected[cluster_frames]
 
         for n_frames in frames:
 
             # cfrac2 = n_frames/len(cluster_frames)
             # #round to 2 decimal places
             # cfrac2 = round(cfrac2, 2)
-
-            recluster_frames, final_cluster2_weights, reclustered_centers, reclustered_labels = recluster_traj_by_weight(projected=projected[cluster_frames],
+            recluster_frames, final_cluster2_weights, reclustered_centers, reclustered_labels = recluster_traj_by_weight(projected=_projected,
                                                                                                                         cluster_weights=ini_avg_weights, 
                                                                                                                         cluster_size2=n_frames)
             
-
-
-
-
-            plot_cluster_weights(projected_data=projected[cluster_frames],
+            plot_cluster_weights(projected_data=_projected,
                                 new_cluster_centers=reclustered_centers,
                                 cluster_labels=reclustered_labels,
                                 new_cluster_weights=final_cluster2_weights,
@@ -2400,7 +2411,7 @@ class ValDXer(Experiment):
                                 title_str=f"{system}_recl_{str(n_frames)}")
             
             reclustered_traj_name = "_".join([system, "recl", "csize2", str(n_frames), ".xtc"])
-            reclustered_traj_path = os.path.join(self.data_dir,reclustered_traj_name)
+            reclustered_traj_path = os.path.join(self.data_dir, reclustered_traj_name)
 
             with mda.Writer(reclustered_traj_path, u.trajectory.n_frames) as W:
                 for ts in clustered_universe.trajectory[recluster_frames]:
@@ -2408,9 +2419,8 @@ class ValDXer(Experiment):
 
             reclustered_universe = mda.Universe(top_path, reclustered_traj_path)
 
-            rmsd = calculate_rmsd(universe=clustered_universe, residues=residues)
-            intra_res_dists = calc_intra_residue_dist(universe=clustered_universe, residues=residues)
-
+            _rmsd = rmsd[recluster_frames]
+            _intra_res_dists = intra_res_dists[recluster_frames]
 
             assert reclustered_universe.trajectory.n_frames == len(recluster_frames), f"Reclustered frames: {reclustered_universe.trajectory.n_frames} != {len(recluster_frames)}"
 
@@ -2419,40 +2429,190 @@ class ValDXer(Experiment):
                                         expt_name=expt_name,
                                         n_reps=n_reps,
                                         hdx_path=hdx_path,
-                                        split_modes=split_modes,
-                                        optimise=True,
+                                        split_modes=['R3'],
+                                        BV=False,
                                         RW=True,
                                         segs_path=segs_path,
                                         traj_paths=[reclustered_traj_path],
                                         top_path=top_path)
             
-            for split in split_modes:
-                weights_df = data["weights"]
-                print(data["weights"].columns)
-                # select the split_type
-                split_df = weights_df[weights_df["split_type"] == split]
-                weights_vals = split_df["weights"].values
-                weights_vals = np.array([np.array(w) for w in weights_vals])
-                print(weights_vals)
-                # average weights
-                avg_weights = np.mean(weights_vals, axis=0)
-                # normalise to the length of the array
-                avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
-                print(avg_weights.shape)
+            split = "R3"
+            weights_df = data["weights"]
+            print(data["weights"].columns)
+            # select the split_type
+            split_df = weights_df[weights_df["split_type"] == split]
+            weights_vals = split_df["weights"].values
+            weights_vals = np.array([np.array(w) for w in weights_vals])
+            print(weights_vals)
+            # average weights
+            avg_weights = np.mean(weights_vals, axis=0)
+            
+            avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
 
-                plot_cluster_weights(projected_data=projected[cluster_frames],
+            # _reclustered_centers = reclustered_centers[recluster_frames]
+            assert len(avg_weights) == len(reclustered_centers), f"Length of weights: {len(avg_weights)} != {len(reclustered_centers)}"
+
+            plot_cluster_weights(projected_data=_projected,
                                     new_cluster_centers=reclustered_centers,
                                     cluster_labels=reclustered_labels,
                                     new_cluster_weights=avg_weights,
                                     save=self.settings.save_figs, save_dir=self.plot_dir,
-                                    title_str=f"recl2 {str(n_frames)} bench_{split}")
-                
-                plot_cluster_rmsd_intrares(rmsd=rmsd,
-                                    intra_res=intra_res_dists, 
-                                    new_cluster_centers=reclustered_centers,
-                                    new_cluster_weights=avg_weights,
-                                    save=self.settings.save_figs, save_dir=self.plot_dir,
-                                    title_str=f"recl2 {str(n_frames)} bench_{split}")
-                
+                                    title_str=f"recl2 {str(n_frames)} sweep")
 
-    def run_sweep_methods
+            # plot covariance matrix for the reclustered universe
+            plot_cross_correlation_matrices(universe=reclustered_universe, 
+                                            weights=avg_weights,
+                                            residues=residues,
+                                            # frame_indexes=recluster_frames,
+                                            save_dir=self.plot_dir,
+                                            title_str=f"{system}_recl2_{str(n_frames)}")
+
+                
+            _ = self.run_benchmark_ensemble(system=system+f"_recl2_{str(n_frames)}_{split}",
+                            times=times,
+                            expt_name=expt_name,
+                            n_reps=n_reps,
+                            hdx_path=hdx_path,
+                            split_modes=split_modes,
+                            RW=False,
+                            BV=True,
+                            weights=avg_weights,
+                            segs_path=segs_path,
+                            traj_paths=[reclustered_traj_path],
+                            top_path=top_path)
+
+
+   
+    def run_sweep_methods(self,
+                        system: str=None,
+                        n_clusters: int=500,
+                        times: np.array=None,
+                        expt_name: str=None,
+                        methods: List = None,
+                        n_reps: int=None,
+                        split_modes: list=['R3', 's', 'r', 'Sp'],
+                        hdx_path: str=None,
+                        segs_path: str=None,
+                        traj_paths: list=None,
+                        top_path: str=None
+                        ):
+        
+        analysis_name="Sweep-Methods"
+        settings = deepcopy(self.settings)
+
+        self = ValDXer(settings=settings, name=system, analysis_name=analysis_name)
+        self.initialise_dir_structure(prefix=self.analysis_name, overwrite_output=True)
+        plot_dir, results_dir, logs_dir = self.plot_dir, self.results_dir, self.logs_dir
+
+
+        if methods is None:
+            # create methods for no-optimise, BV, RW, BV+RW, RW-BV
+            # Bools (BV, RW)
+            methods = [(False,False),
+                        (True,False),
+                        [(False,True),
+                        (True,False)],
+                        (True,True)]
+            
+            method_names = ["NoOpt", "BV", "RW-BV", "BV+RW"]
+                       
+
+        print("Methods (BV,RW): ", methods)
+
+        segs = Segments(segs_path=segs_path)
+
+        residues = segs.residues
+
+
+        u = mda.Universe(top_path, *traj_paths)
+
+        projected = PCA_universe(u, residues=residues)
+
+        frac = n_clusters/len(u.trajectory)
+
+        # calculate RMSD to topology
+
+        cluster_frames, iniweights, cl_projected, cluster_centers, cluster_labels = cluster_traj_by_density(projected=projected,
+                                                                cluster_frac1=frac)
+        
+        frac = round(frac, 2)
+
+        plot_cluster_weights(projected_data=projected,
+                            new_cluster_centers=cluster_centers,
+                            cluster_labels=cluster_labels,
+                            new_cluster_weights=iniweights,
+                            save=self.settings.save_figs, save_dir=self.plot_dir,
+                            title_str=f"{system}_init_{str(frac)}")
+        
+
+
+        # save clustered universe 
+        clustered_traj_name = "_".join([system, "init", "cfrac", str(frac), ".xtc"])
+        clustered_traj_path = os.path.join(self.data_dir, clustered_traj_name)
+
+        with mda.Writer(clustered_traj_path, u.trajectory.n_frames) as W:
+            for ts in u.trajectory[cluster_frames]:
+                W.write(u)
+        
+        clustered_universe = mda.Universe(top_path, clustered_traj_path)
+
+        assert clustered_universe.trajectory.n_frames == len(cluster_frames)
+
+        rmsd = calculate_rmsd(universe=clustered_universe, residues=residues)
+        intra_res_dists = calc_intra_residue_dist(universe=clustered_universe, residues=residues)
+
+        for step_method, method_name in zip(methods, method_names):
+
+            if not isinstance(step_method, list):
+                _methods = [step_method]
+            elif isinstance(step_method, list) and len(step_method) == 2:
+                _methods = step_method
+
+            for idx, method in enumerate(_methods):
+
+                BV, RW = method
+
+                if idx == 0:
+                    _weights = None
+
+                data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}",
+                                                    times=times,
+                                                    expt_name=expt_name,
+                                                    n_reps=n_reps,
+                                                    hdx_path=hdx_path,
+                                                    split_modes=split_modes,
+                                                    BV=BV,
+                                                    RW=RW,
+                                                    weights=_weights,
+                                                    segs_path=segs_path,
+                                                    traj_paths=[clustered_traj_path],
+                                                    top_path=top_path)
+                
+                for jdx, split in enumerate(split_modes):
+                    weights_df = data["weights"]
+                    print(data["weights"].columns)
+                    # select the split_type
+                    split_df = weights_df[weights_df["split_type"] == split]
+                    weights_vals = split_df["weights"].values
+                    weights_vals = np.array([np.array(w) for w in weights_vals])
+                    print(weights_vals)
+                    # average weights
+                    avg_weights = np.mean(weights_vals, axis=0)
+                    # normalise to the length of the array
+                    avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
+                    print(avg_weights.shape)
+
+                    if jdx == 0:
+                        _weights = avg_weights                        
+
+                    plot_cluster_weights(projected_data=projected[cluster_frames],
+                                        new_cluster_centers=cluster_centers,
+                                        cluster_labels=cluster_labels[cluster_frames],
+                                        new_cluster_weights=avg_weights,
+                                        save=self.settings.save_figs, save_dir=self.plot_dir,
+                                        title_str=f"method {str(n_clusters)} {method_name}{str(idx)}_{split}")
+                    
+
+
+
+                

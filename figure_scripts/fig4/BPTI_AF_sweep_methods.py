@@ -67,10 +67,10 @@ def pre_process_main_BPTI():
 
     os.listdir(expt_dir)
 
-    segs_name = "BPTI_residue_segs_trimmed.txt"
+    segs_name = "BPTI_residue_segs.txt"
     segs_path = os.path.join(expt_dir, segs_name)
 
-    hdx_name = "BPTI_expt_dfracs_clean_trimmed.dat"
+    hdx_name = "BPTI_expt_dfracs_clean.dat"
     hdx_path = os.path.join(expt_dir, hdx_name)
     print(hdx_path)
 
@@ -111,8 +111,8 @@ def pre_process_main_BPTI():
 
 
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated.pdb"
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated_all_filtered.xtc"]
+    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
 
 
     # # top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
@@ -148,12 +148,11 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 
 # run no optimisation
 
-VDX.run_sweep_cluster2_ensemble(system=test_name,
+VDX.run_sweep_methods(system=test_name,
                                 times=[0.167, 1, 10],
                                 expt_name=expt_name,
                                 n_reps=3,
-                                # denoms = np.array([10, 20, 100, 1000]),
-                                # split_modes=['R3'],
+                                split_modes=['R3'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,

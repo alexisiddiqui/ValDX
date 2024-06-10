@@ -174,7 +174,7 @@ class Segments():
         self.keys = keys
         if "peptide" not in self.segs_df.columns:
             self.segs_df["peptide"] = np.arange(len(self.segs_df))
-        self.pep_nums = self.segs_df["peptide"].to_numpy()
+        self.pep_nums = self.get_pep_nums(self.segs_df)
         assert len(self.segs_df["peptide"].unique()) == len(self.pep_nums), "Peptides are not unique"
         print(f"Segments class created with {len(self.pep_nums)} peptides")
         self.res_nums = self.get_resnums(self.segs_df)
@@ -192,7 +192,7 @@ class Segments():
         
         if keys is None:
             keys = self.keys
-        res_nums = df.apply(lambda x: np.arange(x[keys[0]], x[keys[1]]+1), 
+        res_nums = df.apply(lambda x: np.arange(x[keys[0]]+1, x[keys[1]]+1), 
                             axis=1).to_numpy()
         print(f"Resnumbers calculated for {len(res_nums)} segments")
         return res_nums
@@ -219,7 +219,13 @@ class Segments():
         print(f"Residues calculated for {len(residues)} segments")
         return residues
     
-
+    def get_pep_nums(self, df: pd.DataFrame=None):
+        """
+        Get the peptide numbers from the dataframe
+        """
+        if df is None:
+            df = self.segs_df
+        return df["peptide"].to_numpy()
         
     def get_residue_centrality(self, df: pd.DataFrame):
         """
@@ -261,10 +267,12 @@ class Segments():
         """
         Update the values of the class
         """
-        self.segs_df = df.copy()
+        if df is not None:
+            self.segs_df = df.copy()
         self.residues = self.get_residues(self.segs_df)
         self.res_nums = self.get_resnums(self.segs_df)
         self.peptides = self.get_peptides(self.segs_df)
+        self.pep_nums = self.get_pep_nums(self.segs_df)
 
         self.residue_centrality = self.get_residue_centrality(self.segs_df)
         self.peptide_centrality = self.get_peptide_centrality(self.segs_df)
@@ -733,14 +741,17 @@ def drop_intersection(expt_segs: Segments,
     print(f"Found intersecting residues: {train_val_intersection}")
     intersection_peptides = expt_segs.df_select_residues(list(train_val_intersection))["peptide"].to_numpy()
     print(f"Found intersecting peptides: {intersection_peptides}")
-    train_peps = np.setdiff1d(train_peps, intersection_peptides)
-    val_peps = np.setdiff1d(val_peps, intersection_peptides)
+    # train_peps = np.setdiff1d(train_peps, intersection_peptides)
+    # val_peps = np.setdiff1d(val_peps, intersection_peptides)
 
     if hard:
-        val_peps = np.concatenate([val_peps, train_val_intersection])
+        val_peps = np.concatenate([val_peps, intersection_peptides])
+        val_peps = np.unique(val_peps)
+        train_peps = np.setdiff1d(train_peps, intersection_peptides)
+
     else:
-        val_peps = np.setdiff1d(val_peps, train_val_intersection)
-        train_peps = np.setdiff1d(train_peps, train_val_intersection)
+        val_peps = np.setdiff1d(val_peps, intersection_peptides)
+        train_peps = np.setdiff1d(train_peps, intersection_peptides)
 
     print(f"Train peptides: {train_peps}")
     print(f"Val peptides: {val_peps}")

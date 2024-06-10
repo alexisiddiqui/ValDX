@@ -18,7 +18,7 @@ from openmm.app import PDBFile
 
 settings = Settings(name='HOIP')
 # settings.replicates = 1
-settings.gamma_range = (1,8)
+settings.gamma_range = (2,6)
 settings.train_frac = 0.5
 settings.RW_exponent = [0]
 settings.split_mode = 'R3'
@@ -104,93 +104,58 @@ import icecream as ic
 # %% [markdown]
 # 
 
-# # %%
+# %%
 
 
-# # %%
+# %%
 
 
-# # %%
-# raw_hdx_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo_peptide.csv"
-# raw_hdx = pd.read_csv(raw_hdx_path)
-# raw_hdx.tail()
+# %%
+raw_hdx_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo_peptide.csv"
+raw_hdx = pd.read_csv(raw_hdx_path)
+raw_hdx.tail()
 
-# # %%
-# # drop Unnamed: 0	
+# %%
+# drop Unnamed: 0	
 
-# raw_hdx = raw_hdx.drop(columns=['Unnamed: 0'])
-# raw_hdx.head()
-
-
-# # %%
-# # assign peptide number for each start and end residue using ngroup
-# raw_hdx['peptide'] = raw_hdx.groupby(['Start','End']).ngroup()
-
-# raw_hdx.head()
-
-# # %%
-
-# times = [0, 0.5, 5.0]
-
-# num_peptides = len(raw_hdx)//len(times)
-
-# exposure = times * num_peptides
-
-# raw_hdx['Exposure'] = exposure
-
-# raw_hdx.head()
-
-# # %%
-# raw_hdx['UptakeFraction'] = raw_hdx['Uptake'] / raw_hdx['MaxUptake']
-
-# raw_hdx.head()
-
-# # %%
-# # clamp UptakeFraction to 1
-# raw_hdx['UptakeFraction'] = raw_hdx['UptakeFraction'].clip(upper=1)
-
-# # %%
-# # # print entire dataframe
-# # pd.set_option('display.max_rows', None)
-# # pd.set_option('display.max_columns', None)
-# # pd.set_option('display.width', None)
-# # print(raw_hdx)
+raw_hdx = raw_hdx.drop(columns=['Unnamed: 0'])
+raw_hdx.head()
 
 
+# %%
+# assign peptide number for each start and end residue using ngroup
+raw_hdx['peptide'] = raw_hdx.groupby(['Start','End']).ngroup()
 
-# # %%
+raw_hdx.head()
 
+# %%
 
-# # %%
+times = [0, 0.5, 5.0]
 
+num_peptides = len(raw_hdx)//len(times)
 
-# # # %%
+exposure = times * num_peptides
 
-# # # pivot exposure and uptake fraction
-# # grouped = raw_hdx.pivot(index=['Start', 'End'], columns='Exposure', values='UptakeFraction').reset_index()
+raw_hdx['Exposure'] = exposure
 
-# # # drop 
-# # grouped.head()
+raw_hdx.head()
 
+# %%
+raw_hdx['UptakeFraction'] = raw_hdx['Uptake'] / raw_hdx['MaxUptake']
 
-# # # %%
+raw_hdx.head()
 
-# # # print entire dataframe
-# # pd.set_option('display.max_rows', None)
-# # pd.set_option('display.max_columns', None)
-# # pd.set_option('display.width', None)
-# # print(grouped)
+# %%
+# clamp UptakeFraction to 1
+raw_hdx['UptakeFraction'] = raw_hdx['UptakeFraction'].clip(upper=1)
 
-# # # %%
-# # # conver to HDXer format ie start, end, exposure_1, exposure_2 
+# %%
+# # print entire dataframe
+# pd.set_option('display.max_rows', None)
+# pd.set_option('display.max_columns', None)
+# pd.set_option('display.width', None)
+# print(raw_hdx)
 
-# # # change Start to ResStr and End to ResEnd
-# # hdx = grouped.rename(columns={'Start': 'ResStr', 'End': 'ResEnd'})
-
-# # # drop the exposure column
-# # hdx.columns.name = None
-
-# # print(hdx)
 
 
 # %%
@@ -198,12 +163,47 @@ import icecream as ic
 
 # %%
 
-# hdx = hdx.round(5)
-# hdx.to_csv(os.path.join("raw_data", "HOIP", 'HOIP_apo.dat'), sep=' ', index=False)
+
+# %%
+
+# pivot exposure and uptake fraction
+grouped = raw_hdx.pivot(index=['Start', 'End'], columns='Exposure', values='UptakeFraction').reset_index()
+
+# drop 
+grouped.head()
 
 
 # %%
-# segs = hdx[['ResStr', 'ResEnd']].drop_duplicates().sort_values(by=['ResStr', 'ResEnd']).reset_index(drop=True)
+
+# print entire dataframe
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+pd.set_option('display.width', None)
+print(grouped)
+
+# %%
+# conver to HDXer format ie start, end, exposure_1, exposure_2 
+
+# change Start to ResStr and End to ResEnd
+hdx = grouped.rename(columns={'Start': 'ResStr', 'End': 'ResEnd'})
+
+# drop the exposure column
+hdx.columns.name = None
+
+print(hdx)
+
+
+# %%
+
+
+# %%
+
+hdx = hdx.round(5)
+hdx.to_csv(os.path.join("raw_data", "HOIP", 'HOIP_apo.dat'), sep=' ', index=False)
+
+
+# %%
+segs = hdx[['ResStr', 'ResEnd']].drop_duplicates().sort_values(by=['ResStr', 'ResEnd']).reset_index(drop=True)
 
 
 # %%
@@ -281,10 +281,10 @@ def pre_process_main():
     sim_name = 'HOIP_apo_AF'
     os.listdir(BPTI_dir)
 
-    segs_name = "HOIP_APO_segs_trimmed.txt"
+    segs_name = "HOIP_APO_segs.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "HOIP_apo_clean_trimmed.dat"
+    hdx_name = "HOIP_apo_clean.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -323,7 +323,7 @@ def pre_process_main():
         
     # # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated_all_filtered.xtc"]
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.xtc"]
     # u = mda.Universe(top_path, *traj_paths)
 
     # small_traj_name = top_path.replace(".pdb","_small.xtc")
@@ -398,13 +398,12 @@ times = [0, 0.5, 5.0]
 times = [0.5, 5.0]
 
 
-VDX.run_sweep_cluster2_ensemble(system=test_name,
+VDX.run_sweep_methods(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
                                 n_reps=3,
-                                # denoms = np.array([10, 20, 100, 1000]),
                                 hdx_path=hdx_path,
-                                # split_modes=['R3'],
+                                split_modes=['R3'],
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,
                                 top_path=top_path)

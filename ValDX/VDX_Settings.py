@@ -31,8 +31,10 @@ class Settings:
         self.pre_process = True ### DoNot change this
         
         self.random_seed = 42
-        self.train_frac = 0.8
+        self.train_frac = 0.5
         self.replicates = 2
+        self.drop_centrality = True
+        self.hard_intersection = False
         self.HDX_method = "BestVendruscolo"
         self.logfile_name = ("calc_hdx_", ".log")
         self.segs_name = ("residue_segs_", ".txt")
@@ -60,6 +62,8 @@ class Settings:
 
         self.cluster_frac1 = 0.5
         self.cluster_size2 = 10
+
+
 
 
 

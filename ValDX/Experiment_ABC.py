@@ -186,7 +186,7 @@ class Experiment(ABC):
         if mode == 'r':
             print(f"Randomly splitting segments for {calc_name} with random seed {random_seed} and train fraction {train_frac}")
 
-            train_val_peps = splitter.random_split(drop_centrality=True)
+            train_val_peps = splitter.random_split(drop_centrality=self.settings.drop_centrality, hard_intersection=self.settings.hard_intersection)
 
             train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
 
@@ -196,7 +196,7 @@ class Experiment(ABC):
             print(f"Splitting segments for {calc_name} by N-terminal and C-terminal")
 
 
-            train_val_peps = splitter.sequence_split(drop_centrality=True)
+            train_val_peps = splitter.sequence_split(drop_centrality=self.settings.drop_centrality, hard_intersection=self.settings.hard_intersection)
 
             train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
 
@@ -214,7 +214,7 @@ class Experiment(ABC):
             print(f"Splitting segments for {calc_name} by redundancy")
             segs = segs.loc[segs['calc_name'] == seg_name].copy()
             no_segs = len(segs)
-            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
+            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr']+1, row['ResEnd'] + 1), axis=1)
             segs = segs.explode('ResNums')
             segs = segs.groupby(['ResNums','peptide']).size().reset_index(name='counts')
             # sort by counts
@@ -265,7 +265,7 @@ class Experiment(ABC):
             print(f"Splitting segments for {calc_name} by redundancy mk II")
             segs = self.segs.copy()
             segs = segs.loc[segs['calc_name'] == seg_name].copy()
-            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
+            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr']+1, row['ResEnd'] + 1), axis=1)
 
             # calculate centrality of peptides based on resnum overlap
             res = segs.explode(column=['ResNums']).copy()
@@ -346,7 +346,7 @@ class Experiment(ABC):
 
         elif mode == 'R3':
 
-            train_val_peps = splitter.redundant_sequence_split(drop_centrality=True)
+            train_val_peps = splitter.redundant_sequence_split(drop_centrality=self.settings.drop_centrality, hard_intersection=self.settings.hard_intersection)
 
             train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
 
@@ -413,7 +413,7 @@ class Experiment(ABC):
             # structural split between alpha and beta structures
             # first run DSSP on the structure
             segs = self.segs.copy()
-            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1).astype(int), axis=1)
+            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr']+1, row['ResEnd'] + 1).astype(int), axis=1)
             # set resnums to int
             segs['ResNums'] = segs['ResNums'].apply(lambda x: x.astype(int))
             res = segs.explode(column=['ResNums']).copy()
@@ -486,7 +486,7 @@ class Experiment(ABC):
         elif mode == 'X':
             print(f"Splitting segments for {calc_name} by spatial split across Xture (loops vs structured)")
             segs = self.segs.copy()
-            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
+            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr']+1, row['ResEnd'] + 1), axis=1)
             res = segs.explode(column=['ResNums']).copy()
             centrality = res.groupby('ResNums').value_counts().reset_index(name='centrality')
             centrality = centrality.sort_values(by=['centrality', 'ResNums'], ascending=[False, True])
@@ -545,7 +545,7 @@ class Experiment(ABC):
             print(f"Splitting segments for {calc_name} by spatial split across Xture (alpha vs beta) and redundancy")
             # redundancy aware split (R3) of all structured residues
             segs = self.segs.copy()
-            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
+            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr']+1, row['ResEnd'] + 1), axis=1)
             res = segs.explode(column=['ResNums']).copy()
             hdx_residues = res['ResNums'].unique().astype(int)
             print("HDX residues: ", hdx_residues)
@@ -626,7 +626,7 @@ class Experiment(ABC):
             print(f"Splitting segments for {calc_name} by spatial split: PCA1D")
             # spatial split by PCA1D
             segs = self.segs.copy()
-            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
+            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr']+1, row['ResEnd'] + 1), axis=1)
             res = segs.explode(column=['ResNums']).copy()
             res['ResNums'] = res['ResNums'].astype(int)
 
@@ -676,7 +676,7 @@ class Experiment(ABC):
             # spatial split by PCA1D and redundancy aware
                         # spatial split by PCA1D
             segs = self.segs.copy()
-            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr'], row['ResEnd'] + 1), axis=1)
+            segs['ResNums'] = segs.apply(lambda row: np.arange(row['ResStr']+1, row['ResEnd'] + 1), axis=1)
             res = segs.explode(column=['ResNums']).copy()
             res['ResNums'] = res['ResNums'].astype(int)
 
@@ -745,7 +745,7 @@ class Experiment(ABC):
             print(f"Splitting segments for {calc_name} by spatial split: random point in space")
             # # spatial split by random point in space ]
             top_path = self.paths.loc[self.paths['calc_name'] == calc_name]['top'].values[0]
-            train_val_peps = splitter.neighbours_split(top_path=top_path, drop_centrality=True)
+            train_val_peps = splitter.neighbours_split(top_path=top_path, drop_centrality=self.settings.drop_centrality, hard_intersection=self.settings.hard_intersection)
 
             train_segs, val_segs = splitter.expt_segments.create_train_val_segs(*train_val_peps)
 

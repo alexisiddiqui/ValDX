@@ -14,6 +14,7 @@ from sklearn.metrics import mean_squared_error
 from icecream import ic
 import time
 import datetime
+from scipy.stats import pearsonr
 
 from ValDX.helpful_funcs import *
 
@@ -1932,7 +1933,8 @@ def split_benchmark_plot_MSE_by_split_protein(df,
 
 def split_benchmark_plot_MSE_by_split(df,
                                       save=False,
-                                      save_dir=None):
+                                      save_dir=None,
+                                      title_str:str=None):
     ic("plotting benchmark MSE by split")
     plt.figure(figsize=(10, 6))  # Adjust the size of the figure here
 
@@ -1946,7 +1948,7 @@ def split_benchmark_plot_MSE_by_split(df,
 
     if save is True and save_dir is not None:
         # save plot
-        save_name = "plot_MSE_by_class.png"
+        save_name = f"{title_str}_plot_MSE_by_class.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path, format='png', dpi=300)
     else:
@@ -2060,7 +2062,9 @@ def split_benchmark_BV_boxplot_by_protein(df,
 
 def split_benchmark_BV_boxplot_by_split_type(df,
                                         save=False,
-                                        save_dir=None):
+                                        save_dir=None,
+                                        title_str:str=None):
+
     ic("plotting benchmark BV boxplot by split type")
         # Constants
     bc, bh = 0.35, 2.0
@@ -2088,7 +2092,7 @@ def split_benchmark_BV_boxplot_by_split_type(df,
 
     if save is True and save_dir is not None:
             # save plot
-            save_name = "plot_BV_by_split_mode.png"
+            save_name = f"{title_str}_plot_BV_by_split_mode.png"
             save_path = os.path.join(save_dir, save_name)
             plt.savefig(save_path, format='png', dpi=300)
     else:
@@ -2180,6 +2184,11 @@ def plot_cluster_weights(projected_data, cluster_labels, new_cluster_centers, ne
     axs[0].set_title(f"PCA of CA atoms from Trajectory {title_str}")
     axs[0].scatter(projected_data[:, 0], projected_data[:, 1], c=cluster_labels, s=50, cmap='viridis')
 
+    if len(new_cluster_centers) <= 25:
+        # annotate each cluster_center with its cluster number
+        for i, txt in enumerate(new_cluster_weights):
+            axs[0].annotate(i, (new_cluster_centers[i, 0], new_cluster_centers[i, 1]), fontsize=8, color='red')
+        
     # Plot the second scatter plot (PCA of Cluster Centers from Clustered Trajectory)
     axs[1].set_title(f"PCA of Cluster Centers from Clustered Trajectory {title_str}")
     axs[1].scatter(new_cluster_centers[:, 0], new_cluster_centers[:, 1], c='red', s=100*new_cluster_weights, alpha=0.5)
@@ -2208,9 +2217,10 @@ def plot_cluster_rmsd_intrares(rmsd, intra_res, new_cluster_centers, new_cluster
     
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))  # Create a figure with 1 row and 2 columns for subplots
 
+
     # Plot the first scatter plot (PCA of CA atoms from Clustered Trajectory)
     axs[0].set_title(f"RMSD and Intra Res Dists of CA atoms from Trajectory {title_str}")
-    axs[0].scatter(rmsd, intra_res, c='red', s=100*new_cluster_weights, alpha=0.5)
+    axs[0].scatter(x=rmsd, y=intra_res, c='red', s=100*new_cluster_weights, alpha=0.5)
 
     # Plot the second scatter plot (PCA of Cluster Centers from Clustered Trajectory)
     axs[1].set_title(f"PCA of Cluster Centers from Clustered Trajectory {title_str}")
@@ -2220,6 +2230,123 @@ def plot_cluster_rmsd_intrares(rmsd, intra_res, new_cluster_centers, new_cluster
     if save is True and save_dir is not None:
         time= datetime.datetime.now().strftime("%Y%m%d-%H%M%S.%f")[:-3]
         save_name = f"{title_str}_intrares_PCA_{time}.png"
+        save_path = os.path.join(save_dir, save_name)        
+        plt.savefig(save_path, format='png', dpi=300)
+    else:
+        plt.show()
+        plt.close()
+
+
+# import numpy as np
+# from scipy.spatial.distance import pdist, squareform
+# from MDAnalysis.analysis.align import AlignTraj
+# import seaborn as sns
+# import matplotlib.pyplot as plt
+def calc_intra_residue_cross_correlation(universe, frame_indexes, residues):
+    sel = "protein and name CA"
+    if residues is not None:
+        resi_sel = " or ".join([f" resid {res}" for res in residues])
+        sel = sel + f" and ({resi_sel})"
+
+    if frame_indexes is None:
+        frame_indexes = list(range(len(universe.trajectory)))
+
+
+    ref = universe.select_atoms(sel)
+
+    alignment = AlignTraj(universe, ref, select=sel, in_memory=True).run()
+
+    n_frames = len(frame_indexes)
+    n_residues = len(ref.residues)
+
+    dist_matrices = []
+    for frame_index in frame_indexes:
+        universe.trajectory[frame_index]
+        coords = ref.positions
+        dist_matrix = squareform(pdist(coords))
+        dist_matrices.append(dist_matrix)
+
+    cross_correlation_matrix = np.zeros((n_frames, n_frames))
+    for i in range(n_frames):
+        for j in range(n_frames):
+            cross_correlation_matrix[i, j] = pearsonr(dist_matrices[i].flatten(), dist_matrices[j].flatten())[0]
+
+    return cross_correlation_matrix
+
+def calc_weights_matrix(weights):
+
+    n_frames = len(weights)
+
+    weights_matrix = np.zeros((n_frames, n_frames))
+    for i in range(n_frames):
+        for j in range(n_frames):
+            weights_ij = np.outer(weights[i], weights[j])[0][0]
+            sum_weights = np.sum([weights[i], weights[j]])
+            weights_matrix[i, j] = (float(weights_ij)/sum_weights) 
+
+    return weights_matrix
+
+def calc_weighted_intra_residue_cross_correlation(cross_correlation_matrix, weights):
+    n_frames = len(weights)
+    dist_matrices = []
+
+    weighted_cross_correlation_matrix = np.zeros((n_frames, n_frames))
+    for i in range(n_frames):
+        for j in range(n_frames):
+            weights_ij = np.outer(weights[i], weights[j])[0][0]
+            sum_weights = np.sum([weights[i], weights[j]])
+            weighted_cross_correlation_matrix[i, j] =  pearsonr(cross_correlation_matrix[i].flatten(), cross_correlation_matrix[j].flatten())[0]/(float(weights_ij)/sum_weights) 
+
+    return weighted_cross_correlation_matrix
+
+
+
+
+
+def plot_cross_correlation_matrices(universe, weights, residues, title_str, frame_indexes=None, save_dir=None):
+    
+    if frame_indexes is not None:
+        assert len(weights) == len(frame_indexes), f"Number of weights {len(weights)} must match number of frame indexes {len(frame_indexes)}"
+
+    # normalise weights to sum to the number of frames
+    weights =  (weights/np.sum(weights))*len(weights)
+
+    cross_correlation_matrix = calc_intra_residue_cross_correlation(universe, frame_indexes, residues)
+    weights_matrix = calc_weights_matrix(weights)
+    weighted_cross_correlation_matrix = calc_weighted_intra_residue_cross_correlation(cross_correlation_matrix, weights)
+
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
+
+    sns.heatmap(cross_correlation_matrix, cmap="magma", vmin=-1, vmax=1, annot=True, fmt=".1f", square=True,
+                linewidths=0.5, cbar_kws={"shrink": 0.8}, ax=ax1)
+    ax1.set_title(f"{title_str} - Cross Correlation Matrix", fontsize=11)
+    ax1.set_xlabel("Frame Index", fontsize=12)
+    ax1.set_ylabel("Frame Index", fontsize=12)
+    ax1.set_xticklabels(ax1.get_xticklabels(), rotation=45, ha='right', fontsize=10)
+    ax1.set_yticklabels(ax1.get_yticklabels(), rotation=0, fontsize=10)
+
+    sns.heatmap(weights_matrix, cmap="magma", annot=True, fmt=".1f", square=True,
+                linewidths=0.5, cbar_kws={"shrink": 0.8}, ax=ax2)
+    ax2.set_title(f"{title_str} - Weights Matrix", fontsize=11)
+    ax2.set_xlabel("Frame Index", fontsize=12)
+    ax2.set_ylabel("Frame Index", fontsize=12)
+    ax2.set_xticklabels(ax2.get_xticklabels(), rotation=45, ha='right', fontsize=10)
+    ax2.set_yticklabels(ax2.get_yticklabels(), rotation=0, fontsize=10)
+
+
+    sns.heatmap(weighted_cross_correlation_matrix, cmap="magma", annot=True, fmt=".1f", square=True,
+                linewidths=0.5, cbar_kws={"shrink": 0.8}, ax=ax3)
+    ax3.set_title(f"{title_str} - Weighted Cross Correlation Matrix", fontsize=11)
+    ax3.set_xlabel("Frame Index", fontsize=12)
+    ax3.set_ylabel("Frame Index", fontsize=12)
+    ax3.set_xticklabels(ax3.get_xticklabels(), rotation=45, ha='right', fontsize=10)
+    ax3.set_yticklabels(ax3.get_yticklabels(), rotation=0, fontsize=10)
+
+    plt.tight_layout()
+
+    if save_dir is not None:
+        time= datetime.datetime.now().strftime("%Y%m%d-%H%M%S.%f")[:-3]
+        save_name = f"{title_str}_cross_correlation_matrices{time}.png"
         save_path = os.path.join(save_dir, save_name)        
         plt.savefig(save_path, format='png', dpi=300)
     else:

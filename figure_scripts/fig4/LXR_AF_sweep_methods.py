@@ -243,7 +243,7 @@ def pre_process_main():
 
     # # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/LXRalpha/LXRalpha_APO/LXRa200_1_af_sample_127_10000_protonated_all_filtered.xtc"]
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/LXRalpha/LXRalpha_APO/LXRa200_1_af_sample_127_10000_protonated.xtc"]
 
 
     # print(traj_paths)
@@ -358,12 +358,11 @@ times = [0.5, 10.0]
 
 
 
-VDX.run_sweep_cluster2_ensemble(system=test_name,
+VDX.run_sweep_methods(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
                                 n_reps=3,
-                                # denoms = np.array([10, 20, 100, 1000]),
-                                # split_modes=['R3'],
+                                split_modes=['R3'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,

@@ -34,10 +34,17 @@ def conda_to_env_dict(env_name):
     If the environment is not found, returns None.
     """
     # Run the command 'conda env list' and get the output
+    
     try:
         result = subprocess.run(['conda', 'env', 'list'], stdout=subprocess.PIPE)
     except:
-        result = subprocess.run(['conda', 'env', 'list'], stdout=subprocess.PIPE,shell=True)
+        print("Conda not found, trying to find conda in path")
+        test_command = """
+        source ~/.bashrc ;
+        conda activate HDXER_ENV ;
+        conda env list
+        """
+        result = subprocess.run(test_command, shell=True, stdout=subprocess.PIPE)
 
     # Decode result to string and split lines
     envs = result.stdout.decode().splitlines()
@@ -110,6 +117,7 @@ def conda_to_env_dict(env_name):
 #     else:
 #         print("Incorrect argument given. Please choose one of the following: 'segs' 'expt' 'pred' 'reweighted'")
 #     return df
+
 
 
 def segs_to_df(path: str, names=['ResStr', 'ResEnd']):
@@ -1098,36 +1106,53 @@ def run_calc_hdx(args:dict):
 
 
 
-    python = "python"
-    python = "conda run -n HDXER_ENV python"
     times_as_str_list = [str(time) for time in times]
     times_as_str = ' '.join(times_as_str_list)
 
 
         ### how do we add times
-    calc_hdx_command = [python,
-                        calc_hdx,
-                        "-t", *trajs,
-                        "-p", top,
-                        "-m", hdx_method,
-                        "-log", log,
-                        "-out", out_prefix, 
-                        "-seg", segs,
-                        "-mopt", mopt,
-                        "--times", times_as_str,
-                        "-str", stride]
                         
-    calc_hdx_command  =  " ".join(calc_hdx_command)
     # calc_hdx_command.extend(["-t", traj] for traj in trajs)
-    print(calc_hdx_command)
-    # print(" ".join(calc_hdx_command))
+    # print(" ".join(calc_hdx_command)) 
     env_path = conda_to_env_dict(HDXer_env)
-
-    subprocess.run(calc_hdx_command, 
-                    env=env_path, 
-                    shell=True,
-                    check=True,
-                    cwd=out_dir)
+    try:
+        python = "conda run -n HDXER_ENV python"
+        calc_hdx_command = [python,
+                            calc_hdx,
+                            "-t", *trajs,
+                            "-p", top,
+                            "-m", hdx_method,
+                            "-log", log,
+                            "-out", out_prefix, 
+                            "-seg", segs,
+                            "-mopt", mopt,
+                            "--times", times_as_str,
+                            "-str", stride]
+        print(calc_hdx_command)
+        subprocess.run(" ".join(calc_hdx_command), 
+                        env=env_path, 
+                        shell=True,
+                        check=True,
+                        cwd=out_dir)
+    except:
+        python = "source ~/.bashrc ; conda activate HDXER_ENV ; python"
+        calc_hdx_command = [python,
+                            calc_hdx,
+                            "-t", *trajs,
+                            "-p", top,
+                            "-m", hdx_method,
+                            "-log", log,
+                            "-out", out_prefix, 
+                            "-seg", segs,
+                            "-mopt", mopt,
+                            "--times", times_as_str,
+                            "-str", stride]
+        print(calc_hdx_command)
+        subprocess.run(" ".join(calc_hdx_command), 
+                        env=env_path, 
+                        shell=True,
+                        check=True,
+                        cwd=out_dir)
 
 
     df = dfracs_to_df(out_prefix + "Segment_average_fractions.dat", 

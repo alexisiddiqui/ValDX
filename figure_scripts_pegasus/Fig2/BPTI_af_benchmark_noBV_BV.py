@@ -1,11 +1,10 @@
 # %%
 ### ValDXer testing
 import os
-# os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
-os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
+os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
 
 import sys
-sys.path.append("/data/localhost/not-backed-up/hussain/ValDX")
+sys.path.append("/home/alexi/Documents/ValDX/")
 
 
 from ValDX.ValidationDX import ValDXer
@@ -63,7 +62,6 @@ def pre_process_main_BPTI():
 
     BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HDXer_tutorial/BPTI"
     BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
-    BPTI_dir = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI"
     # BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
     expt_dir = os.path.join(BPTI_dir, "BPTI_expt_data")
 
@@ -115,9 +113,7 @@ def pre_process_main_BPTI():
     traj_paths = [small_traj_path]
 
     top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
-    top_path =  "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
     traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
-    traj_paths = ["/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
 
 
     # top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
@@ -131,7 +127,7 @@ def pre_process_main_BPTI():
         for ts in u.trajectory[:1]:
             W.write(u.atoms)
             W.write(u.atoms)
-            break
+            # break
     print(traj_paths)
     traj_paths = [small_traj_path]
     return hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test_name
@@ -153,16 +149,16 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 
 # run no optimisation
 
-combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
-                                                                        times=[0.167, 1, 10, 120],
-                                                                        expt_name=expt_name,
-                                                                        n_reps=4,
+# combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
+#                                                                         times=[0.167, 1, 10, 120],
+#                                                                         expt_name=expt_name,
+#                                                                         n_reps=4,
 
-                                                                        BV=False,
-                                                                        hdx_path=hdx_path,
-                                                                        segs_path=segs_path,
-                                                                        traj_paths=traj_paths,
-                                                                        top_path=top_path)
+#                                                                         optimise=False,
+#                                                                         hdx_path=hdx_path,
+#                                                                         segs_path=segs_path,
+#                                                                         traj_paths=traj_paths,
+#                                                                         top_path=top_path)
 
                                                                         
 
@@ -171,9 +167,9 @@ combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=te
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=[0.167, 1, 10, 120],
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
+                                                                        n_reps=2,
                                                                         RW=False,
-                                                                        BV=True,
+                                                                        optimise=True,
                                                                         hdx_path=hdx_path,
                                                                         segs_path=segs_path,
                                                                         traj_paths=traj_paths,

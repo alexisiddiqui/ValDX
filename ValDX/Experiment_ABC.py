@@ -117,7 +117,8 @@ class Experiment(ABC):
         print("calc_hdx")
         print(calc_hdx)
         test_HDX_command = f"""
-        conda activate HDXER_ENV
+        source ~/.bashrc ;
+        conda activate HDXER_ENV ;
         python {calc_hdx} -h
         """
         # print(" ".join(test_HDX_command))

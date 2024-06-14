@@ -2,10 +2,10 @@
 ### ValDXer testing
 import os
 # os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
-os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
+os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
 
 import sys
-sys.path.append("/data/localhost/not-backed-up/hussain/ValDX")
+sys.path.append("/home/alexi/Documents/ValDX/")
 
 
 from ValDX.ValidationDX import ValDXer
@@ -63,16 +63,16 @@ def pre_process_main_BPTI():
 
     BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HDXer_tutorial/BPTI"
     BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
-    BPTI_dir = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI"
+    # BPTI_dir = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI"
     # BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
     expt_dir = os.path.join(BPTI_dir, "BPTI_expt_data")
 
     os.listdir(expt_dir)
 
-    segs_name = "BPTI_residue_segs.txt"
+    segs_name = "BPTI_residue_segs_trimmed.txt"
     segs_path = os.path.join(expt_dir, segs_name)
 
-    hdx_name = "BPTI_expt_dfracs.dat"
+    hdx_name = "BPTI_expt_dfracs_clean_trimmed.dat"
     hdx_path = os.path.join(expt_dir, hdx_name)
     print(hdx_path)
 
@@ -115,9 +115,9 @@ def pre_process_main_BPTI():
     traj_paths = [small_traj_path]
 
     top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
-    top_path =  "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
+    # top_path =  "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
     traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
-    traj_paths = ["/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
+    # traj_paths = ["/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
 
 
     # top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
@@ -154,7 +154,7 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 # run no optimisation
 
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
-                                                                        times=[0.167, 1, 10, 120],
+                                                                        times=[0.167, 1, 10],
                                                                         expt_name=expt_name,
                                                                         n_reps=4,
 
@@ -169,7 +169,7 @@ combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=te
 # run BV optimisation
 
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
-                                                                        times=[0.167, 1, 10, 120],
+                                                                        times=[0.167, 1, 10],
                                                                         expt_name=expt_name,
                                                                         n_reps=4,
                                                                         RW=False,

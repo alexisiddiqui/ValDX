@@ -339,15 +339,15 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
            
 
 times = [30, 240, 1800, 14400]
-times = [0.5,	4.0,	30.0, 120.0]
+times = [0.5,	4.0,	30.0]
 
 # %%
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=times,
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
+                                                                        n_reps=10,
 
-                                                                        optimise=False,
+                                                                        BV=False,
                                                                         hdx_path=hdx_path,
                                                                         segs_path=segs_path,
                                                                         traj_paths=traj_paths,
@@ -360,9 +360,9 @@ combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=te
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=times,
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
+                                                                        n_reps=10,
                                                                         RW=False,
-                                                                        optimise=True,
+                                                                        BV=True,
                                                                         hdx_path=hdx_path,
                                                                         segs_path=segs_path,
                                                                         traj_paths=traj_paths,

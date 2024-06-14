@@ -281,10 +281,10 @@ def pre_process_main():
     sim_name = 'HOIP_apo_AF'
     os.listdir(BPTI_dir)
 
-    segs_name = "HOIP_APO_segs.txt"
+    segs_name = "HOIP_APO_segs_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "HOIP_apo_clean.dat"
+    hdx_name = "HOIP_apo_clean_trimmed.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -348,7 +348,7 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 #                                                                     times=[0, 0.5, 5.0],
 #                                                                     expt_name=expt_name,
 #                                                                     n_reps=1,
-#                                                                     optimise=False,
+#                                                                     BV=False,
 #                                                                     # split_modes=['r'],
 #                                                                     hdx_path=hdx_path,
 #                                                                     segs_path=segs_path,
@@ -376,9 +376,9 @@ times = [0.5, 5.0]
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=times,
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
+                                                                        n_reps=10,
 
-                                                                        optimise=False,
+                                                                        BV=False,
                                                                         hdx_path=hdx_path,
                                                                         segs_path=segs_path,
                                                                         traj_paths=traj_paths,
@@ -390,9 +390,9 @@ combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=te
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=times,
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
+                                                                        n_reps=10,
                                                                         RW=False,
-                                                                        optimise=True,
+                                                                        BV=True,
                                                                         hdx_path=hdx_path,
                                                                         segs_path=segs_path,
                                                                         traj_paths=traj_paths,

@@ -191,10 +191,10 @@ def pre_process_main():
 
     os.listdir(BPTI_dir)
 
-    segs_name = "LXRa_APO_segs200.txt"
+    segs_name = "LXRa_APO_segs200_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "LXRa_APO200.dat"
+    hdx_name = "LXRa_APO200_trimmed.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -333,9 +333,9 @@ times = [0.5, 10.0]
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=times,
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
+                                                                        n_reps=10,
 
-                                                                        optimise=False,
+                                                                        BV=False,
                                                                         hdx_path=hdx_path,
                                                                         segs_path=segs_path,
                                                                         traj_paths=traj_paths,
@@ -348,9 +348,9 @@ combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=te
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=times,
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
+                                                                        n_reps=10,
                                                                         RW=False,
-                                                                        optimise=True,
+                                                                        BV=True,
                                                                         hdx_path=hdx_path,
                                                                         segs_path=segs_path,
                                                                         traj_paths=traj_paths,

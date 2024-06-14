@@ -2252,7 +2252,7 @@ class ValDXer(Experiment):
                                         expt_name=expt_name,
                                         n_reps=n_reps,
                                         hdx_path=hdx_path,
-                                        split_modes=split_modes,
+                                        split_modes=[split_modes],
                                         # optimise=True,
                                         RW=True,
                                         segs_path=segs_path,
@@ -2282,6 +2282,57 @@ class ValDXer(Experiment):
                                     new_cluster_weights=avg_weights,
                                     save=self.settings.save_figs, save_dir=self.plot_dir,
                                     title_str=f"sweep {str(frac)} bench_{split}")
+
+
+            data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_sweep_{str(frac)}",
+                                        times=times,
+                                        expt_name=expt_name,
+                                        n_reps=n_reps,
+                                        hdx_path=hdx_path,
+                                        split_modes=['R3'],
+                                        BV=False,
+                                        RW=True,
+                                        segs_path=segs_path,
+                                        traj_paths=[clustered_traj_path],
+                                        top_path=top_path)
+            
+            split = "R3"
+            weights_df = data["weights"]
+            print(data["weights"].columns)
+            # select the split_type
+            split_df = weights_df[weights_df["split_type"] == split]
+            weights_vals = split_df["weights"].values
+            weights_vals = np.array([np.array(w) for w in weights_vals])
+            print(weights_vals)
+            # average weights
+            avg_weights = np.mean(weights_vals, axis=0)
+            
+            avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
+
+            # _reclustered_centers = reclustered_centers[recluster_frames]
+            assert len(avg_weights) == len(cluster_centers), f"Length of weights: {len(avg_weights)} != {len(cluster_centers)}"
+
+            plot_cluster_weights(projected_data=projected,
+                                new_cluster_centers=cluster_centers,
+                                cluster_labels=cluster_labels,
+                                new_cluster_weights=avg_weights,
+                                save=self.settings.save_figs, save_dir=self.plot_dir,
+                                title_str=f"sweep {str(frac)} bench_{split}")
+
+                
+            _ = self.run_benchmark_ensemble(system=system+f"_sweep_{str(frac)}_{split}",
+                            times=times,
+                            expt_name=expt_name,
+                            n_reps=n_reps,
+                            hdx_path=hdx_path,
+                            split_modes=split_modes,
+                            RW=False,
+                            BV=True,
+                            weights=avg_weights,
+                            segs_path=segs_path,
+                            traj_paths=[clustered_traj_path],
+                            top_path=top_path)
+
 
 
 

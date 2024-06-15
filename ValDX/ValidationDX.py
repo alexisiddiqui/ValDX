@@ -411,7 +411,8 @@ class ValDXer(Experiment):
                                 expt_name: str=None,
                                 predictHDX_dirs: list=None,
                                 gamma_range: tuple=None,
-                                weights: np.ndarray=None):
+                                weights: np.ndarray=None,
+                                bc_bh: tuple=(0.35, 2.0)):
         
         if self.settings.RW_do_reweighting is False:
             gamma_range = (3, 4)
@@ -430,7 +431,8 @@ class ValDXer(Experiment):
                                                 expt_name=expt_name,
                                                 predictHDX_dirs=predictHDX_dirs,
                                                 gamma_range=gamma_range,
-                                                weights=weights)
+                                                weights=weights,
+                                                bc_bh=bc_bh)
         print(args_list)
         opt_gammas = []
         reweighted_dfs = []
@@ -522,7 +524,9 @@ class ValDXer(Experiment):
                                 expt_name: str=None,
                                 predictHDX_dirs: list=None,
                                 gamma_range: tuple=None,
-                                weights: List[np.ndarray]=None):
+                                weights: List[np.ndarray]=None,
+                                bc_bh: tuple=(0.35, 2.0)):
+        raise NotImplementedError("This Reweighting validation data method not implemented")
         gamma_range = (3, 4)
         exp_range = [0]
         if calc_name is None:
@@ -666,7 +670,8 @@ class ValDXer(Experiment):
                                 # predictHDX_dir:str=None,
                                 gamma_range:tuple=None,
                                 exp_range:list=None,
-                                weights: np.ndarray=None):
+                                weights: np.ndarray=None,
+                                bc_bh:tuple=(0.35, 2.0)):
         
         if gamma_range is None and train:
             gamma_range = self.settings.gamma_range
@@ -700,6 +705,7 @@ class ValDXer(Experiment):
                                                                 calc_name=calc_name,
                                                                 expt_name=expt_name,
                                                                 weights=weights,
+                                                                bc_bh=bc_bh,
                                                                 exp_paths=exp_paths,
                                                                 predictHDX_dirs=predictHDX_dirs)
 
@@ -714,6 +720,7 @@ class ValDXer(Experiment):
                                                                 calc_name=calc_name,
                                                                 expt_name=expt_name,
                                                                 weights=weights,
+                                                                bc_bh=bc_bh,
                                                                 exp_paths=exp_paths,
                                                                 predictHDX_dirs=predictHDX_dirs)
         print(base_args_list)
@@ -1124,6 +1131,7 @@ class ValDXer(Experiment):
                 n_reps: int=None, 
                 predictHDX_dir: str=None,
                 weights: np.ndarray=None,
+                bc_bh: tuple=(0.35, 2.0),
                 random_seeds: list=None):
         print("Running VDX loop")
 
@@ -1172,7 +1180,8 @@ class ValDXer(Experiment):
                                                                             calc_name=calc_name,
                                                                             expt_name=expt_name,
                                                                             predictHDX_dirs=predictHDX_dirs,
-                                                                            weights=weights)
+                                                                            weights=weights,
+                                                                            bc_bh=bc_bh)
 
 
 
@@ -1267,6 +1276,7 @@ class ValDXer(Experiment):
                                 segs_path: str=None,
                                 traj_paths: list=None,
                                 weights: np.array=None,
+                                bc_bh: tuple=(0.35, 2.0),
                                 RW: bool=False,
                                 BV: bool=False,
                                 top_path: str=None
@@ -1352,6 +1362,7 @@ class ValDXer(Experiment):
 
             _ = _VDX.run_VDX(calc_name=system,
                              weights=weights,
+                             bc_bh=bc_bh,
                             expt_name=expt_name,
                             random_seeds=random_seeds)
             # raw_run_outputs[split_name] = run_outputs # we dont need the raw outputs
@@ -2317,7 +2328,7 @@ class ValDXer(Experiment):
                                 cluster_labels=cluster_labels,
                                 new_cluster_weights=avg_weights,
                                 save=self.settings.save_figs, save_dir=self.plot_dir,
-                                title_str=f"sweep {str(frac)} bench_{split}")
+                                title_str=f"sweep {str(frac)}%, bench_{split}")
 
                 
             _ = self.run_benchmark_ensemble(system=system+f"_sweep_{str(frac)}_{split}",
@@ -2536,18 +2547,22 @@ class ValDXer(Experiment):
    
     def run_sweep_methods(self,
                         system: str=None,
-                        n_clusters: int=500,
+                        n_clusters: int=1000,
                         times: np.array=None,
                         expt_name: str=None,
                         methods: List = None,
                         n_reps: int=None,
-                        split_modes: list=['R3', 's', 'r', 'Sp'],
+                        split_modes: list=['R3'],
                         hdx_path: str=None,
                         segs_path: str=None,
                         traj_paths: list=None,
                         top_path: str=None
                         ):
         
+
+        _bench_split_modes=['R3', 's', 'r', 'Sp']
+
+
         analysis_name="Sweep-Methods"
         settings = deepcopy(self.settings)
 
@@ -2560,12 +2575,13 @@ class ValDXer(Experiment):
             # create methods for no-optimise, BV, RW, BV+RW, RW-BV
             # Bools (BV, RW)
             methods = [(False,False),
-                        (True,False),
+                        [(True,False),
+                        (False,True)],
                         [(False,True),
                         (True,False)],
                         (True,True)]
             
-            method_names = ["NoOpt", "BV", "RW-BV", "BV+RW"]
+            method_names = ["NoOpt", "BV-RW", "RW-BV", "BV+RW"]
                        
 
         print("Methods (BV,RW): ", methods)
@@ -2609,8 +2625,8 @@ class ValDXer(Experiment):
 
         assert clustered_universe.trajectory.n_frames == len(cluster_frames)
 
-        rmsd = calculate_rmsd(universe=clustered_universe, residues=residues)
-        intra_res_dists = calc_intra_residue_dist(universe=clustered_universe, residues=residues)
+        # rmsd = calculate_rmsd(universe=clustered_universe, residues=residues)
+        # intra_res_dists = calc_intra_residue_dist(universe=clustered_universe, residues=residues)
 
         for step_method, method_name in zip(methods, method_names):
 
@@ -2625,8 +2641,9 @@ class ValDXer(Experiment):
 
                 if idx == 0:
                     _weights = None
+                    _BV = (0.35, 2.0)
 
-                data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}",
+                data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}_fit",
                                                     times=times,
                                                     expt_name=expt_name,
                                                     n_reps=n_reps,
@@ -2634,6 +2651,7 @@ class ValDXer(Experiment):
                                                     split_modes=split_modes,
                                                     BV=BV,
                                                     RW=RW,
+                                                    bc_bh=_BV,
                                                     weights=_weights,
                                                     segs_path=segs_path,
                                                     traj_paths=[clustered_traj_path],
@@ -2653,8 +2671,25 @@ class ValDXer(Experiment):
                     avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
                     print(avg_weights.shape)
 
-                    if jdx == 0:
-                        _weights = avg_weights                        
+                    BV_df = data["BV_constants"]
+                    print(BV_df.columns)
+
+                    split_BV_df = BV_df[BV_df["split_type"] == split]
+
+                    Bc_vals = split_BV_df["Bc"].values
+                    avg_Bc = np.mean(Bc_vals)
+
+                    Bh_vals = split_BV_df["Bh"].values
+                    avg_Bh = np.mean(Bh_vals)
+
+                    avg_bcbh_params = (avg_Bc, avg_Bh)
+
+                    print(avg_bcbh_params)
+ 
+                    if idx == 0:
+                        _weights = avg_weights
+                        _BV = avg_bcbh_params    
+
 
                     plot_cluster_weights(projected_data=projected[cluster_frames],
                                         new_cluster_centers=cluster_centers,
@@ -2662,6 +2697,21 @@ class ValDXer(Experiment):
                                         new_cluster_weights=avg_weights,
                                         save=self.settings.save_figs, save_dir=self.plot_dir,
                                         title_str=f"method {str(n_clusters)} {method_name}{str(idx)}_{split}")
+                    
+                    if not (BV and RW) or (BV and RW) or (idx != 0):
+                        _ = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}_bench_{split}",
+                                        times=times,
+                                        expt_name=expt_name,
+                                        n_reps=n_reps,
+                                        hdx_path=hdx_path,
+                                        split_modes=_bench_split_modes,
+                                        RW=False,
+                                        BV=True,
+                                        weights=avg_weights,
+                                        bc_bh=avg_bcbh_params,
+                                        segs_path=segs_path,
+                                        traj_paths=[clustered_traj_path],
+                                        top_path=top_path)
                     
 
 

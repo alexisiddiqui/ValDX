@@ -156,7 +156,7 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=[0.167, 1, 10],
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
+                                                                        n_reps=10,
 
                                                                         BV=False,
                                                                         hdx_path=hdx_path,
@@ -171,7 +171,7 @@ combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=te
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=[0.167, 1, 10],
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
+                                                                        n_reps=10,
                                                                         RW=False,
                                                                         BV=True,
                                                                         hdx_path=hdx_path,

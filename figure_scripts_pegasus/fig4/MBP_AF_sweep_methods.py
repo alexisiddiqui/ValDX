@@ -312,7 +312,7 @@ def pre_process_main():
 
     # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/MBP/MBP_wt_1_af_sample_127_10000_protonated.xtc"]
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/MBP/MBP_wt_1_af_sample_127_10000_protonated_all_filtered.xtc"]
 
     # print(traj_paths)
     # u = mda.Universe(top_path, *traj_paths)
@@ -399,6 +399,7 @@ VDX.run_sweep_methods(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
                                 n_reps=3,
+                                n_clusters=100,
                                 split_modes=['R3'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,

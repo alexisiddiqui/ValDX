@@ -434,7 +434,10 @@ class PeptideSplitter():
         # TODO use kmeans of the peptide centrality to split the peptides
             train_peps, val_peps = drop_intersection(expt_segs, train_peps, val_peps)
 
+
         return train_peps, val_peps
+        
+
 
     def drop_centrality(self, split_fraction: float=0.9, drop: bool=True):
         if drop:
@@ -446,6 +449,29 @@ class PeptideSplitter():
             expt_segments = self.expt_segments.segs_df.copy()
 
         return expt_segments
+    
+    def validate_split(self, train_peps: np.ndarray, val_peps: np.ndarray, lower_min_pep_threshold: float=0.1):
+        """Check that the training and validation peptides are valid
+        valid criteria:
+        - train and val peptides contain above the minimum threshold of peptides
+        - train and val peptides are unique
+
+        """
+
+        if any([
+            len(train_peps) < lower_min_pep_threshold * len(self.expt_segments.pep_nums),
+            len(val_peps) < lower_min_pep_threshold * len(self.expt_segments.pep_nums),
+            len(np.intersect1d(train_peps, val_peps)) > 0
+        ]):
+            # change the random seed
+            print("Split not valid")
+
+            randomseed = self.random_seed + 1
+            print(f"New random seed: {randomseed}")
+            np.random.seed(randomseed)
+            return False
+
+        return True
 
     def random_split(self, 
                      train_frac: float=None,
@@ -509,7 +535,15 @@ class PeptideSplitter():
         train_peps, val_peps = peps
 
         if drop:
-            return drop_intersection(new_expt_segs,train_peps, val_peps, hard=hard_intersection)
+            train_peps, val_peps = drop_intersection(new_expt_segs,train_peps, val_peps, hard=hard_intersection)
+            if self.validate_split(train_peps, val_peps):
+                return train_peps, val_peps
+            else:
+                print("Split not valid, recalculating")
+                return self.sequence_split(train_frac=train_frac,
+                                           drop_centrality=drop_centrality,
+                                           drop=drop,
+                                           hard_intersection=hard_intersection)
         else:
             print(f"Train peptides: {train_peps}")
             print(f"Val peptides: {val_peps}")
@@ -549,8 +583,14 @@ class PeptideSplitter():
         train_peps = new_expt_segs.pep_nums[train_indexes]
         val_peps = new_expt_segs.pep_nums[~np.isin(new_expt_segs.pep_nums, train_peps)]
 
-        return drop_intersection(new_expt_segs,train_peps, val_peps, hard=hard_intersection)
-
+        train_peps, val_peps =  drop_intersection(new_expt_segs,train_peps, val_peps, hard=hard_intersection)
+        if self.validate_split(train_peps, val_peps):
+            return train_peps, val_peps
+        else:
+            print("Split not valid, recalculating")
+            return self.redundant_sequence_split(train_frac=train_frac,
+                                                 drop_centrality=drop_centrality,
+                                                 hard_intersection=hard_intersection)
 
     def structural_split(self,
                          top_path:str,
@@ -643,8 +683,15 @@ class PeptideSplitter():
         val_peps = new_expt_segs.df_remove_residues(train_residues)["peptide"].to_numpy()
 
 
-        return drop_intersection(new_expt_segs, train_peps, val_peps, hard=hard_intersection)
-
+        train_peps, val_peps = drop_intersection(new_expt_segs, train_peps, val_peps, hard=hard_intersection)
+        if self.validate_split(train_peps, val_peps):
+            return train_peps, val_peps
+        else:
+            print("Split not valid, recalculating")
+            return self.neighbours_split(top_path=top_path,
+                                        train_frac=train_frac,
+                                        drop_centrality=drop_centrality,
+                                        hard_intersection=hard_intersection)
 
     def spatial_split(self,
                     top_path: str,
@@ -720,8 +767,17 @@ class PeptideSplitter():
             val_peptides = new_expt_segs.df_remove_residues(train_residues)["peptide"].to_numpy()
 
 
-        return drop_intersection(new_expt_segs,train_peptides, val_peptides, hard=hard_intersection)
-    
+        train_peps, val_peps = drop_intersection(new_expt_segs,train_peptides, val_peptides, hard=hard_intersection)
+        if self.validate_split(train_peps, val_peps):
+            return train_peps, val_peps
+        else:
+            print("Split not valid, recalculating")
+            return self.spatial_split(top_path=top_path,
+                                    kmeans_cluster=kmeans_cluster,
+                                    train_frac=train_frac,
+                                    PCA_dims=PCA_dims,
+                                    hard_intersection=hard_intersection)
+        
 
 def drop_intersection(expt_segs: Segments,
                         train_peps: np.ndarray, 

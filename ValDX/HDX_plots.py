@@ -49,9 +49,17 @@ def plot_dfracs(args: list, data: pd.DataFrame, times: list, segs: pd.DataFrame,
 
     fig.text(0.5, 0.095, 'Residue', ha='center', fontsize=22)
     fig.text(0.05, 0.5, 'HDX deuterated fractions', va='center', rotation='vertical', fontsize=22)
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
 
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
     if save is True and save_dir is not None:
-        save_name = " ".join(args) + "_plot_dfracs.png"
+        save_name = "_".join(s_args) + "_plot_dfracs.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
 
@@ -360,10 +368,18 @@ def plot_peptide_dfracs(args: list, data: pd.DataFrame, times: list, top: mda.Un
     plt.tight_layout()
 
 
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
 
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
 
     if save is True and save_dir is not None:
-        save_name = " ".join(args) + "_plot_peptide_dfracs.png"
+        save_name = "_".join(s_args) + "_plot_peptide_dfracs.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
     else:
@@ -474,9 +490,18 @@ def plot_peptide_dfracs_errors(args: list, data: pd.DataFrame, top: mda.Universe
     plt.suptitle('BPTI HDX deuterated fractions emp error heatmap', fontsize=22)
     plt.tight_layout()
 
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
+
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
 
     if save is True and save_dir is not None:
-        save_name = " ".join(args) + "_plot_peptide_dfracs_errors.png"
+        save_name = "_".join(s_args) + "_plot_peptide_dfracs_errors.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
     else:
@@ -565,10 +590,18 @@ def plot_dfracs_error(args: list, data: pd.DataFrame, RMSF: list or np.ndarray, 
     fig.text(0.5, 0.095, 'Residue', ha='center', fontsize=22)
     fig.text(0.05, 0.5, 'HDX df absolute error from expt', va='center', rotation='vertical', fontsize=22)
 
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
 
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
 
     if save is True and save_dir is not None:
-        save_name = " ".join(args) + "_plot_dfracs_error.png"
+        save_name = "_".join(s_args) + "_plot_dfracs_error.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
     else:
@@ -646,14 +679,18 @@ def plot_dfracs_compare(args: list, data: pd.DataFrame, times: list, save=False,
     plt.ylim(-0.05, 1.05)
     plt.legend(loc='upper right')
     
-    if save is True and save_dir is not None:
-        save_name = " ".join(args) + "_plot_dfracs_compare.png"
-        save_path = os.path.join(save_dir, save_name)
-        
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
 
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
 
     if save is True and save_dir is not None:
-        save_name = " ".join(args) + "_plot_dfracs_compare.png"
+        save_name = "_".join(s_args) + "_plot_dfracs_compare.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
     else:
@@ -732,9 +769,18 @@ def plot_dfracs_compare_abs(args: list, data: pd.DataFrame, times: list, save=Fa
     plt.ylim(-0.05, 1.05)
     plt.legend(loc='upper right')
 
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
+
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
 
     if save_dir is not None:
-        save_name = " ".join(args) + "_plot_dfracs_compare_abs.png"
+        save_name = "_".join(s_args) + "_plot_dfracs_compare_abs.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
     else:
@@ -824,12 +870,20 @@ def plot_dfracs_compare_MSE(args: list, data: pd.DataFrame, times: list, save=Fa
     plt.ylabel('HDX Protection Factor')
     # plt.ylim(-0.005, 0.005)
     plt.legend(loc='upper right')
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
 
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
 
     # df_differences = df_differences.drop(columns=['Type'])
     if save and save_dir is not None:
         # save plot
-        save_name = " ".join(args) + "_plot_dfracs_compare_MSE.png"
+        save_name = "_".join(s_args) + "_plot_dfracs_compare_MSE.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
     else:
@@ -906,10 +960,18 @@ def plot_dfracs_compare_hist(args: list, data: pd.DataFrame, times: list,  save=
         ax.legend(loc='upper right')
 
     plt.tight_layout()
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
 
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
 
     if save is True and save_dir is not None:
-        save_name = " ".join(args) + "_plot_dfracs_compare_hist.png"
+        save_name = "_".join(s_args) + "_plot_dfracs_compare_hist.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
     else:
@@ -989,10 +1051,18 @@ def plot_dfracs_compare_hist_errors(args: list, data: pd.DataFrame, times: list,
         ax.legend(loc='upper right')
 
     plt.tight_layout()
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
 
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
 
     if save is True and save_dir is not None:
-        save_name = " ".join(args) + "_plot_dfracs_compare_hist_errors.png"
+        save_name = "_".join(s_args) + "_plot_dfracs_compare_hist_errors.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path)
     else:
@@ -1017,6 +1087,11 @@ def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, 
     fig, axes = plt.subplots(nrows=len(times), ncols=1, figsize=(8 , 8* (len(times)-1)))
     # give each arg a different matplotlib marker
     markers = ['o', 's', 'v', 'D', 'P', 'X', 'd', 'p', 'h', '8', '1', '2', '3', '4']
+
+    # repeat markers if more than 10 args
+    if len(args) > 10:
+        markers = markers * (len(args)//10 + 1)
+    ic(markers)
 
     # Assuming times is a predefined list of time points
     for i, t in enumerate(times):
@@ -1081,10 +1156,18 @@ def plot_paired_errors(args: list, data: pd.DataFrame, times: list, save=False, 
     plt.tight_layout()
 
 
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
 
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
     if save and save_dir is not None:
         # save plot
-        save_name = " ".join(args) + "_plot_paired_errors.png"
+        save_name = "_".join(s_args) + "_plot_paired_errors.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path, format='png', dpi=300)
     else:
@@ -1499,9 +1582,18 @@ def plot_R_agreement_trainval(expt_name: str,
     plt.ylabel("R Value")
     plt.yticks(np.arange(-0.1, 1.05, 0.1))
     plt.ylim(-0.2, 1.1)
+    s_args = [arg for arg in args if len(arg.split("_")) > 1]
+
+    s_args = ["_".join(arg.split("_")[1:]) for arg in s_args]
+    # limit len(s_args) to 5
+    len_s_args = len(s_args)
+    if len_s_args > 5:
+        s_args = s_args[:5]
+        s_args = s_args + [f'-{len_s_args}']
+    ic(s_args)
     if save is True and save_dir is not None:
         # save plot
-        save_name = " ".join(args) + "_plot_R_agreement_trainval.png"
+        save_name = "_".join(s_args) + "_plot_R_agreement_trainval.png"
         save_path = os.path.join(save_dir, save_name)
         plt.savefig(save_path, format='png', dpi=300)
     else:

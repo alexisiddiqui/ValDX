@@ -151,7 +151,7 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 VDX.run_sweep_methods(system=test_name,
                                 times=[0.167, 1, 10],
                                 expt_name=expt_name,
-                                n_clusters=100,
+                                n_clusters=1000,
                                 n_reps=3,
                                 split_modes=['R3'],
                                 hdx_path=hdx_path,

@@ -191,10 +191,10 @@ def pre_process_main():
 
     os.listdir(BPTI_dir)
 
-    segs_name = "LXRa_APO_segs200.txt"
+    segs_name = "LXRa_APO_segs200_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "LXRa_APO200.dat"
+    hdx_name = "LXRa_APO200_trimmed.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -361,7 +361,7 @@ times = [0.5, 10.0]
 VDX.run_sweep_methods(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
-                                n_clusters=100,
+                                n_clusters=1000,
                                 n_reps=3,
                                 split_modes=['R3'],
                                 hdx_path=hdx_path,

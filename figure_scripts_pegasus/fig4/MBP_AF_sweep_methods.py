@@ -260,7 +260,7 @@ def pre_process_main():
     sim_name = 'MBPwt_AF'
     os.listdir(BPTI_dir)
 
-    segs_name = "MBP_wt1_segs.txt"
+    segs_name = "MBP_wt1_segs_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
     hdx_name = "MBP_wt1_clean.dat"
@@ -399,7 +399,7 @@ VDX.run_sweep_methods(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
                                 n_reps=3,
-                                n_clusters=100,
+                                n_clusters=1000,
                                 split_modes=['R3'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,

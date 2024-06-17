@@ -31,7 +31,7 @@ import pickle
 
 VDX = ValDXer(settings)
 expt_name = 'Experimental'
-test_name = "HOIP_af_small"
+test_name = "HOIP_af_clean"
 import icecream as ic
 # ic.disable()
 

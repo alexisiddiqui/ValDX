@@ -1,7 +1,7 @@
 # %%
 ### ValDXer testing
 import os
-os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
+os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
 import sys
 sys.path.append("/home/alexi/Documents/ValDX/")
 

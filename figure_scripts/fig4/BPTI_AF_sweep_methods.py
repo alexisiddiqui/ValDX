@@ -58,7 +58,7 @@ settings.save_figs
 def pre_process_main_BPTI():
     # BPTI data
     expt_name = 'Experimental'
-    test_name = "BPTI_shaw_small"
+    test_name = "BPTI_af_small"
 
     BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HDXer_tutorial/BPTI"
     BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
@@ -112,7 +112,7 @@ def pre_process_main_BPTI():
 
 
     top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated_all_filtered.xtc"]
 
 
     # # top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
@@ -151,6 +151,7 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 VDX.run_sweep_methods(system=test_name,
                                 times=[0.167, 1, 10],
                                 expt_name=expt_name,
+                                n_clusters=100,
                                 n_reps=3,
                                 split_modes=['R3'],
                                 hdx_path=hdx_path,

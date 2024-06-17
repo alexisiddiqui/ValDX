@@ -28,7 +28,7 @@ import pickle
 
 VDX = ValDXer(settings)
 expt_name = 'Experimental'
-test_name = "LXRa_af_small"
+test_name = "LXRa_af_clean"
 
 
 # %%

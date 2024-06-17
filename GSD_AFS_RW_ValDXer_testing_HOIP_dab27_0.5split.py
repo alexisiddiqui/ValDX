@@ -1,7 +1,7 @@
 # %%
 ### ValDXer testing
 import os
-os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
+os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
 
 from ValDX.ValidationDX import ValDXer
 from ValDX.VDX_Settings import Settings

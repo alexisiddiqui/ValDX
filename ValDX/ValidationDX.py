@@ -2192,21 +2192,23 @@ class ValDXer(Experiment):
                                 times: np.array=None,
                                 expt_name: str=None,
                                 n_reps: int=None,
-                                split_modes: list=['r', 's', 'R3', 'Sp'],
+                                split_modes: list=['r', 's', 'R3', 'Sp'], # these are the split modes to benchmark on
                                 hdx_path: str=None,
                                 segs_path: str=None,
                                 traj_paths: list=None,
                                 weights: np.array=None,
-                                top_path: str=None
+                                top_path: str=None,
+                                overwrite_output=False
                                 ):
         
+        # bench_split_modes: list=['r', 's', 'R3', 'Sp'],
 
 
         analysis_name="Sweep-Clusters"
         settings = deepcopy(self.settings)
 
         self = ValDXer(settings=settings, name=system, analysis_name=analysis_name)
-        self.initialise_dir_structure(prefix=self.analysis_name, overwrite_output=True)
+        self.initialise_dir_structure(prefix=self.analysis_name, overwrite_output=overwrite_output)
         plot_dir, results_dir, logs_dir = self.plot_dir, self.results_dir, self.logs_dir
 
 
@@ -2258,41 +2260,41 @@ class ValDXer(Experiment):
 
             assert clustered_universe.trajectory.n_frames == len(cluster_frames)
 
-            data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_sweep_{str(frac)}",
-                                        times=times,
-                                        expt_name=expt_name,
-                                        n_reps=n_reps,
-                                        hdx_path=hdx_path,
-                                        split_modes=[split_modes],
-                                        # optimise=True,
-                                        RW=True,
-                                        segs_path=segs_path,
-                                        traj_paths=[clustered_traj_path],
-                                        weights=weights,
-                                        top_path=top_path)
+            # data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_sweep_{str(frac)}",
+            #                             times=times,
+            #                             expt_name=expt_name,
+            #                             n_reps=n_reps,
+            #                             hdx_path=hdx_path,
+            #                             split_modes=[split_modes],
+            #                             # optimise=True,
+            #                             RW=True,
+            #                             segs_path=segs_path,
+            #                             traj_paths=[clustered_traj_path],
+            #                             weights=weights,
+            #                             top_path=top_path)
         
-            # plot the weights - averaged for each split
+            # # plot the weights - averaged for each split
 
-            for split in split_modes:
-                weights_df = data["weights"]
-                print(data["weights"].columns)
-                # select the split_type
-                split_df = weights_df[weights_df["split_type"] == split]
-                weights_vals = split_df["weights"].values
-                weights_vals = np.array([np.array(w) for w in weights_vals])
-                print(weights_vals)
-                # average weights
-                avg_weights = np.mean(weights_vals, axis=0)
-                # normalise to the length of the array
-                avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
-                print(avg_weights.shape)
+            # for split in split_modes:
+            #     weights_df = data["weights"]
+            #     print(data["weights"].columns)
+            #     # select the split_type
+            #     split_df = weights_df[weights_df["split_type"] == split]
+            #     weights_vals = split_df["weights"].values
+            #     weights_vals = np.array([np.array(w) for w in weights_vals])
+            #     print(weights_vals)
+            #     # average weights
+            #     avg_weights = np.mean(weights_vals, axis=0)
+            #     # normalise to the length of the array
+            #     avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
+            #     print(avg_weights.shape)
 
-                plot_cluster_weights(projected_data=projected,
-                                    new_cluster_centers=cluster_centers,
-                                    cluster_labels=cluster_labels,
-                                    new_cluster_weights=avg_weights,
-                                    save=self.settings.save_figs, save_dir=self.plot_dir,
-                                    title_str=f"sweep {str(frac)} bench_{split}")
+            #     plot_cluster_weights(projected_data=projected,
+            #                         new_cluster_centers=cluster_centers,
+            #                         cluster_labels=cluster_labels,
+            #                         new_cluster_weights=avg_weights,
+            #                         save=self.settings.save_figs, save_dir=self.plot_dir,
+            #                         title_str=f"sweep {str(frac)} bench_{split}")
 
 
             data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_sweep_{str(frac)}",
@@ -2578,10 +2580,14 @@ class ValDXer(Experiment):
                         [(True,False),
                         (False,True)],
                         [(False,True),
-                        (True,False)],
+                        (True,False),
+                        (False,True)],
+                        [(False,True),
+                        (True,False),
+                        (False,True)],
                         (True,True)]
             
-            method_names = ["NoOpt", "BV-RW", "RW-BV", "BV+RW"]
+            method_names = ["NoOpt", "BV-RW", "RW-BV-RW", "RW-SpBV-RW", "BV+RW"]
                        
 
         print("Methods (BV,RW): ", methods)
@@ -2632,7 +2638,7 @@ class ValDXer(Experiment):
 
             if not isinstance(step_method, list):
                 _methods = [step_method]
-            elif isinstance(step_method, list) and len(step_method) == 2:
+            elif isinstance(step_method, list) and len(step_method) != 1:
                 _methods = step_method
 
             for idx, method in enumerate(_methods):
@@ -2642,13 +2648,20 @@ class ValDXer(Experiment):
                 if idx == 0:
                     _weights = None
                     _BV = (0.35, 2.0)
+                if idx == 2:
+                    _weights = None
+
+                if method_name == "RW-SpBV-RW" and idx == 1:
+                    _split_modes = ['Sp']
+                else:
+                    _split_modes = split_modes
 
                 data, names, save_paths = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}_fit",
                                                     times=times,
                                                     expt_name=expt_name,
                                                     n_reps=n_reps,
                                                     hdx_path=hdx_path,
-                                                    split_modes=split_modes,
+                                                    split_modes=_split_modes,
                                                     BV=BV,
                                                     RW=RW,
                                                     bc_bh=_BV,
@@ -2657,7 +2670,7 @@ class ValDXer(Experiment):
                                                     traj_paths=[clustered_traj_path],
                                                     top_path=top_path)
                 
-                for jdx, split in enumerate(split_modes):
+                for jdx, split in enumerate(_split_modes):
                     weights_df = data["weights"]
                     print(data["weights"].columns)
                     # select the split_type
@@ -2686,9 +2699,8 @@ class ValDXer(Experiment):
 
                     print(avg_bcbh_params)
  
-                    if idx == 0:
-                        _weights = avg_weights
-                        _BV = avg_bcbh_params    
+                    _weights = avg_weights
+                    _BV = avg_bcbh_params    
 
 
                     plot_cluster_weights(projected_data=projected[cluster_frames],
@@ -2698,21 +2710,21 @@ class ValDXer(Experiment):
                                         save=self.settings.save_figs, save_dir=self.plot_dir,
                                         title_str=f"method {str(n_clusters)} {method_name}{str(idx)}_{split}")
                     
-                    if not (BV and RW) or (BV and RW) or (idx != 0):
-                        _ = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}_bench_{split}",
-                                        times=times,
-                                        expt_name=expt_name,
-                                        n_reps=n_reps,
-                                        hdx_path=hdx_path,
-                                        split_modes=_bench_split_modes,
-                                        RW=False,
-                                        BV=True,
-                                        weights=avg_weights,
-                                        bc_bh=avg_bcbh_params,
-                                        segs_path=segs_path,
-                                        traj_paths=[clustered_traj_path],
-                                        top_path=top_path)
-                    
+                    # if not (BV and RW) or (BV and RW) or (idx != 0):
+                    _ = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}_bench_{split}",
+                                    times=times,
+                                    expt_name=expt_name,
+                                    n_reps=n_reps,
+                                    hdx_path=hdx_path,
+                                    split_modes=_bench_split_modes,
+                                    RW=False,
+                                    BV=True,
+                                    weights=avg_weights,
+                                    bc_bh=avg_bcbh_params,
+                                    segs_path=segs_path,
+                                    traj_paths=[clustered_traj_path],
+                                    top_path=top_path)
+                
 
 
 

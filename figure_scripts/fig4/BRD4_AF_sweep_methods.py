@@ -285,10 +285,10 @@ def pre_process_main():
 
     os.listdir(BPTI_dir)
 
-    segs_name = "BRD4_APO_segs.txt"
+    segs_name = "BRD4_APO_segs_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "BRD4_APO_clean.dat"
+    hdx_name = "BRD4_APO_clean_trimmed.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -338,7 +338,7 @@ def pre_process_main():
 
     # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/BRD4/BRD4_APO/BRD4_APO_484_1_af_sample_127_10000_protonated.xtc"]
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/BRD4/BRD4_APO/BRD4_APO_484_1_af_sample_127_10000_protonated_all_filtered.xtc"]
     # print(traj_paths)
     # u = mda.Universe(top_path, *traj_paths)
 
@@ -404,6 +404,7 @@ times = [0.25,	1.0,	10.0,	60.0]
 VDX.run_sweep_methods(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
+                                n_clusters=100,
                                 n_reps=3,
                                 split_modes=['R3'],
                                 hdx_path=hdx_path,

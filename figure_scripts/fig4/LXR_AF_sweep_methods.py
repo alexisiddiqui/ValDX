@@ -191,10 +191,10 @@ def pre_process_main():
 
     os.listdir(BPTI_dir)
 
-    segs_name = "LXRa_APO_segs200.txt"
+    segs_name = "LXRa_APO_segs200_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "LXRa_APO200.dat"
+    hdx_name = "LXRa_APO200_trimmed.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -243,7 +243,7 @@ def pre_process_main():
 
     # # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/LXRalpha/LXRalpha_APO/LXRa200_1_af_sample_127_10000_protonated.xtc"]
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/LXRalpha/LXRalpha_APO/LXRa200_1_af_sample_127_10000_protonated_all_filtered.xtc"]
 
 
     # print(traj_paths)
@@ -361,6 +361,7 @@ times = [0.5, 10.0]
 VDX.run_sweep_methods(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
+                                n_clusters=100,
                                 n_reps=3,
                                 split_modes=['R3'],
                                 hdx_path=hdx_path,

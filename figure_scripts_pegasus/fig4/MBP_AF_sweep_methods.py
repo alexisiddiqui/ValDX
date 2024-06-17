@@ -1,7 +1,7 @@
 # %%
 ### ValDXer testing
 import os
-os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
+os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
 import sys
 sys.path.append("/home/alexi/Documents/ValDX/")
 
@@ -399,7 +399,7 @@ VDX.run_sweep_methods(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
                                 n_reps=3,
-                                n_clusters=1000,
+                                n_clusters=100,
                                 split_modes=['R3'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,

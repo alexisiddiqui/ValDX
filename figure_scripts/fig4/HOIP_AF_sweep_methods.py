@@ -31,7 +31,7 @@ import pickle
 
 VDX = ValDXer(settings)
 expt_name = 'Experimental'
-test_name = "HOIP_af_small"
+test_name = "HOIP_af_clean"
 import icecream as ic
 # ic.disable()
 
@@ -281,10 +281,10 @@ def pre_process_main():
     sim_name = 'HOIP_apo_AF'
     os.listdir(BPTI_dir)
 
-    segs_name = "HOIP_APO_segs.txt"
+    segs_name = "HOIP_APO_segs_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "HOIP_apo_clean.dat"
+    hdx_name = "HOIP_apo_clean_trimmed.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 
@@ -323,7 +323,7 @@ def pre_process_main():
         
     # # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.xtc"]
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated_all_filtered.xtc"]
     # u = mda.Universe(top_path, *traj_paths)
 
     # small_traj_name = top_path.replace(".pdb","_small.xtc")
@@ -401,6 +401,7 @@ times = [0.5, 5.0]
 VDX.run_sweep_methods(system=test_name,
                                 times=times,
                                 expt_name=expt_name,
+                                n_clusters=100,
                                 n_reps=3,
                                 hdx_path=hdx_path,
                                 split_modes=['R3'],

@@ -28,7 +28,7 @@ import pickle
 
 VDX = ValDXer(settings)
 expt_name = 'Experimental'
-test_name = "MBP_af_small"
+test_name = "MBP_af_clean"
 
 from icecream import ic
 

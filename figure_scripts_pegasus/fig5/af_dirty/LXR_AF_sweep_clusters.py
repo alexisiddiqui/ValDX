@@ -3,7 +3,7 @@
 import os
 os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
 import sys
-sys.path.append("/home/alexi/Documents/ValDX/")
+sys.path.append("/data/localhost/not-backed-up/hussain/ValDX/")
 
 from ValDX.ValidationDX import ValDXer
 from ValDX.VDX_Settings import Settings
@@ -72,7 +72,7 @@ test_name = "LXRa_af_dirty"
 # write_fasta(sequence, 'LXRa', fasta_path)
 
 # %%
-raw_hdx_path = "/home/alexi/Documents/ValDX/raw_data/LXRalpha/LXRalpha_APO/LXRalpha.csv"
+raw_hdx_path = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/LXRalpha/LXRalpha_APO/LXRalpha.csv"
 
 raw_hdx = pd.read_csv(raw_hdx_path)
 
@@ -186,8 +186,8 @@ with open(os.path.join("raw_data", "LXRalpha", "LXRalpha_APO", 'LXRa_APO_segs200
 def pre_process_main():
     # BPTI data
     BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/LXRalpha/LXRalpha_APO"
-    BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/LXRalpha/LXRalpha_APO"
-    # BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
+    BPTI_dir = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/LXRalpha/LXRalpha_APO"
+    # BPTI_dir = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI"
 
     os.listdir(BPTI_dir)
 
@@ -223,7 +223,7 @@ def pre_process_main():
     pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
 
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/LXRalpha/LXRalpha_APO/LXRa200_1_af_sample_127_10000_protonated.pdb"
+    top_path = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/LXRalpha/LXRalpha_APO/LXRa200_1_af_sample_127_10000_protonated.pdb"
     # pdb_paths = [os.path.join(H_sim_dir, i) for i in pdb_list]
 
     # print(top_path)
@@ -243,7 +243,7 @@ def pre_process_main():
 
     # # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/LXRalpha/LXRalpha_APO/LXRa200_1_af_sample_127_10000_protonated.xtc"]
+    traj_paths = ["/data/localhost/not-backed-up/hussain/ValDX/raw_data/LXRalpha/LXRalpha_APO/LXRa200_1_af_sample_127_10000_protonated.xtc"]
 
 
     # print(traj_paths)
@@ -271,7 +271,7 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 # %%
 # # BPTI data
 # BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HDXer_tutorial/BPTI"
-# # BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
+# # BPTI_dir = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI"
 
 
 # %%
@@ -363,7 +363,7 @@ VDX.run_sweep_cluster_ensemble(system=test_name,
                                 expt_name=expt_name,
                                 n_reps=3,
                                 # denoms = np.array([10, 20, 100, 1000]),
-                                # split_modes=['R3'],
+                                split_modes=['Sp'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,

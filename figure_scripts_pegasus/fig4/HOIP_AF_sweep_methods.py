@@ -4,7 +4,7 @@ import os
 os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
 
 import sys
-sys.path.append("/home/alexi/Documents/ValDX/")
+sys.path.append("/data/localhost/not-backed-up/hussain/ValDX/")
 
 
 from ValDX.ValidationDX import ValDXer
@@ -111,7 +111,7 @@ import icecream as ic
 
 
 # %%
-raw_hdx_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo_peptide.csv"
+raw_hdx_path = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo_peptide.csv"
 raw_hdx = pd.read_csv(raw_hdx_path)
 raw_hdx.tail()
 
@@ -275,8 +275,8 @@ segs = hdx[['ResStr', 'ResEnd']].drop_duplicates().sort_values(by=['ResStr', 'Re
 def pre_process_main():
     # BPTI data
     # BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HOIP/HOIP_apo/"
-    BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo"
-    # BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
+    BPTI_dir = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HOIP/HOIP_apo"
+    # BPTI_dir = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI"
 
     sim_name = 'HOIP_apo_AF'
     os.listdir(BPTI_dir)
@@ -312,7 +312,7 @@ def pre_process_main():
     pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
 
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.pdb"
+    top_path = "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.pdb"
     # pdb_paths = [os.path.join(H_sim_dir, i) for i in pdb_list]
 
     # print(top_path)
@@ -323,7 +323,7 @@ def pre_process_main():
         
     # # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated_all_filtered.xtc"]
+    traj_paths = ["/data/localhost/not-backed-up/hussain/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated_all_filtered.xtc"]
     # u = mda.Universe(top_path, *traj_paths)
 
     # small_traj_name = top_path.replace(".pdb","_small.xtc")

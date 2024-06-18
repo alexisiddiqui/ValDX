@@ -1175,7 +1175,8 @@ class ValDXer(Experiment):
                                                             n_reps=n_reps,
                                                             train=True)
         
-
+        # print(bc_bh)
+        # raise ValueError("DEBUGGING")
         train_gammas, train_dfs, cr_bc_bhs = self.reweight_train_ensemble(n_reps=n_reps,
                                                                             calc_name=calc_name,
                                                                             expt_name=expt_name,
@@ -2669,7 +2670,7 @@ class ValDXer(Experiment):
                                                     segs_path=segs_path,
                                                     traj_paths=[clustered_traj_path],
                                                     top_path=top_path)
-                
+                # raise ValueError("Stop here")
                 for jdx, split in enumerate(_split_modes):
                     weights_df = data["weights"]
                     print(data["weights"].columns)

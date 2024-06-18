@@ -308,7 +308,9 @@ def run_MaxEnt_single(args: dict):
     reweight_object = MaxEnt(do_reweight=args["do_reweight"],
                              do_params=args["do_params"],
                              stepfactor=args["stepfactor"],
-                             random_initial=args["random_initial"])
+                             random_initial=args["random_initial"],                  
+                             bv_bc=args["bv_bc"],
+                             bv_bh=args["bv_bh"])
     
     (currweights, bv_bc, bv_bh) = reweight_object.run(gamma=args["gamma"],
                         data_folders=args["predictHDX_dir"], 
@@ -322,6 +324,9 @@ def run_MaxEnt_single(args: dict):
     print(f"Completed reweighting for {out_prefix}")
     print("Sum of Output Weights")
     print(np.sum(currweights))
+    print("BV Parameters")
+    print("bv_bc", bv_bc)
+    print("bv_bh", bv_bh)
 
     return (currweights, bv_bc, bv_bh)
 

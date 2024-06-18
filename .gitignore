@@ -164,6 +164,9 @@ initial_weights_*.dat
 # ignore zip files in the root directory
 *.zip
 
+# dont ignore BPTI_raw_data.zip
+!BPTI_raw_data.zip
+
 raw_data/
 data/
 logs/

@@ -2198,7 +2198,7 @@ class ValDXer(Experiment):
                                 traj_paths: list=None,
                                 weights: np.array=None,
                                 top_path: str=None,
-                                overwrite_output=False
+                                # overwrite_output=True
                                 ):
         
         # bench_split_modes: list=['r', 's', 'R3', 'Sp'],
@@ -2208,7 +2208,7 @@ class ValDXer(Experiment):
         settings = deepcopy(self.settings)
 
         self = ValDXer(settings=settings, name=system, analysis_name=analysis_name)
-        self.initialise_dir_structure(prefix=self.analysis_name, overwrite_output=overwrite_output)
+        self.initialise_dir_structure(prefix=self.analysis_name, overwrite_output=True)
         plot_dir, results_dir, logs_dir = self.plot_dir, self.results_dir, self.logs_dir
 
 

@@ -170,3 +170,5 @@ logs/
 results/
 plots/
 
+results*/*
+plots*/*

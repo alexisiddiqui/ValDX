@@ -2,7 +2,7 @@
 ### ValDXer testing
 import os
 # os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
-os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
+os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
 
 import sys
 sys.path.append("/home/alexi/Documents/ValDX/")
@@ -59,7 +59,7 @@ settings.save_figs
 def pre_process_main_BPTI():
     # BPTI data
     expt_name = 'Experimental'
-    test_name = "BPTI_shaw_small"
+    test_name = "BPTI_af_rank1"
 
     BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HDXer_tutorial/BPTI"
     BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
@@ -114,9 +114,9 @@ def pre_process_main_BPTI():
 
     traj_paths = [small_traj_path]
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
+    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated.pdb"
     # top_path =  "/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
+    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated.xtc"]
     # traj_paths = ["/data/localhost/not-backed-up/hussain/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
 
 

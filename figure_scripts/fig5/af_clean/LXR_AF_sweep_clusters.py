@@ -191,10 +191,10 @@ def pre_process_main():
 
     os.listdir(BPTI_dir)
 
-    segs_name = "LXRa_APO_segs200.txt"
+    segs_name = "LXRa_APO_segs200_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "LXRa_APO200.dat"
+    hdx_name = "LXRa_APO200_trimmed.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 

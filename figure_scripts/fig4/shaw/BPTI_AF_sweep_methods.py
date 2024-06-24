@@ -58,7 +58,7 @@ settings.save_figs
 def pre_process_main_BPTI():
     # BPTI data
     expt_name = 'Experimental'
-    test_name = "BPTI_af_clean"
+    test_name = "BPTI_shaw_400"
 
     BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HDXer_tutorial/BPTI"
     BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
@@ -73,7 +73,7 @@ def pre_process_main_BPTI():
     hdx_name = "BPTI_expt_dfracs_clean_trimmed.dat"
     hdx_path = os.path.join(expt_dir, hdx_name)
     print(hdx_path)
-
+    
     rates_name = "BPTI_Intrinsic_rates.dat"
     rates_path = os.path.join(expt_dir, rates_name)
     sim_name = 'BPTI_MD'
@@ -111,9 +111,9 @@ def pre_process_main_BPTI():
 
 
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated.pdb"
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated_all_filtered.xtc"]
-
+    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
+    traj_paths =["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/reduced_BPTI_SHAW_stride_400.xtc"]
+    # u = mda.Universe(top_path, *traj_paths)
 
     # # top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
     # # traj_paths =["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/reduced_BPTI_SHAW_stride_1000.xtc"]
@@ -148,12 +148,12 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 
 # run no optimisation
 
-VDX.run_sweep_cluster_ensemble(system=test_name,
+VDX.run_sweep_methods(system=test_name,
                                 times=[0.167, 1, 10],
                                 expt_name=expt_name,
+                                n_clusters=100,
                                 n_reps=3,
-                                # denoms = np.array([10, 20, 100, 1000]),
-                                split_modes=['Sp'],
+                                split_modes=['R3'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,

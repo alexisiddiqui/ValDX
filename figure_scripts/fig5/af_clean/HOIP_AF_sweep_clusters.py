@@ -280,11 +280,10 @@ def pre_process_main():
 
     sim_name = 'HOIP_apo_AF'
     os.listdir(BPTI_dir)
-
-    segs_name = "HOIP_APO_segs.txt"
+    segs_name = "HOIP_APO_segs_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "HOIP_apo_clean.dat"
+    hdx_name = "HOIP_apo_clean_trimmed.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
 

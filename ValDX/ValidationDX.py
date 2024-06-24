@@ -33,7 +33,7 @@ from ValDX.Experiment_ABC import Experiment
 from ValDX.helpful_funcs import *
 # from ValDX.helpful_funcs import  conda_to_env_dict, segs_to_df, dfracs_to_df, segs_to_file, run_MaxEnt, restore_trainval_peptide_nos, add_nan_values, kints_to_dict, merge_kint_dicts_into_df, calc_traj_LogP_byres, calc_dfrac_uptake_from_LogPf, cluster_traj_by_density, recluster_traj_by_weight, flatten_weights_to_frames, run_calc_hdx, PCA_universe
 from ValDX.HDX_plots import *
-from ValDX.VDX_dataclasses import AnalysisData, AnalysisInfo, merge_AnalysisData_classes,Segments
+from ValDX.VDX_dataclasses import AnalysisData, AnalysisInfo, merge_AnalysisData_classes, Segments
 import matplotlib
 
 class ValDXer(Experiment):
@@ -1265,6 +1265,86 @@ class ValDXer(Experiment):
             return train_dfs, val_dfs, train_gammas, val_gammas
         
 
+    def run_cluster_benchmark_ensemble(self,
+                                system: str=None,
+                                times: list=None,
+                                expt_name: str=None,
+                                n_clusters: int=100,
+                                n_reps: int=None,
+                                split_modes: list=['r', 's', 'R3', 'Sp'],
+                                random_seeds: list=None,
+                                # predictHDX_dir: str=None,
+                                hdx_path: str=None,
+                                segs_path: str=None,
+                                traj_paths: list=None,
+                                weights: np.array=None,
+                                bc_bh: tuple=(0.35, 2.0),
+                                RW: bool=True,
+                                BV: bool=False,
+                                top_path: str=None
+                                ):
+
+
+        analysis_name = "Benchmark_Ensembles"
+        settings = deepcopy(self.settings)
+
+        self = ValDXer(settings=settings, name=system, analysis_name=[analysis_name])
+        self.initialise_dir_structure(prefix=[analysis_name])
+
+
+        u = mda.Universe(top_path, *traj_paths)
+
+        cluster_frac = n_clusters/u.trajectory.n_frames
+
+        if weights is None:
+            weights = np.ones(u.trajectory.n_frames)
+            weights = weights/np.sum(weights) # sum to 1
+
+        assert len(weights) == u.trajectory.n_frames, f"weights must be the same length {len(weights)} as the number of frames {u.trajectory.n_frames}"
+
+        projected = PCA_universe(u)
+
+        cluster_frames, final_cluster_weights, cluster_centers, cluster_labels = recluster_traj_by_weight(projected=projected,
+                                                                                                          cluster_weights=weights,
+                                                                                                            cluster_size2=n_clusters)
+        plot_cluster_weights(projected_data=projected,
+                            new_cluster_centers=cluster_centers,
+                            cluster_labels=cluster_labels,
+                            new_cluster_weights=final_cluster_weights,
+                            title_str=system,
+                            save=self.settings.save_figs, save_dir=self.plot_dir)
+
+        # save clustered universe 
+        clustered_traj_name = "_".join([system, "clustered", "ensemble", str(cluster_frac), ".xtc"])
+        clustered_traj_path = os.path.join(self.data_dir, clustered_traj_name)
+
+        with mda.Writer(clustered_traj_path, u.trajectory.n_frames) as W:
+            for ts in u.trajectory[cluster_frames]:
+                W.write(u)
+        
+        clustered_universe = mda.Universe(top_path, clustered_traj_path)
+
+        assert clustered_universe.trajectory.n_frames == len(cluster_frames)
+
+        return self.run_benchmark_ensemble(system=system,
+                                            times=times,
+                                            expt_name=expt_name,
+                                            n_reps=n_reps,
+                                            split_modes=split_modes,
+                                            random_seeds=random_seeds,
+                                            # predictHDX_dir=predictHDX_dir,
+                                            hdx_path=hdx_path,
+                                            segs_path=segs_path,
+                                            top_path=top_path,
+                                            traj_paths=[clustered_traj_path],
+                                            # weights=iniweights,
+                                            bc_bh=bc_bh,
+                                            RW=RW,
+                                            BV=BV)
+
+
+
+
     def run_benchmark_ensemble(self,
                                 system: str=None,
                                 times: list=None,
@@ -1674,7 +1754,8 @@ class ValDXer(Experiment):
                                             expt_name=expt_name,
                                             n_reps=n_reps,
                                             hdx_path=hdx_path,
-                                            optimise=False,
+                                            RW=False,
+                                            BV=False,
                                             segs_path=segs_path,
                                             traj_paths=[reclustered_traj_path],
                                             weights=final_cluster2_weights,
@@ -1689,6 +1770,7 @@ class ValDXer(Experiment):
                                             expt_name=expt_name,
                                             n_reps=n_reps,
                                             hdx_path=hdx_path,
+                                            BV=True,
                                             RW=False,
                                             segs_path=segs_path,
                                             traj_paths=[reclustered_traj_path],
@@ -2587,9 +2669,17 @@ class ValDXer(Experiment):
                         (True,False),
                         (False,True)],
                         (True,True)]
+        
+            methods = [(False,False),
+                    [(True,False),
+                    (False,True)],
+                    [(False,True),
+                    (True,False)],
+                    (True,True)]
             
             method_names = ["NoOpt", "BV-RW", "RW-BV-RW", "RW-SpBV-RW", "BV+RW"]
-                       
+            method_names = ["NoOpt", "BV-RW", "RW-BV", "BV+RW"]
+
 
         print("Methods (BV,RW): ", methods)
 
@@ -2649,6 +2739,7 @@ class ValDXer(Experiment):
                 if idx == 0:
                     _weights = None
                     _BV = (0.35, 2.0)
+                    
                 if idx == 2:
                     _weights = None
 
@@ -2710,6 +2801,7 @@ class ValDXer(Experiment):
                                         new_cluster_weights=avg_weights,
                                         save=self.settings.save_figs, save_dir=self.plot_dir,
                                         title_str=f"method {str(n_clusters)} {method_name}{str(idx)}_{split}")
+                    
                     
                     # if not (BV and RW) or (BV and RW) or (idx != 0):
                     _ = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}_bench_{split}",

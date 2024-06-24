@@ -28,7 +28,7 @@ import pickle
 
 VDX = ValDXer(settings)
 expt_name = 'Experimental'
-test_name = "BRD4_af_small"
+test_name = "BRD4_af_clean"
 
 import cProfile
 import pstats

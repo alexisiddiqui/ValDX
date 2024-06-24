@@ -280,13 +280,13 @@ def pre_process_main():
 
     sim_name = 'HOIP_apo_AF'
     os.listdir(BPTI_dir)
-
-    segs_name = "HOIP_APO_segs.txt"
+    segs_name = "HOIP_APO_segs_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "HOIP_apo_clean.dat"
+    hdx_name = "HOIP_apo_clean_trimmed.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
+
 
     rates_name = "out__train_MD_Simulated_1Intrinsic_rates.dat"
     rates_path = os.path.join(BPTI_dir, rates_name)
@@ -404,7 +404,7 @@ VDX.run_sweep_cluster_ensemble(system=test_name,
                                 n_reps=3,
                                 # denoms = np.array([10, 20, 100, 1000]),
                                 hdx_path=hdx_path,
-                                # split_modes=['R3'],
+                                split_modes=['Sp'],
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,
                                 top_path=top_path)

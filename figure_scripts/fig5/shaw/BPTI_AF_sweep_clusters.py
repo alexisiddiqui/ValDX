@@ -58,7 +58,7 @@ settings.save_figs
 def pre_process_main_BPTI():
     # BPTI data
     expt_name = 'Experimental'
-    test_name = "BPTI_af_clean"
+    test_name = "BPTI_shaw400"
 
     BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HDXer_tutorial/BPTI"
     BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
@@ -67,10 +67,10 @@ def pre_process_main_BPTI():
 
     os.listdir(expt_dir)
 
-    segs_name = "BPTI_residue_segs_trimmed.txt"
+    segs_name = "BPTI_residue_segs.txt"
     segs_path = os.path.join(expt_dir, segs_name)
 
-    hdx_name = "BPTI_expt_dfracs_clean_trimmed.dat"
+    hdx_name = "BPTI_expt_dfracs_clean.dat"
     hdx_path = os.path.join(expt_dir, hdx_name)
     print(hdx_path)
 
@@ -111,12 +111,12 @@ def pre_process_main_BPTI():
 
 
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated.pdb"
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10000_protonated_all_filtered.xtc"]
+    # top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
+    # traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
 
 
-    # # top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
-    # # traj_paths =["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/reduced_BPTI_SHAW_stride_1000.xtc"]
+    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
+    traj_paths =["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/reduced_BPTI_SHAW_stride_400.xtc"]
     # u = mda.Universe(top_path, *traj_paths)
 
     # small_traj_name = top_path.replace(".pdb","_small.xtc")

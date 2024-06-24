@@ -1,7 +1,7 @@
 # %%
 ### ValDXer testing
 import os
-os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
+os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
 
 import sys
 sys.path.append("/home/alexi/Documents/ValDX/")
@@ -28,7 +28,7 @@ import pickle
 
 VDX = ValDXer(settings)
 expt_name = 'Experimental'
-test_name = "BRD4_af_small"
+test_name = "BRD4_af_rank1"
 
 import cProfile
 import pstats

@@ -1,7 +1,7 @@
 # %%
 ### ValDXer testing
 import os
-os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
+os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
 
 import sys
 sys.path.append("/home/alexi/Documents/ValDX/")
@@ -12,16 +12,16 @@ from ValDX.VDX_Settings import Settings
 import pandas as pd
 import MDAnalysis as mda
 from MDAnalysis.coordinates.XTC import XTCWriter
+import numpy as np
+# from pdbfixer import PDBFixer
+# from openmm.app import PDBFile
 
-from pdbfixer import PDBFixer
-from openmm.app import PDBFile
-
-settings = Settings(name='HOIP')
-# settings.replicates = 1
-settings.gamma_range = (2,6)
-settings.train_frac = 0.5
-settings.RW_exponent = [0]
-settings.split_mode = 'R3'
+# settings = Settings(name='HOIP')
+# # settings.replicates = 1
+# settings.gamma_range = (1,8)
+# settings.train_frac = 0.5
+# settings.RW_exponent = [0]
+# settings.split_mode = 'R3'
 # settings.stride = 1000
 # settings.HDXer_stride = 10000
 
@@ -29,9 +29,9 @@ settings.split_mode = 'R3'
 # settings.RW_do_params = False
 import pickle
 
-VDX = ValDXer(settings)
-expt_name = 'Experimental'
-test_name = "HOIP_af_small"
+# VDX = ValDXer(settings)
+# expt_name = 'Experimental'
+# test_name = "HOIP_af_dirty"
 import icecream as ic
 # ic.disable()
 
@@ -277,16 +277,20 @@ def pre_process_main():
     # BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HOIP/HOIP_apo/"
     BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo"
     # BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
+    expt_name = 'Experimental'
+
+    test_names = ["HOIP_af_dirty", "HOIP_af_clean"]
+
 
     sim_name = 'HOIP_apo_AF'
     os.listdir(BPTI_dir)
-
-    segs_name = "HOIP_APO_segs.txt"
+    segs_name = "HOIP_APO_segs_trimmed.txt"
     segs_path = os.path.join(BPTI_dir, segs_name)
 
-    hdx_name = "HOIP_apo.dat"
+    hdx_name = "HOIP_apo_clean_trimmed.dat"
     hdx_path = os.path.join(BPTI_dir, hdx_name)
     print(hdx_path)
+
 
     rates_name = "out__train_MD_Simulated_1Intrinsic_rates.dat"
     rates_path = os.path.join(BPTI_dir, rates_name)
@@ -312,7 +316,7 @@ def pre_process_main():
     pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
 
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.pdb"
+    dirty_top_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.pdb"
     # pdb_paths = [os.path.join(H_sim_dir, i) for i in pdb_list]
 
     # print(top_path)
@@ -323,75 +327,61 @@ def pre_process_main():
         
     # # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.xtc"]
-    u = mda.Universe(top_path, *traj_paths)
+    dirty_traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.xtc"]
 
-    small_traj_name = top_path.replace(".pdb","_small.xtc")
-    small_traj_path = os.path.join(sim_dir, small_traj_name)
 
-    with XTCWriter(small_traj_path, n_atoms=u.atoms.n_atoms) as W:
-        for ts in u.trajectory[:1]:
-            W.write(u.atoms)
-            W.write(u.atoms)
-            # break
-    print(traj_paths)
-    traj_paths = [small_traj_path]
-    return hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test_name
+    clean_top_path = dirty_top_path
+    clean_traj_paths = [dirty_traj_paths[0].replace(".xtc", "_all_filtered.xtc")]
+
+
+    top_paths = [dirty_top_path, clean_top_path]
+    traj_paths = [dirty_traj_paths[0], clean_traj_paths[0]]
+
+    min_interval_size=500
+    confidence_intervals = [(0.0, 0.1), (0.1, 0.2), (0.2, 0.3), (0.3, 0.4), (0.4, 0.5), (0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.0), ("top", min_interval_size), ("bottom", min_interval_size)]
+    str_confidence_intervals = [f"{i}_{j}" for (i,j) in confidence_intervals]
+    conf_interval_names = [f"HOIP_af_conf{i}" for i in str_confidence_intervals]
+    conf_interval_traj_names = [dirty_traj_path.replace(".xtc", f"_{name}.xtc") for name in str_confidence_intervals for dirty_traj_path in dirty_traj_paths]
+    conf_dir = "af_confidence_intervals"
+    conf_interval_paths = [os.path.join(os.path.dirname(dirty_top_path), conf_dir, os.path.basename(name)) for name in conf_interval_traj_names]
+
+    test_names = test_names + conf_interval_names
+    top_paths = top_paths + [dirty_top_path]*len(conf_interval_names)
+    traj_paths = traj_paths + conf_interval_paths
+
+
+    return hdx_path, segs_path, rates_path, top_paths, traj_paths, sim_name, expt_name, test_names
 
 
 # %%
-hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test_name = pre_process_main()
-
-# %%
-# # ic.disable()
-# combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
-#                                                                     times=[0, 0.5, 5.0],
-#                                                                     expt_name=expt_name,
-#                                                                     n_reps=1,
-#                                                                     optimise=False,
-#                                                                     # split_modes=['r'],
-#                                                                     hdx_path=hdx_path,
-#                                                                     segs_path=segs_path,
-#                                                                     traj_paths=traj_paths,
-#                                                                     top_path=top_path)
-
-# settings.cluster_frac1 = 0.1
-# combined_analysis_dump, names, save_paths = VDX.run_refine_ensemble(system=test_name+"_modal",
-#                                                                     times=[0, 0.5, 5.0],
-#                                                                     expt_name=expt_name,
-#                                                                     n_reps=2,
-#                                                                     split_mode='R3',
-#                                                                     hdx_path=hdx_path,
-#                                                                     segs_path=segs_path,
-#                                                                     traj_paths=traj_paths,
-#                                                                     top_path=top_path,
-#                                                                     modal_cluster=True)
+hdx_path, segs_path, rates_path, top_paths, traj_paths, sim_name, expt_name, test_names = pre_process_main()
+times = [0.5, 5.0]
 
 
-times = [0, 0.5, 5.0]
-# %%
-combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
-                                                                        times=times,
-                                                                        expt_name=expt_name,
-                                                                        n_reps=4,
+for (test_name, top_path, traj_paths) in zip(test_names, top_paths, traj_paths):
 
-                                                                        optimise=False,
-                                                                        hdx_path=hdx_path,
-                                                                        segs_path=segs_path,
-                                                                        traj_paths=traj_paths,
-                                                                        top_path=top_path)
+    settings = Settings(name=test_name)
+    # settings.replicates = 2
+    settings.gamma_range = (1,8)
+    settings.train_frac = 0.5
+    settings.RW_exponent = [0]
+    # settings.split_mode = 'R3'
 
-                                                                        
+    VDX = ValDXer(settings)
 
-# run BV optimisation
 
-combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
-                                                                        times=times,
-                                                                        expt_name=expt_name,
-                                                                        n_reps=4,
-                                                                        RW=False,
-                                                                        optimise=True,
-                                                                        hdx_path=hdx_path,
-                                                                        segs_path=segs_path,
-                                                                        traj_paths=traj_paths,
-                                                                        top_path=top_path)
+    # run RW across all splits
+
+    combined_analysis_dump, names, save_paths = VDX.run_cluster_benchmark_ensemble(system=test_name,
+                                                                            times=times,
+                                                                            expt_name=expt_name,
+                                                                            n_reps=3,
+
+                                                                            RW=True,
+                                                                            hdx_path=hdx_path,
+                                                                            segs_path=segs_path,
+                                                                            traj_paths=[traj_paths],
+                                                                            top_path=top_path)
+
+                                                                            
+

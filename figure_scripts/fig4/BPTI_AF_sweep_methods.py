@@ -58,7 +58,7 @@ settings.save_figs
 def pre_process_main_BPTI():
     # BPTI data
     expt_name = 'Experimental'
-    test_name = "BPTI_af_small"
+    test_name = "BPTI_af_clean"
 
     BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HDXer_tutorial/BPTI"
     BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
@@ -67,13 +67,13 @@ def pre_process_main_BPTI():
 
     os.listdir(expt_dir)
 
-    segs_name = "BPTI_residue_segs.txt"
+    segs_name = "BPTI_residue_segs_trimmed.txt"
     segs_path = os.path.join(expt_dir, segs_name)
 
-    hdx_name = "BPTI_expt_dfracs_clean.dat"
+    hdx_name = "BPTI_expt_dfracs_clean_trimmed.dat"
     hdx_path = os.path.join(expt_dir, hdx_name)
     print(hdx_path)
-
+    
     rates_name = "BPTI_Intrinsic_rates.dat"
     rates_path = os.path.join(expt_dir, rates_name)
     sim_name = 'BPTI_MD'

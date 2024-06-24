@@ -52,9 +52,9 @@ class Settings:
         self.RW_do_reweighting = True
         self.RW_do_params = False
         self.random_initialisation = False
-        self.RW_stepfactor = 10**-5
+        self.RW_stepfactor = 10**-3
         self.RW_outprefix = "reweighting_gamma_"
-        self.RW_restart_interval = 100
+        self.RW_restart_interval = 1000
         self.gamma_range = (2,10)
 
         self.save_figs = True

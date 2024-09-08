@@ -233,7 +233,7 @@ class ValDXer(Experiment):
                 output = run_calc_hdx(args)
                 outputs.append(output)
 
-
+        self.features = pd.DataFrame(columns=["calc_name"])
         out_dirs = [args["out_dir"] for args in args_list]
         out_prefixes = [args["out_prefix"] for args in args_list]
         rep_names = [args["rep_name"] for args in args_list]
@@ -424,7 +424,29 @@ class ValDXer(Experiment):
             raise ValueError("Please provide a calculation name for the structures.")
         if expt_name is None:
             raise ValueError("Please provide an experimental name for the structures.")
+
+    
+        if weights is None:
+            _, traj = self.prepare_structures(calc_name=calc_name)
+            weights = np.ones(len(traj.trajectory))
+
+        _weights = weights / np.sum(weights) # save _weights normalised to sum to 1
+
+        assert np.round(np.sum(_weights)) == 1, f"when saving input weights, they must sum to 1 so they are compatible with HDXer: {np.sum(_weights)}"
+        # add input weights and BV as expt_name
+
         
+        weights_to_add = pd.DataFrame({"weights": [_weights],
+                                        "calc_name": ["prior_" + calc_name]})   
+
+        self.weights = pd.concat([self.weights, weights_to_add], ignore_index=True)
+
+        params_to_add = pd.DataFrame({"Bc": [bc_bh[0]],
+                                    "Bh": [bc_bh[1]],
+                                    "calc_name":  ["prior_" + calc_name]})
+        
+        self.BV_constants = pd.concat([self.BV_constants, params_to_add], ignore_index=True)
+
         args_list = self.generate_MaxEnt_trainval_params(train=True,
                                                 n_reps=n_reps,
                                                 calc_name=calc_name,
@@ -836,7 +858,7 @@ class ValDXer(Experiment):
         return args
 
 
-    def recalculate_dataset(self, traj, cr_bc_bh, predictHDX_dir, dataset_name, segs, rates:dict, train=False):
+    def recalculate_dataset(self, traj, cr_bc_bh,  predictHDX_dir, dataset_name, segs, rates:dict, expt_name=None, train=False, test=False):
         print(f"Recalculating {dataset_name}")
         times = self.settings.times
 
@@ -855,6 +877,8 @@ class ValDXer(Experiment):
         segments = Segments(segs_df=segs)
         residues = segments.residues
 
+        print(f"Residues for recalculation: {residues}")
+        # raise NotImplementedError("DEBUGGING")
         start_res = np.sort(residues)[0]
 
         print(f"Residues for recalculation: {residues}")
@@ -863,14 +887,13 @@ class ValDXer(Experiment):
         # filter residues that dont exist in rates using numpy
         residues = np.array([res for res in residues if res in rates.keys()])
 
-        residue_indexes = np.where(np.isin(residues, list(rates.keys())))[0]
+
+
+
+        residue_indexes = np.where(np.isin(list(rates.keys()), residues))[0]
 
 
         print(f"Residues for recalculation: {residues}")
-
-
-
-
 
          # read contacts
         contacts_prefix = "Contacts_chain_0_res_"
@@ -878,9 +901,28 @@ class ValDXer(Experiment):
 
         contacts, hbonds, _ = read_contacts_hbonds([predictHDX_dir], contacts_prefix, hbonds_prefix)
 
+        if test:
+            if expt_name is None:
+                raise ValueError("Please provide an experimental name for the structures.")
+            # calculate sum of contacts and hbonds over all residues for each frame
+            sum_contacts = np.sum(contacts[residue_indexes,:], axis=0)
+            sum_hbonds = np.sum(hbonds[residue_indexes,:], axis=0)
+
+            features_to_add = pd.DataFrame({"sum_contacts": [sum_contacts],
+                                            "sum_hbonds": [sum_hbonds],
+                                            "calc_name": [expt_name]})
+            # pd.merge on calc_name
+            self.features = features_to_add
+
         weights = cr_bc_bh[0]
         bv_bc = cr_bc_bh[1]
         bv_bh = cr_bc_bh[2]
+
+        if weights is None:
+            weights = np.ones(traj.trajectory.n_frames)
+            weights = weights / len(weights)
+            
+        assert np.round(np.sum(weights)) == 1, f"weights must sum {np.round(np.sum(weights))} to 1 length: {len(weights)}"
 
         LogPf_by_res = calc_ave_lnpi(contacts=contacts,
                                 hbonds=hbonds,
@@ -891,25 +933,24 @@ class ValDXer(Experiment):
         assert len(LogPf_by_res) == len(rates.keys()), f"LogPfs must be the same length {len(LogPf_by_res)} as the number of residues {len(rates.keys())}"
 
 
-
-
         print(len(list(rates.keys())))
         print(LogPf_by_res.shape)
-        LogPfs_to_add = pd.DataFrame({"Residues": list(rates.keys()), 
-                                      "LogPf": LogPf_by_res, 
-                                      "calc_name": [dataset_name]*len(LogPf_by_res)})
+
+        residue_LogPfs = LogPf_by_res[residue_indexes]
 
 
+        LogPfs_to_add = pd.DataFrame({"Residues": residues, 
+                                    "LogPf": residue_LogPfs, 
+                                    "calc_name": [dataset_name]*len(residue_LogPfs)})
 
         
         self.LogPfs = pd.concat([self.LogPfs, LogPfs_to_add], ignore_index=True)
 
         if not train:
             print("LogPf_by_res shape")
-            print(LogPf_by_res.shape)
-            print(LogPf_by_res)
+            print(residue_LogPfs.shape)
+            print(residue_LogPfs)
 
-            residue_LogPfs = LogPf_by_res[residue_indexes]
 
             dfracs_by_res_overtime = calc_dfrac_uptake_from_LogPf(residue_LogPfs,
                                                                 kints=rates,
@@ -922,15 +963,24 @@ class ValDXer(Experiment):
             # this means converting residues back to segments
             
             df["calc_name"] = [dataset_name]*len(df)
-            df["Residues"] = df.apply(lambda x: list(range(x["ResStr"]+1, x["ResEnd"]+1)), axis=1)
+            # df["Residues"] = df.apply(lambda x: list(range(x["ResStr"]+1, x["ResEnd"]+1)), axis=1)
             print(df)
 
-            peptides = df["peptide"].to_list()
+            # peptides = segments.pep_nums
+            # print(peptides)
+            # res_nums = segments.res_nums
+
+            peptides = segments.peptides
             print(peptides)
-            for p in peptides:
+
+
+            for i , p in enumerate(peptides.keys()):
                 print(p)
                 # collect all dfrac updates for each residue in the peptide
-                peptide_residues = df.loc[(df["peptide"] == p), "Residues"].to_list()[0]
+                # peptide_residues = res_nums[i]
+
+                peptide_residues = peptides[p]
+
                 print(peptide_residues)
                 # convert to indices based on order in residues
                 peptide_indices = [idx for idx, res in enumerate(residues) if res in peptide_residues]
@@ -945,9 +995,11 @@ class ValDXer(Experiment):
                     # select column t and peptide p
                     df.loc[(df["peptide"] == p), t] = dfracs[idx]
         
+            print(df)
 
-            df = df.drop(columns=["Residues"])
-            print("Dataframe being appending")
+            # raise NotImplementedError("DEBUGGING")
+            # df = df.drop(columns=["Residues"])
+            print("Dataframe being appended")
             print(df)
             self.HDX_data = pd.concat([self.HDX_data, df], ignore_index=True)
 
@@ -964,8 +1016,9 @@ class ValDXer(Experiment):
         rep_name = "_".join(["train", calc_name, str(rep)])
         val_name = "_".join(["val", calc_name, str(rep)])
         test_name = "_".join(["test", calc_name, str(rep)])
- 
-    
+        prior_name = "_".join(["prior", calc_name, str(rep)])
+
+
         # add weights to df
         weights_to_add = pd.DataFrame({"weights": [cr_bc_bh[0]], "calc_name": [rep_name]})
         self.weights = pd.concat([self.weights, weights_to_add], ignore_index=True)
@@ -1004,6 +1057,11 @@ class ValDXer(Experiment):
 
 
         val_segs = self.val_segs[self.val_segs["calc_name"] == val_name].copy()
+        test_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
+        print(val_segs) 
+        print(test_segs)
+
+
 
         val_df = self.recalculate_dataset(traj=traj,
                                         cr_bc_bh=cr_bc_bh,
@@ -1015,14 +1073,32 @@ class ValDXer(Experiment):
         test_segs = self.segs[self.segs["calc_name"] == expt_name].copy()
 
 
-        # test_df = self.recalculate_dataset(traj=traj,
-        #                                 cr_bc_bh=cr_bc_bh,
-        #                                 dataset_name=test_name,
-        #                                 segs=test_segs,
-        #                                 rates=rates)
+        test_df = self.recalculate_dataset(traj=traj,
+                                        cr_bc_bh=cr_bc_bh,
+                                        expt_name=expt_name,
+                                        predictHDX_dir=predictHDX_dir,
+                                        dataset_name=test_name,
+                                        segs=test_segs,
+                                        test=True,
+                                        rates=rates)
+        
+        expt_weights = self.weights[self.weights["calc_name"] == "prior_" + calc_name]["weights"].values[0]
+        bv_bc = self.BV_constants[self.BV_constants["calc_name"] == "prior_" + calc_name]["Bc"].values[0]
+        bv_bh = self.BV_constants[self.BV_constants["calc_name"] == "prior_" + calc_name]["Bh"].values[0]
+
+        expt_cr_bc_bh = (expt_weights, bv_bc, bv_bh)
+
+        test_df = self.recalculate_dataset(traj=traj,
+                                    cr_bc_bh=expt_cr_bc_bh,
+                                    predictHDX_dir=predictHDX_dir,
+                                    dataset_name=prior_name,
+                                    segs=test_segs,
+                                    train=False,
+                                    rates=rates)
+
         print(val_df)
 
-        return val_df, val_df
+        return val_df, test_df
 
     def write_data_split_PDB(self, calc_name, expt_name, rep):
         """
@@ -1090,7 +1166,7 @@ class ValDXer(Experiment):
         train_top.atoms.write(train_pdb_path)
         print(f"Writing val PDB to {val_pdb_path}")
         val_top.atoms.write(val_pdb_path)
-        
+
     def write_RW_representative_PDB(self, 
                                     calc_name,
                                     rep, 
@@ -1249,7 +1325,7 @@ class ValDXer(Experiment):
                           val_dfs=val_dfs, 
                           expt_name=expt_name, 
                           calc_name=calc_name, 
-                        #   test_dfs=test_dfs,
+                          test_dfs=test_dfs,
                           train_gammas=train_gammas, 
                           val_gammas=val_gammas,
                           n_reps=n_reps)
@@ -1289,7 +1365,7 @@ class ValDXer(Experiment):
         settings = deepcopy(self.settings)
 
         self = ValDXer(settings=settings, name=system, analysis_name=[analysis_name])
-        self.initialise_dir_structure(prefix=[analysis_name])
+        self.initialise_dir_structure(prefix=[analysis_name], overwrite_output=True)
 
 
         u = mda.Universe(top_path, *traj_paths)
@@ -1326,7 +1402,7 @@ class ValDXer(Experiment):
 
         assert clustered_universe.trajectory.n_frames == len(cluster_frames)
 
-        return self.run_benchmark_ensemble(system=system,
+        data, names, save_path = self.run_benchmark_ensemble(system=system,
                                             times=times,
                                             expt_name=expt_name,
                                             n_reps=n_reps,
@@ -1342,6 +1418,27 @@ class ValDXer(Experiment):
                                             RW=RW,
                                             BV=BV)
 
+        print(data)
+
+        # raise NotImplementedError("DEBUGGING")
+
+
+        weights_data = data["weights"]
+
+        final_weights = weights_data["weights"].values
+
+        final_weights = np.array([np.array(w) for w in final_weights])
+        # average weights
+        avg_weights = np.mean(final_weights, axis=0)
+
+        plot_cluster_weights(projected_data=projected,
+                            new_cluster_centers=cluster_centers,
+                            cluster_labels=cluster_labels,
+                            new_cluster_weights=avg_weights,
+                            title_str=system+"_RW",
+                            save=self.settings.save_figs, save_dir=self.plot_dir)
+
+        return data, names, save_path
 
 
 
@@ -1877,7 +1974,7 @@ class ValDXer(Experiment):
     def evaluate_HDX(self, 
                      train_dfs: List[pd.DataFrame], 
                      val_dfs: List[pd.DataFrame], 
-                    #  test_dfs: List[pd.DataFrame],
+                     test_dfs: List[pd.DataFrame],
                      data: pd.DataFrame=None, 
                      expt_name: str=None, 
                      calc_name: str=None, 
@@ -1943,7 +2040,7 @@ class ValDXer(Experiment):
                                     expt_name=expt_name,
                                     train_dfs=train_dfs,
                                     val_dfs=val_dfs,
-                                    # test_dfs=test_dfs,
+                                    test_dfs=test_dfs,
                                     train_segs=self.train_segs,
                                     val_segs=self.val_segs,
                                     n_reps=n_reps,
@@ -1995,6 +2092,7 @@ class ValDXer(Experiment):
                                             weights=self.weights,
                                             BV_constants=self.BV_constants,
                                             LogPfs=self.LogPfs,
+                                            features=self.features,
                                             info=self.analysis_info)
         
 
@@ -2632,10 +2730,10 @@ class ValDXer(Experiment):
    
     def run_sweep_methods(self,
                         system: str=None,
-                        n_clusters: int=1000,
+                        n_clusters: int=100,
                         times: np.array=None,
                         expt_name: str=None,
-                        methods: List = None,
+                        method: dict = None,
                         n_reps: int=None,
                         split_modes: list=['R3'],
                         hdx_path: str=None,
@@ -2645,7 +2743,7 @@ class ValDXer(Experiment):
                         ):
         
 
-        _bench_split_modes=['R3', 's', 'r', 'Sp']
+        _bench_split_modes=['R3', 'Sp']
 
 
         analysis_name="Sweep-Methods"
@@ -2655,8 +2753,7 @@ class ValDXer(Experiment):
         self.initialise_dir_structure(prefix=self.analysis_name, overwrite_output=True)
         plot_dir, results_dir, logs_dir = self.plot_dir, self.results_dir, self.logs_dir
 
-
-        if methods is None:
+        if method is None:
             # create methods for no-optimise, BV, RW, BV+RW, RW-BV
             # Bools (BV, RW)
             methods = [(False,False),
@@ -2679,6 +2776,13 @@ class ValDXer(Experiment):
             
             method_names = ["NoOpt", "BV-RW", "RW-BV-RW", "RW-SpBV-RW", "BV+RW"]
             method_names = ["NoOpt", "BV-RW", "RW-BV", "BV+RW"]
+        else:
+            method_names = list(method.keys())
+            methods = list(method.values())
+
+        method_random_seed = (self.settings.random_seed + n_reps) ** 2
+
+        method_random_seed = [method_random_seed + i for i in range(n_reps)]
 
 
         print("Methods (BV,RW): ", methods)
@@ -2768,10 +2872,16 @@ class ValDXer(Experiment):
                     # select the split_type
                     split_df = weights_df[weights_df["split_type"] == split]
                     weights_vals = split_df["weights"].values
+
                     weights_vals = np.array([np.array(w) for w in weights_vals])
+
+                    # pick the kdx rep
+
+
+
                     print(weights_vals)
                     # average weights
-                    avg_weights = np.mean(weights_vals, axis=0)
+                    avg_weights = np.median(weights_vals, axis=0)
                     # normalise to the length of the array
                     avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
                     print(avg_weights.shape)
@@ -2782,41 +2892,118 @@ class ValDXer(Experiment):
                     split_BV_df = BV_df[BV_df["split_type"] == split]
 
                     Bc_vals = split_BV_df["Bc"].values
-                    avg_Bc = np.mean(Bc_vals)
+
+                    # pick the kdx rep
+
+
+
+                    avg_Bc = np.median(Bc_vals)
 
                     Bh_vals = split_BV_df["Bh"].values
-                    avg_Bh = np.mean(Bh_vals)
+
+                    # pick the kdx rep
+
+
+                    avg_Bh = np.median(Bh_vals)
 
                     avg_bcbh_params = (avg_Bc, avg_Bh)
 
                     print(avg_bcbh_params)
- 
+
                     _weights = avg_weights
                     _BV = avg_bcbh_params    
 
+                    for kdx, rep in enumerate(range(n_reps)):
+                        bench_weights_vals = weights_vals[kdx]
+                        bench_weights_vals = bench_weights_vals*(len(bench_weights_vals)/np.sum(bench_weights_vals))
+                        bench_Bc_vals = Bc_vals[kdx]
+                        bench_Bh_vals = Bh_vals[kdx]
+                        print(f"Rep {kdx}")
+                        print(bench_weights_vals)
+                        print(bench_Bc_vals)
+                        print(bench_Bh_vals)
 
-                    plot_cluster_weights(projected_data=projected[cluster_frames],
-                                        new_cluster_centers=cluster_centers,
-                                        cluster_labels=cluster_labels[cluster_frames],
-                                        new_cluster_weights=avg_weights,
-                                        save=self.settings.save_figs, save_dir=self.plot_dir,
-                                        title_str=f"method {str(n_clusters)} {method_name}{str(idx)}_{split}")
+
+                        plot_cluster_weights(projected_data=projected[cluster_frames],
+                                            new_cluster_centers=cluster_centers,
+                                            cluster_labels=cluster_labels[cluster_frames],
+                                            new_cluster_weights=avg_weights,
+                                            save=self.settings.save_figs, save_dir=self.plot_dir,
+                                            title_str=f"method {str(n_clusters)} {method_name}{str(idx)}_{split}_rep_{str(kdx)}")
+                        
+                        
+                        # if not (BV and RW) or (BV and RW) or (idx != 0):
+                        _ = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}_bench_{split}_rep_{str(kdx)}",
+                                        times=times,
+                                        expt_name=expt_name,
+                                        n_reps=n_reps,
+                                        random_seeds=method_random_seed,
+                                        hdx_path=hdx_path,
+                                        split_modes=_bench_split_modes,
+                                        RW=False,
+                                        BV=True,
+                                        weights=bench_weights_vals,
+                                        bc_bh=(bench_Bc_vals, bench_Bh_vals),
+                                        segs_path=segs_path,
+                                        traj_paths=[clustered_traj_path],
+                                        top_path=top_path)
+                    
+
+
+                    # weights_df = data["weights"]
+                    # print(data["weights"].columns)
+                    # # select the split_type
+                    # split_df = weights_df[weights_df["split_type"] == split]
+                    # weights_vals = split_df["weights"].values
+                    # weights_vals = np.array([np.array(w) for w in weights_vals])
+                    # print(weights_vals)
+                    # # average weights
+                    # avg_weights = np.mean(weights_vals, axis=0)
+                    # # normalise to the length of the array
+                    # avg_weights = avg_weights*(len(avg_weights)/np.sum(avg_weights))
+                    # print(avg_weights.shape)
+
+                    # BV_df = data["BV_constants"]
+                    # print(BV_df.columns)
+
+                    # split_BV_df = BV_df[BV_df["split_type"] == split]
+
+                    # Bc_vals = split_BV_df["Bc"].values
+                    # avg_Bc = np.mean(Bc_vals)
+
+                    # Bh_vals = split_BV_df["Bh"].values
+                    # avg_Bh = np.mean(Bh_vals)
+
+                    # avg_bcbh_params = (avg_Bc, avg_Bh)
+
+                    # print(avg_bcbh_params)
+ 
+                    # _weights = avg_weights
+                    # _BV = avg_bcbh_params    
+
+
+                    # plot_cluster_weights(projected_data=projected[cluster_frames],
+                    #                     new_cluster_centers=cluster_centers,
+                    #                     cluster_labels=cluster_labels[cluster_frames],
+                    #                     new_cluster_weights=avg_weights,
+                    #                     save=self.settings.save_figs, save_dir=self.plot_dir,
+                    #                     title_str=f"method {str(n_clusters)} {method_name}{str(idx)}_{split}")
                     
                     
-                    # if not (BV and RW) or (BV and RW) or (idx != 0):
-                    _ = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}_bench_{split}",
-                                    times=times,
-                                    expt_name=expt_name,
-                                    n_reps=n_reps,
-                                    hdx_path=hdx_path,
-                                    split_modes=_bench_split_modes,
-                                    RW=False,
-                                    BV=True,
-                                    weights=avg_weights,
-                                    bc_bh=avg_bcbh_params,
-                                    segs_path=segs_path,
-                                    traj_paths=[clustered_traj_path],
-                                    top_path=top_path)
+                    # # if not (BV and RW) or (BV and RW) or (idx != 0):
+                    # _ = self.run_benchmark_ensemble(system=system+f"_{method_name}{str(idx)}_bench_{split}",
+                    #                 times=times,
+                    #                 expt_name=expt_name,
+                    #                 n_reps=n_reps,
+                    #                 hdx_path=hdx_path,
+                    #                 split_modes=_bench_split_modes,
+                    #                 RW=False,
+                    #                 BV=True,
+                    #                 weights=avg_weights,
+                    #                 bc_bh=avg_bcbh_params,
+                    #                 segs_path=segs_path,
+                    #                 traj_paths=[clustered_traj_path],
+                    #                 top_path=top_path)
                 
 
 

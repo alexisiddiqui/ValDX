@@ -271,6 +271,81 @@ print("Sequence length: ", len(sequence))
 # pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
 
 
+def MD_traj_to_interval_paths(top_path,
+                              traj_path,
+                              n_intervals=10,
+                              n_reps=None,
+                              out_path=None):
+    
+
+    top_name = os.path.basename(top_path).replace(".pdb", "")        
+    
+    if n_reps is None:
+        # extract the number of replicates from the top_name
+        split = top_name.split("_")
+        # find split that starts with "r" 
+        for s in split:
+            if s.startswith("r"):
+                if s[1:].isdigit():
+                    n_reps = int(s[1:])
+                    break
+        
+    
+    if out_path is None:
+        out_path = os.path.join(os.path.dirname(traj_path), 'time_intervals')
+        
+    os.makedirs(out_path, exist_ok=True)
+
+    # load the trajectory
+
+    u = mda.Universe(top_path, traj_path)
+
+    length = len(u.trajectory)
+
+    # check that the number of frames is divisible by n_reps
+
+    assert length % n_reps == 0, f"Number of frames {length} is not divisible by n_reps {n_reps}"
+    
+    traj_length = length / n_reps
+
+    # round down interval length to the nearest integer
+    interval_length = int(traj_length / n_intervals)
+
+
+    # universe represents a concatenated trajectory for each replicate
+    # when slicing into intervals the frames must be selected from each replicate
+    # in a way that the intervals are continuous in time
+    # create a new trajectory for each interval
+
+    interval_indexes = {i: [] for i in range(n_intervals)}
+
+    for i in range(n_intervals):
+        
+        start = i * interval_length
+        end = ((i+1) * interval_length)
+
+        for j in range(n_reps):
+            interval_indexes[i] += list(range(int(j*traj_length + start), int(j*traj_length + end)))
+
+    # create a new trajectory for each interval
+    print(interval_indexes[0])
+
+    interval_names = [f"{top_name}_nI{n_intervals}_interval{i}_len{n_intervals*interval_length}"+".xtc" for i in range(n_intervals)]
+
+
+    new_traj_paths = []
+
+    for i, indexes in interval_indexes.items():
+        new_traj_path = os.path.join(out_path, interval_names[i])
+        new_traj_paths.append([new_traj_path])
+
+
+    top_paths = [top_path]*n_intervals
+
+    return new_traj_paths, top_paths
+
+
+
 
 # %% [markdown]
 # Generate conformations with Alphafold
@@ -282,7 +357,7 @@ def pre_process_main():
     # BPTI data
     BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/BRD4/BRD4_APO"
 
-    test_names = ["BRD4_af_dirty", "BRD4_af_clean"]
+    test_names = ["BRD4_af_dirty", "BRD4_af_clean", "BRD4_MD_Bad", "BRD4_MD_Good", "BRD4_MD_Good+Bad"]
 
     os.listdir(BPTI_dir)
 
@@ -324,9 +399,16 @@ def pre_process_main():
     clean_top_path = dirty_top_path
     clean_traj_paths = [dirty_traj_paths[0].replace(".xtc", "_all_filtered.xtc")]
 
+    badMD_top_path = "/home/alexi/Documents/ValDX/raw_data/good_bad_MD/BRD4/BadMD_BRD4_r5_15010_concatenated.pdb"
+    badMD_traj_path = [badMD_top_path.replace(".pdb", ".xtc")]
 
-    top_paths = [dirty_top_path, clean_top_path]
-    traj_paths = [dirty_traj_paths[0], clean_traj_paths[0]]
+    goodMD_top_path = "/home/alexi/Documents/ValDX/raw_data/good_bad_MD/BRD4/GoodMD_BRD4_r6_12006_concatenated.pdb"
+    goodMD_traj_path = [goodMD_top_path.replace(".pdb", ".xtc")]
+
+
+
+    top_paths = [dirty_top_path, clean_top_path, badMD_top_path, goodMD_top_path, goodMD_top_path]
+    traj_paths = [dirty_traj_paths[0], clean_traj_paths[0], badMD_traj_path[0], goodMD_traj_path[0], [goodMD_traj_path[0], badMD_traj_path[0]]]
 
     min_interval_size=500
     confidence_intervals = [(0.0, 0.1), (0.1, 0.2), (0.2, 0.3), (0.3, 0.4), (0.4, 0.5), (0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.0), ("top", min_interval_size), ("bottom", min_interval_size)]
@@ -336,9 +418,19 @@ def pre_process_main():
     conf_dir = "af_confidence_intervals"
     conf_interval_paths = [os.path.join(os.path.dirname(dirty_top_path), conf_dir, os.path.basename(name)) for name in conf_interval_traj_names]
 
-    test_names = test_names + conf_interval_names
-    top_paths = top_paths + [dirty_top_path]*len(conf_interval_names)
-    traj_paths = traj_paths + conf_interval_paths
+    # BadMD_interval_traj_paths, BadMD_interval_top_paths = MD_traj_to_interval_paths(badMD_top_path, badMD_traj_path[0])
+    # BadMD_interval_test_names = [f"BRD4_MD_Bad-Int{i}" for i in range(10)]
+    # GoodMD_interval_traj_paths, GoodMD_interval_top_paths = MD_traj_to_interval_paths(goodMD_top_path, goodMD_traj_path[0])
+    # GoodMD_interval_test_names = [f"BRD4_MD_Good-Int{i}" for i in range(10)]
+
+    # test_names = test_names + conf_interval_names
+    # top_paths = top_paths + [dirty_top_path]*len(conf_interval_names)
+    # traj_paths = traj_paths + conf_interval_paths
+
+    # top_paths = BadMD_interval_top_paths + GoodMD_interval_top_paths 
+    # traj_paths = BadMD_interval_traj_paths + GoodMD_interval_traj_paths
+    # test_names = BadMD_interval_test_names + GoodMD_interval_test_names
+
 
 
     return hdx_path, segs_path, rates_path, top_paths, traj_paths, sim_name, expt_name, test_names
@@ -391,9 +483,9 @@ times = [0.25,	1.0,	10.0,	60.0]
 #                                                                         top_path=top_path)
 
 
-for (test_name, top_path, traj_paths) in zip(test_names, top_paths, traj_paths):
-
-
+for idx ,(test_name, top_path, traj_paths) in enumerate(zip(test_names, top_paths, traj_paths)):
+    # if idx > 4:
+    #     continue
 
     settings = Settings(name=test_name)
     # settings.replicates = 2

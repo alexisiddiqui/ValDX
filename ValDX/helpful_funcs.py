@@ -22,7 +22,7 @@ import pstats
 import io
 from HDXer.reweighting_functions import read_contacts_hbonds
 
-def conda_to_env_dict(env_name):
+def conda_to_env_dict(env_name): 
     """
     Get the environment variables for a given conda environment.
 
@@ -147,8 +147,10 @@ def segs_to_file(path: str, df: pd.DataFrame):
     # remove peptide column if present make sure we dont overwrite the df in memory.
     if "peptide" in df.columns:
         df = df.drop(columns=["peptide"])
+
     if "calc_name" in df.columns:
         df = df.drop(columns=["calc_name"])
+
     if "path" in df.columns:
         df = df.drop(columns=["path"])
     df.to_csv(path, sep='\t', header=False, index=False)
@@ -188,6 +190,7 @@ def avgfrac_to_df(path: str, names: list):
         df: A pandas DataFrame containing data for the given argument.
     """
     cols = [col+2 for col in range(len(names))]
+
     df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None, usecols=cols, names=names)
     # this is not true... but 
     df["peptide"] = df.index
@@ -335,7 +338,7 @@ def restore_trainval_peptide_nos(calc_name: str,
                                  expt_name: str,
                                  train_dfs: List[pd.DataFrame],
                                  val_dfs: List[pd.DataFrame],
-                                #  test_dfs: List[pd.DataFrame],
+                                 test_dfs: List[pd.DataFrame],
                                  n_reps: int,
                                  times: List,
                                  train_segs: pd.DataFrame,
@@ -379,7 +382,7 @@ def restore_trainval_peptide_nos(calc_name: str,
     # create the replicate names
     train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
     val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
-    test_rep_names = ["_".join(["test", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+    test_rep_names = ["_".join(["prior", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
 
     print("train_rep_names", train_rep_names)
     print("val_rep_names", val_rep_names)
@@ -399,16 +402,16 @@ def restore_trainval_peptide_nos(calc_name: str,
 
         train_dfs[r]["peptide"] = train_rep_peptides
         val_dfs[r]["peptide"] = val_rep_peptides
-        # test_dfs[r]["peptide"] = test_rep_peptides
+        test_dfs[r]["peptide"] = test_rep_peptides
 
     # merge the reps together
     train_merge_df = pd.concat(train_dfs, ignore_index=True)
     val_merge_df = pd.concat(val_dfs, ignore_index=True)
-    # test_dfs = pd.concat(test_dfs, ignore_index=True)
+    test_dfs = pd.concat(test_dfs, ignore_index=True)
 
     # merge the train and val dfs together
     merge_df = pd.concat([train_merge_df, val_merge_df], ignore_index=True)
-    # merge_df = pd.concat([merge_df, test_dfs], ignore_index=True)
+    merge_df = pd.concat([merge_df, test_dfs], ignore_index=True)
 
     print("manual merge df")
     print(merge_df)

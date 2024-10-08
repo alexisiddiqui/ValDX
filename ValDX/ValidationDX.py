@@ -2774,7 +2774,7 @@ class ValDXer(Experiment):
                     (True,False)],
                     (True,True)]
             
-            method_names = ["NoOpt", "BV-RW", "RW-BV-RW", "RW-SpBV-RW", "BV+RW"]
+            method_names = ["NoOpt", "BV-RW-BV", "RW-BV-RW", "BV+RW-RW"]
             method_names = ["NoOpt", "BV-RW", "RW-BV", "BV+RW"]
         else:
             method_names = list(method.keys())

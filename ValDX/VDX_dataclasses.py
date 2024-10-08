@@ -49,6 +49,7 @@ class AnalysisData:
     weights: pd.DataFrame
     BV_constants: pd.DataFrame
     LogPfs: pd.DataFrame    
+    features: pd.DataFrame
     analysis_df: pd.DataFrame = None
     info: AnalysisInfo = None
 
@@ -62,6 +63,7 @@ class AnalysisData:
                        "val_segs", 
                        "HDX_data", 
                        "weights", 
+                       "features",
                        "BV_constants", 
                        "LogPfs", 
                        "analysis_df"]
@@ -83,6 +85,7 @@ class AnalysisData:
             "val_segs": self.val_segs,
             "HDX_data": self.HDX_data,
             "weights": self.weights,
+            "features": self.features,
             "BV_constants": self.BV_constants,
             "LogPfs": self.LogPfs,
             "analysis_df": self.analysis_df

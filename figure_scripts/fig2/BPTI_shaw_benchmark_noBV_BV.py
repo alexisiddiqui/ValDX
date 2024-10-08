@@ -1,7 +1,7 @@
 # %%
 ### ValDXer testing
 import os
-os.environ["HDXER_PATH"] = "/homes/hussain/HDXer"
+os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
 
 import sys
 sys.path.append("/home/alexi/Documents/ValDX/")
@@ -112,12 +112,12 @@ def pre_process_main_BPTI():
 
     traj_paths = [small_traj_path]
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
+    # top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.pdb"
+    # traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/P00974_60_1_af_sample_127_10001_protonated.xtc"]
 
 
-    # top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
-    # traj_paths =["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/reduced_BPTI_SHAW_stride_1000.xtc"]
+    top_path = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/bpti.pdb"
+    traj_paths =["/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI/BPTI_simulations/SHAW/reduced_BPTI_SHAW_stride_400.xtc"]
     u = mda.Universe(top_path, *traj_paths)
 
     small_traj_name = top_path.replace(".pdb","_small.xtc")
@@ -152,9 +152,9 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=[0.167, 1, 10, 120],
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
-
-                                                                        optimise=False,
+                                                                        n_reps=10,
+                                                                        RW=False,
+                                                                        BV=False,
                                                                         hdx_path=hdx_path,
                                                                         segs_path=segs_path,
                                                                         traj_paths=traj_paths,
@@ -167,9 +167,9 @@ combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=te
 combined_analysis_dump, names, save_paths = VDX.run_benchmark_ensemble(system=test_name,
                                                                         times=[0.167, 1, 10, 120],
                                                                         expt_name=expt_name,
-                                                                        n_reps=4,
+                                                                        n_reps=10,
                                                                         RW=False,
-                                                                        optimise=True,
+                                                                        BV=True,
                                                                         hdx_path=hdx_path,
                                                                         segs_path=segs_path,
                                                                         traj_paths=traj_paths,

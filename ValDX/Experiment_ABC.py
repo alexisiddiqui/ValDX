@@ -44,7 +44,7 @@ class Experiment(ABC):
         self.test_HDX_data = pd.DataFrame()
         self.LogPfs = pd.DataFrame()
         self.analysis_dump = {}
-        self.features = tuple()
+        self.features = pd.DataFrame()
 
         self.analysis_name:list = None
 

@@ -28,7 +28,7 @@ import pickle
 
 VDX = ValDXer(settings)
 expt_name = 'Experimental'
-test_name = "BRD4_af_rank1"
+test_name = "BRD4_max_plddt"
 
 import cProfile
 import pstats
@@ -317,7 +317,7 @@ def pre_process_main():
     pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
     print(pdb_list)
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/BRD4/BRD4_APO/BRD4_APO_484_1_af_sample_127_10000_protonated.pdb"
+    top_path = "/home/alexi/Documents/ValDX/raw_data/BRD4/BRD4_APO/BRD4_APO_484_1_af_sample_127_10000_protonated_max_plddt_2399.pdb"
     # pdb_paths = [os.path.join(H_sim_dir, i) for i in pdb_list]
 
     # print("top",top_path)
@@ -338,19 +338,18 @@ def pre_process_main():
 
     # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/BRD4/BRD4_APO/BRD4_APO_484_1_af_sample_127_10000_protonated.xtc"]
-    print(traj_paths)
-    u = mda.Universe(top_path, *traj_paths)
-
+    # traj_paths = ["/home/alexi/Documents/ValDX/raw_data/BRD4/BRD4_APO/BRD4_APO_484_1_af_sample_127_10000_protonated.xtc"]
+    # print(traj_paths)
+    u = mda.Universe(top_path)
     small_traj_name = top_path.replace(".pdb","_small.xtc")
     small_traj_path = os.path.join(sim_dir, small_traj_name)
 
     with XTCWriter(small_traj_path, n_atoms=u.atoms.n_atoms) as W:
-        for ts in u.trajectory[1:2]:
+        for ts in u.trajectory[0:1]:
             W.write(u.atoms)
             W.write(u.atoms)
             break
-    print(traj_paths)
+    # print(traj_paths)
     traj_paths = [small_traj_path]
 
     return hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test_name

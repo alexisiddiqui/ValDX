@@ -332,6 +332,8 @@ def pre_process_main():
     BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/MBP/MaltoseBindingProtein"
     # BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
     test_names = ["MBP_af_dirty", "MBP_af_clean", "MBP_MD_Bad", "MBP_MD_Good", "MBP_MD_Good+Bad"]
+    test_names = ["MBP_af_dirty", "MBP_af_clean", "MBP_1Start", "MBP_10Start", "MBP_MD_TFES"]
+
     expt_name = 'Experimental'
 
     sim_name = 'MBPwt_AF'
@@ -394,27 +396,33 @@ def pre_process_main():
     clean_top_path = dirty_top_path
     clean_traj_paths = [dirty_traj_paths[0].replace(".xtc", "_all_filtered.xtc")]
 
-    badMD_top_path = "/home/alexi/Documents/ValDX/raw_data/good_bad_MD/MBP/BadMD_MBP_r5_15010_concatenated.pdb"
+    regular_MD_base = "/home/alexi/Documents/ValDX/raw_data/full_length_regular_MD"
+
+
+    badMD_top_path = f"{regular_MD_base}/MBP_test_concatenated_stripped.pdb"
     badMD_traj_path = [badMD_top_path.replace(".pdb", ".xtc")]
 
-    goodMD_top_path = "/home/alexi/Documents/ValDX/raw_data/good_bad_MD/MBP/GoodMD_MBP_r10_10010_concatenated.pdb"
+    goodMD_top_path = f"{regular_MD_base}/MBP_10_c_combined.pdb"
     goodMD_traj_path = [goodMD_top_path.replace(".pdb", ".xtc")]
 
-    top_paths = [dirty_top_path, clean_top_path, badMD_top_path, goodMD_top_path, goodMD_top_path]
-    traj_paths = [dirty_traj_paths[0], clean_traj_paths[0], badMD_traj_path[0], goodMD_traj_path[0], [goodMD_traj_path[0], badMD_traj_path[0]]]
+    TFES_top_path = "/home/alexi/Documents/interpretable-hdxer/data/si_ifg1/T-FES/MBP/MBP_overall_combined_stripped.pdb"
+    TFES_traj_path = ["/home/alexi/Documents/interpretable-hdxer/data/si_ifg1/T-FES/MBP/resampled_outputs/MBP_sampled.xtc"]
 
-    min_interval_size=500
-    confidence_intervals = [(0.0, 0.1), (0.1, 0.2), (0.2, 0.3), (0.3, 0.4), (0.4, 0.5), (0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.0), ("top", min_interval_size), ("bottom", min_interval_size)]
-    str_confidence_intervals = [f"{i}_{j}" for (i,j) in confidence_intervals]
-    conf_interval_names = [f"MBP_af_conf{i}" for i in str_confidence_intervals]
-    conf_interval_traj_names = [dirty_traj_path.replace(".xtc", f"_{name}.xtc") for name in str_confidence_intervals for dirty_traj_path in dirty_traj_paths]
-    conf_dir = "af_confidence_intervals"
-    conf_interval_paths = [os.path.join(os.path.dirname(dirty_top_path), conf_dir, os.path.basename(name)) for name in conf_interval_traj_names]
+    top_paths = [dirty_top_path, clean_top_path, badMD_top_path, goodMD_top_path, TFES_top_path]
+    traj_paths = [dirty_traj_paths[0], clean_traj_paths[0], badMD_traj_path[0], goodMD_traj_path[0], TFES_traj_path[0]]
+           
+    # min_interval_size=500
+    # confidence_intervals = [(0.0, 0.1), (0.1, 0.2), (0.2, 0.3), (0.3, 0.4), (0.4, 0.5), (0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.0), ("top", min_interval_size), ("bottom", min_interval_size)]
+    # str_confidence_intervals = [f"{i}_{j}" for (i,j) in confidence_intervals]
+    # conf_interval_names = [f"MBP_af_conf{i}" for i in str_confidence_intervals]
+    # conf_interval_traj_names = [dirty_traj_path.replace(".xtc", f"_{name}.xtc") for name in str_confidence_intervals for dirty_traj_path in dirty_traj_paths]
+    # conf_dir = "af_confidence_intervals"
+    # conf_interval_paths = [os.path.join(os.path.dirname(dirty_top_path), conf_dir, os.path.basename(name)) for name in conf_interval_traj_names]
 
-    BadMD_interval_traj_paths, BadMD_interval_top_paths = MD_traj_to_interval_paths(badMD_top_path, badMD_traj_path[0])
-    BadMD_interval_test_names = [f"MBP_MD_Bad-Int{i}" for i in range(10)]
-    GoodMD_interval_traj_paths, GoodMD_interval_top_paths = MD_traj_to_interval_paths(goodMD_top_path, goodMD_traj_path[0])
-    GoodMD_interval_test_names = [f"MBP_MD_Good-Int{i}" for i in range(10)]
+    # BadMD_interval_traj_paths, BadMD_interval_top_paths = MD_traj_to_interval_paths(badMD_top_path, badMD_traj_path[0])
+    # BadMD_interval_test_names = [f"MBP_MD_Bad-Int{i}" for i in range(10)]
+    # GoodMD_interval_traj_paths, GoodMD_interval_top_paths = MD_traj_to_interval_paths(goodMD_top_path, goodMD_traj_path[0])
+    # GoodMD_interval_test_names = [f"MBP_MD_Good-Int{i}" for i in range(10)]
 
 
     # test_names = test_names + conf_interval_names
@@ -458,6 +466,7 @@ for idx ,(test_name, top_path, traj_paths) in enumerate(zip(test_names, top_path
                                                                             times=times,
                                                                             expt_name=expt_name,
                                                                             n_reps=3,
+                                                                            n_clusters=100,
 
                                                                             RW=True,
                                                                             hdx_path=hdx_path,

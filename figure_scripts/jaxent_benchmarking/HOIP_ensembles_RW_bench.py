@@ -1,0 +1,486 @@
+# %%
+### ValDXer testing
+import os
+
+os.environ["HDXER_PATH"] = "/home/alexi/Documents/HDXer"
+
+import sys
+
+sys.path.append("/home/alexi/Documents/ValDX/")
+
+
+import MDAnalysis as mda
+import pandas as pd
+
+from ValDX.ValidationDX import ValDXer
+from ValDX.VDX_Settings import Settings
+
+# from pdbfixer import PDBFixer
+# from openmm.app import PDBFile
+
+# settings = Settings(name='HOIP')
+# # settings.replicates = 1
+# settings.gamma_range = (1,8)
+# settings.train_frac = 0.5
+# settings.RW_exponent = [0]
+# settings.split_mode = 'R3'
+# settings.stride = 1000
+# settings.HDXer_stride = 10000
+
+# settings.RW_do_reweighting = True
+# settings.RW_do_params = False
+
+# VDX = ValDXer(settings)
+# expt_name = 'Experimental'
+# test_name = "HOIP_af_dirty"
+# ic.disable()
+
+# %% [markdown]
+#
+
+# %%
+# ### add code to read in sequence from CIF file instead of copying it manually
+
+# cif_file = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HOIP/HOIP_apo/AF-Q96EP0-F1-model_v4.cif"
+
+# sequence_header = "_entity_poly.pdbx_seq_one_letter_code"
+# sequence = ""
+# seq_head_idx = 0
+# with open(cif_file, 'r') as f:
+#     lines = f.readlines()
+#     for idx, line in enumerate(lines):
+#         if sequence_header in line:
+#             seq_head_idx = idx+1
+#             break
+
+#     for idx, line in enumerate(lines[seq_head_idx:]):
+#         if idx > 0 and line[0] == ";":
+#             break
+#         sequence += line.strip()
+
+
+# # print(sequence)
+
+
+# # strip sequence of non letters
+# sequence = ''.join([i for i in sequence if i.isalpha()])
+
+# print(sequence)
+
+# print("Sequence length: ", len(sequence))
+
+
+# # convert sequence to FASTA format
+# def write_fasta(sequence, header, file_name):
+#     """
+#     Writes a single-letter amino acid sequence to a FASTA file.
+
+#     Parameters:
+#     - sequence: A string containing the amino acid sequence.
+#     - header: A string to be used as the header in the FASTA file.
+#     - file_name: The name of the FASTA file to be created.
+#     """
+#     print(f"Writing sequence to {file_name}")
+#     with open(file_name, 'w') as fasta_file:
+#         # Write the header with the '>' symbol
+#         fasta_file.write(f">{header}\n")
+
+#         # Write the sequence in lines of 80 characters
+#         for i in range(0, len(sequence), 80):
+#             fasta_file.write(sequence[i:i+80] + "\n")
+
+
+# %%
+
+# fasta_path = os.path.join("raw_data", "HOIP", 'HOIP_apo.fasta')
+# write_fasta(sequence, 'HOIPapo', fasta_path)
+
+
+# %%
+
+
+# %% [markdown]
+#
+
+# %%
+
+
+# %%
+
+
+# %%
+raw_hdx_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo_peptide.csv"
+raw_hdx = pd.read_csv(raw_hdx_path)
+raw_hdx.tail()
+
+# %%
+# drop Unnamed: 0
+
+raw_hdx = raw_hdx.drop(columns=["Unnamed: 0"])
+raw_hdx.head()
+
+
+# %%
+# assign peptide number for each start and end residue using ngroup
+raw_hdx["peptide"] = raw_hdx.groupby(["Start", "End"]).ngroup()
+
+raw_hdx.head()
+
+# %%
+
+times = [0, 0.5, 5.0]
+
+num_peptides = len(raw_hdx) // len(times)
+
+exposure = times * num_peptides
+
+raw_hdx["Exposure"] = exposure
+
+raw_hdx.head()
+
+# %%
+raw_hdx["UptakeFraction"] = raw_hdx["Uptake"] / raw_hdx["MaxUptake"]
+
+raw_hdx.head()
+
+# %%
+# clamp UptakeFraction to 1
+raw_hdx["UptakeFraction"] = raw_hdx["UptakeFraction"].clip(upper=1)
+
+# %%
+# # print entire dataframe
+# pd.set_option('display.max_rows', None)
+# pd.set_option('display.max_columns', None)
+# pd.set_option('display.width', None)
+# print(raw_hdx)
+
+
+# %%
+
+
+# %%
+
+
+# %%
+
+# pivot exposure and uptake fraction
+grouped = raw_hdx.pivot(
+    index=["Start", "End"], columns="Exposure", values="UptakeFraction"
+).reset_index()
+
+# drop
+grouped.head()
+
+
+# %%
+
+# print entire dataframe
+pd.set_option("display.max_rows", None)
+pd.set_option("display.max_columns", None)
+pd.set_option("display.width", None)
+print(grouped)
+
+# %%
+# conver to HDXer format ie start, end, exposure_1, exposure_2
+
+# change Start to ResStr and End to ResEnd
+hdx = grouped.rename(columns={"Start": "ResStr", "End": "ResEnd"})
+
+# drop the exposure column
+hdx.columns.name = None
+
+print(hdx)
+
+
+# %%
+
+
+# %%
+
+hdx = hdx.round(5)
+hdx.to_csv(os.path.join("raw_data", "HOIP", "HOIP_apo.dat"), sep=" ", index=False)
+
+
+# %%
+segs = (
+    hdx[["ResStr", "ResEnd"]]
+    .drop_duplicates()
+    .sort_values(by=["ResStr", "ResEnd"])
+    .reset_index(drop=True)
+)
+
+
+# %%
+
+# # convert to list of tuples
+# segs = [tuple(x) for x in segs.values]
+
+# print(segs)
+
+
+# %%
+
+
+# # write list as new lines with space delimiter
+# with open(os.path.join("raw_data", "HOIP", 'HOIP_APO_segs.txt'), 'w') as f:
+#     for item in segs:
+#         f.write("%s\n" % ' '.join(map(str, item)))
+
+# %%
+# ### at the moment PDB fixer is adding different number of hydrogens to different structures... Need to change the code to use PROPKA to get H states and apply to all strucutres
+# BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HOIP/HOIP_apo/"
+# sim_dir = os.path.join(BPTI_dir, "alphafold_quick")
+
+# pdb_list = [f for f in os.listdir(sim_dir) if f.endswith('.pdb')]
+
+# print(pdb_list)
+
+
+# H_sim_dir = os.path.join(BPTI_dir, "alphafold_H")
+
+# os.makedirs(H_sim_dir, exist_ok=True)
+
+# for pdb in pdb_list:
+#     continue
+#     fixer = PDBFixer(os.path.join(sim_dir, pdb))
+#     fixer.addMissingHydrogens(7.0)
+#     H_pdb_name = pdb.replace('.pdb', '_H.pdb')
+#     PDBFile.writeFile(fixer.topology, fixer.positions, open(os.path.join(H_sim_dir, H_pdb_name), 'w'), keepIds=True)
+
+# pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
+
+
+# top_path = os.path.join(H_sim_dir, pdb_list[0])
+# pdb_paths = [os.path.join(H_sim_dir, i) for i in pdb_list]
+
+# print(top_path)
+# print(pdb_paths)
+
+
+# small_traj_name = top_path.replace(".pdb","_small.xtc")
+# small_traj_path = os.path.join(H_sim_dir, small_traj_name)
+
+# u = mda.Universe(top_path)
+
+# with XTCWriter(small_traj_path, n_atoms=u.atoms.n_atoms) as W:
+#     for ts in u.trajectory:
+#         W.write(u.atoms)
+#         W.write(u.atoms)
+#         break
+
+
+# %% [markdown]
+# Generate conformations with Alphafold
+#
+# # need to find out how to generate a wide range of conformations
+
+
+def MD_traj_to_interval_paths(top_path, traj_path, n_intervals=10, n_reps=None, out_path=None):
+    top_name = os.path.basename(top_path).replace(".pdb", "")
+
+    if n_reps is None:
+        # extract the number of replicates from the top_name
+        split = top_name.split("_")
+        # find split that starts with "r"
+        for s in split:
+            if s.startswith("r"):
+                if s[1:].isdigit():
+                    n_reps = int(s[1:])
+                    break
+
+    if out_path is None:
+        out_path = os.path.join(os.path.dirname(traj_path), "time_intervals")
+
+    os.makedirs(out_path, exist_ok=True)
+
+    # load the trajectory
+
+    u = mda.Universe(top_path, traj_path)
+
+    length = len(u.trajectory)
+
+    # check that the number of frames is divisible by n_reps
+
+    assert length % n_reps == 0, f"Number of frames {length} is not divisible by n_reps {n_reps}"
+
+    traj_length = length / n_reps
+
+    # round down interval length to the nearest integer
+    interval_length = int(traj_length / n_intervals)
+
+    # universe represents a concatenated trajectory for each replicate
+    # when slicing into intervals the frames must be selected from each replicate
+    # in a way that the intervals are continuous in time
+    # create a new trajectory for each interval
+
+    interval_indexes = {i: [] for i in range(n_intervals)}
+
+    for i in range(n_intervals):
+        start = i * interval_length
+        end = (i + 1) * interval_length
+
+        for j in range(n_reps):
+            interval_indexes[i] += list(
+                range(int(j * traj_length + start), int(j * traj_length + end))
+            )
+
+    # create a new trajectory for each interval
+    print(interval_indexes[0])
+
+    interval_names = [
+        f"{top_name}_nI{n_intervals}_interval{i}_len{n_intervals * interval_length}" + ".xtc"
+        for i in range(n_intervals)
+    ]
+
+    new_traj_paths = []
+
+    for i, indexes in interval_indexes.items():
+        new_traj_path = os.path.join(out_path, interval_names[i])
+        new_traj_paths.append([new_traj_path])
+
+    top_paths = [top_path] * n_intervals
+
+    return new_traj_paths, top_paths
+
+
+# %%
+def pre_process_main():
+    # BPTI data
+    # BPTI_dir = "/Users/alexi/Library/CloudStorage/OneDrive-Nexus365/Rotation_Projects/Rotation_3/Project/ValDX/raw_data/HOIP/HOIP_apo/"
+    BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo"
+    # BPTI_dir = "/home/alexi/Documents/ValDX/raw_data/HDXer_tutorial/BPTI"
+    expt_name = "Experimental"
+
+    test_names = [
+        "HOIP_af_dirty",
+        "HOIP_af_clean",
+        "HOIP_MD_Bad",
+        "HOIP_MD_Good",
+        "HOIP_MD_Good+Bad",
+    ]
+    test_names = ["HOIP_af_dirty", "HOIP_af_clean", "HOIP_1Start", "HOIP_10Start", "HOIP_MD_TFES"]
+
+    sim_name = "HOIP_apo_AF"
+    os.listdir(BPTI_dir)
+    segs_name = "HOIP_APO_segs_trimmed.txt"
+    segs_path = os.path.join(BPTI_dir, segs_name)
+
+    hdx_name = "HOIP_apo_clean_trimmed.dat"
+    hdx_path = os.path.join(BPTI_dir, hdx_name)
+    print(hdx_path)
+
+    rates_name = "out__train_MD_Simulated_1Intrinsic_rates.dat"
+    rates_path = os.path.join(BPTI_dir, rates_name)
+
+    sim_dir = os.path.join(BPTI_dir, "alphafold_quick")
+
+    pdb_list = [f for f in os.listdir(sim_dir) if f.endswith(".pdb")]
+
+    print(pdb_list)
+
+    H_sim_dir = os.path.join(BPTI_dir, "alphafold_H")
+
+    os.makedirs(H_sim_dir, exist_ok=True)
+
+    for pdb in pdb_list:
+        continue
+        fixer = PDBFixer(os.path.join(H_sim_dir, pdb))
+        fixer.addMissingHydrogens(7.0)
+        H_pdb_name = pdb.replace(".pdb", "_H.pdb")
+        PDBFile.writeFile(
+            fixer.topology,
+            fixer.positions,
+            open(os.path.join(H_sim_dir, H_pdb_name), "w"),
+            keepIds=True,
+        )
+        break
+    pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith(".pdb")]
+
+    dirty_top_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.pdb"
+    # pdb_paths = [os.path.join(H_sim_dir, i) for i in pdb_list]
+
+    # print(top_path)
+    # print(pdb_paths)
+    regular_MD_base = "/home/alexi/Documents/ValDX/raw_data/full_length_regular_MD"
+
+    # # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
+
+    dirty_traj_paths = [
+        "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.xtc"
+    ]
+
+    clean_top_path = dirty_top_path
+    clean_traj_paths = [dirty_traj_paths[0].replace(".xtc", "_all_filtered.xtc")]
+
+    badMD_top_path = f"{regular_MD_base}/HOIP_test_concatenated_stripped.pdb"
+    badMD_traj_path = [badMD_top_path.replace(".pdb", ".xtc")]
+
+    goodMD_top_path = f"{regular_MD_base}/HOIP_10_c_combined.pdb"
+    goodMD_traj_path = [goodMD_top_path.replace(".pdb", ".xtc")]
+
+    TFES_top_path = "/home/alexi/Documents/interpretable-hdxer/data/si_ifg1/T-FES/HOIP/HOIP_overall_combined_stripped.pdb"
+    TFES_traj_path = [
+        "/home/alexi/Documents/interpretable-hdxer/data/si_ifg1/T-FES/HOIP/resampled_outputs/HOIP_sampled.xtc"
+    ]
+
+    top_paths = [dirty_top_path, clean_top_path, badMD_top_path, goodMD_top_path, TFES_top_path]
+    traj_paths = [
+        dirty_traj_paths[0],
+        clean_traj_paths[0],
+        badMD_traj_path[0],
+        goodMD_traj_path[0],
+        TFES_traj_path[0],
+    ]
+
+    # min_interval_size=500
+    # confidence_intervals = [(0.0, 0.1), (0.1, 0.2), (0.2, 0.3), (0.3, 0.4), (0.4, 0.5), (0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.0), ("top", min_interval_size), ("bottom", min_interval_size)]
+    # str_confidence_intervals = [f"{i}_{j}" for (i,j) in confidence_intervals]
+    # conf_interval_names = [f"HOIP_af_conf{i}" for i in str_confidence_intervals]
+    # conf_interval_traj_names = [dirty_traj_path.replace(".xtc", f"_{name}.xtc") for name in str_confidence_intervals for dirty_traj_path in dirty_traj_paths]
+    # conf_dir = "af_confidence_intervals"
+    # conf_interval_paths = [os.path.join(os.path.dirname(dirty_top_path), conf_dir, os.path.basename(name)) for name in conf_interval_traj_names]
+
+    # BadMD_interval_traj_paths, BadMD_interval_top_paths = MD_traj_to_interval_paths(badMD_top_path, badMD_traj_path[0])
+    # BadMD_interval_test_names = [f"HOIP_MD_Bad-Int{i}" for i in range(10)]
+    # GoodMD_interval_traj_paths, GoodMD_interval_top_paths = MD_traj_to_interval_paths(goodMD_top_path, goodMD_traj_path[0])
+    # GoodMD_interval_test_names = [f"HOIP_MD_Good-Int{i}" for i in range(10)]
+
+    return hdx_path, segs_path, rates_path, top_paths, traj_paths, sim_name, expt_name, test_names
+
+
+# %%
+hdx_path, segs_path, rates_path, top_paths, traj_paths, sim_name, expt_name, test_names = (
+    pre_process_main()
+)
+times = [0.5, 5.0]
+
+for idx, (test_name, top_path, traj_paths) in enumerate(zip(test_names, top_paths, traj_paths)):
+    # if idx > 4:
+    #     continue
+    settings = Settings(name=test_name)
+    # settings.replicates = 2
+    settings.gamma_range = (9, 10)
+    settings.train_frac = 0.5
+    settings.RW_exponent = [1]
+    # settings.split_mode = 'R3'
+
+    VDX = ValDXer(settings)
+
+    # run RW across all splits
+
+    combined_analysis_dump, names, save_paths = VDX.run_cluster_benchmark_ensemble(
+        system=test_name,
+        times=times,
+        expt_name=expt_name,
+        n_reps=1,
+        n_clusters=500,
+        RW=True,
+        BV=False,
+        split_modes=["r"],
+        hdx_path=hdx_path,
+        segs_path=segs_path,
+        traj_paths=[traj_paths],
+        top_path=top_path,
+    )
+
+    break

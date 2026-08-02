@@ -148,12 +148,13 @@ hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test
 
 # run no optimisation
 
+
 VDX.run_sweep_cluster_ensemble(system=test_name,
                                 times=[0.167, 1, 10],
                                 expt_name=expt_name,
                                 n_reps=3,
-                                # denoms = np.array([10, 20, 100, 1000]),
-                                split_modes=['Sp'],
+                                denoms = np.array([0, 2, 5, 10, 20, 100, 1000]),
+                                split_modes=['R3','Sp'],
                                 hdx_path=hdx_path,
                                 segs_path=segs_path,
                                 traj_paths=traj_paths,

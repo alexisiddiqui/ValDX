@@ -1,8 +1,7 @@
 ### Python settings for the Val HDX project
 
 import os
-import platform
-import pandas as pd
+
 import numpy as np
 
 
@@ -10,7 +9,7 @@ class Settings:
     """Settings for the Val HDX project"""
 
     def __init__(self, name=None, hdxer_path=None):
-        self.times: np.array = np.array([0.167, 1, 10, 120]) 
+        self.times: np.array = np.array([0.167, 1, 10, 120])
 
         self.HDXer_env = "HDXER_ENV"
         if hdxer_path is not None:
@@ -18,28 +17,28 @@ class Settings:
         elif hdxer_path is None:
             self.HDXer_path = os.environ["HDXER_PATH"]
 
-        self.data_dir = 'data'
-        self.results_dir = 'results'
-        self.plot_dir = 'plots'
-        self.logs_dir = 'logs'
+        self.data_dir = "data"
+        self.results_dir = "results"
+        self.plot_dir = "plots"
+        self.logs_dir = "logs"
 
         if name is not None:
             self.name = name
         else:
             self.name = "VDX"
 
-        self.pre_process = True ### DoNot change this
-        
+        self.pre_process = True  ### DoNot change this
+
         self.random_seed = 42
         self.train_frac = 0.5
         self.replicates = 2
-        self.drop_centrality = True
+        self.drop_centrality = False
         self.hard_intersection = False
         self.HDX_method = "BestVendruscolo"
         self.logfile_name = ("calc_hdx_", ".log")
         self.segs_name = ("residue_segs_", ".txt")
         self.outname = "out_"
-        self.HDXer_mopt = "\"{ 'save_detailed' : True }\""
+        self.HDXer_mopt = "\"{ 'save_detailed' : True, 'contact_method' : 'cutoff' }\""
         self.HDXer_stride = 1
         self.stride = 100
         self.split_mode = "r"
@@ -52,20 +51,13 @@ class Settings:
         self.RW_do_reweighting = True
         self.RW_do_params = False
         self.random_initialisation = False
-        self.RW_stepfactor = 10**-3
+        self.RW_stepfactor = 10**-5
         self.RW_outprefix = "reweighting_gamma_"
         self.RW_restart_interval = 1000
-        self.gamma_range = (2,10)
+        self.gamma_range = (2, 10)
 
         self.save_figs = True
-        self.plot = True # only affects some plots
+        self.plot = True  # only affects some plots
 
         self.cluster_frac1 = 0.5
         self.cluster_size2 = 10
-
-
-
-
-
-    
-            

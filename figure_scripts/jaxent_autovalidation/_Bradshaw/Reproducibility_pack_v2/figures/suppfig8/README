@@ -1,0 +1,5 @@
+# 60/40 closed/open data created with:
+# (Inside the data_folder, after performing the calc_hdx analysis to generate Contacts & Hbonds files) 
+./create_mixed_target_data_contourmap.py -f ../../code/calc_hdx/data -n 16552 731 -w 0.6 0.4 -exp ../../data/artificial_HDX_data/mixed_60-40_artificial_expt_segfracs10.dat -dt 0.167 1.0 10.0 60.0 120.0 -r ../../code/calc_hdx/data/TeaA_mixed_Intrinsic_rates.dat
+
+cat *per_iteration_output.dat > all_chisquareds.dat

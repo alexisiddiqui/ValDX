@@ -1,0 +1,2 @@
+Time taken: 3113.035259962082 s
+Time taken: 51.88392099936803 min

@@ -1,0 +1,23 @@
+# Colorblind friendly reversed YlOrBr cycler from http://mkweb.bcgsc.ca/brewer/
+
+lines.linewidth : 1.5
+lines.markersize : 4
+axes.prop_cycle : cycler('color', [ 'cbf_ylorbr-9-seq-9', 'cbf_ylorbr-9-seq-8', 'cbf_ylorbr-9-seq-7', 'cbf_ylorbr-9-seq-6', 'cbf_ylorbr-9-seq-5', 'cbf_ylorbr-9-seq-4', 'cbf_ylorbr-9-seq-3', 'cbf_ylorbr-9-seq-2', 'cbf_ylorbr-9-seq-1' ])
+axes.labelweight : heavy
+axes.labelsize : 22
+axes.titlesize : 22
+axes.spines.top : False
+axes.spines.right : False
+legend.fontsize : 16
+legend.frameon : False
+xtick.labelsize : 16
+ytick.labelsize : 16
+figure.figsize : 11.0, 8.5
+figure.titlesize : 22
+figure.titleweight : heavy
+# Force matplotlib to use type 42 (truetype) fonts, making them editable in e.g. Illustrator
+pdf.fonttype : 42
+ps.fonttype : 42
+
+# For diverging colormap use RdYlBu
+image.cmap : RdYlBu

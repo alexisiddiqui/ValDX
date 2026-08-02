@@ -312,7 +312,7 @@ def pre_process_main():
     pdb_list = [f for f in os.listdir(H_sim_dir) if f.endswith('.pdb')]
 
 
-    top_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.pdb"
+    top_path = "/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated_first_frame.pdb"
     # pdb_paths = [os.path.join(H_sim_dir, i) for i in pdb_list]
 
     # print(top_path)
@@ -323,8 +323,7 @@ def pre_process_main():
         
     # # traj_paths = [os.path.join(sim_dir, i) for i in os.listdir(sim_dir) if i.endswith(".pdb")]
     
-    traj_paths = ["/home/alexi/Documents/ValDX/raw_data/HOIP/HOIP_apo/HOIP_apo697_1_af_sample_127_10000_protonated.xtc"]
-    u = mda.Universe(top_path, *traj_paths)
+    u = mda.Universe(top_path)
 
     small_traj_name = top_path.replace(".pdb","_small.xtc")
     small_traj_path = os.path.join(sim_dir, small_traj_name)
@@ -334,7 +333,7 @@ def pre_process_main():
             W.write(u.atoms)
             W.write(u.atoms)
             # break
-    print(traj_paths)
+    # print(traj_paths)
     traj_paths = [small_traj_path]
     return hdx_path, segs_path, rates_path, top_path, traj_paths, sim_name, expt_name, test_name
 

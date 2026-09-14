@@ -1,0 +1,24 @@
+rho,arm,root_label,gamma,count
+0.01,BV-RW,gamma=-1 sweep,3.0,3
+0.01,BV-RW,gamma=0 sweep,8.0,3
+0.01,RW-BV,gamma=-1 sweep,3.0,1
+0.01,RW-BV,gamma=0 sweep,3.0,2
+0.01,RW-BV,gamma=0 sweep,7.0,1
+0.01,RW-BV,gamma=0 sweep,8.0,2
+0.01,RW-Only,gamma=0 sweep,7.0,1
+0.01,RW-Only,gamma=0 sweep,8.0,2
+1,BV-RW,gamma=-1 sweep,3.0,3
+1,BV-RW,gamma=0 sweep,8.0,3
+1,RW-BV,gamma=0 sweep,3.0,3
+1,RW-BV,gamma=0 sweep,8.0,3
+1,RW-Only,gamma=0 sweep,8.0,3
+1000,BV-RW,gamma=-1 sweep,0.8,3
+1000,BV-RW,gamma=-1 sweep,3.0,3
+1000,BV-RW,gamma=0 sweep,3.0,3
+1000,BV-RW,gamma=0 sweep,8.0,3
+1000,RW-BV,gamma=-1 sweep,0.8,3
+1000,RW-BV,gamma=-1 sweep,3.0,3
+1000,RW-BV,gamma=0 sweep,3.0,3
+1000,RW-BV,gamma=0 sweep,8.0,3
+1000,RW-Only,gamma=-1 sweep,0.8,3
+1000,RW-Only,gamma=0 sweep,8.0,3

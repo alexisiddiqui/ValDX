@@ -2903,6 +2903,8 @@ class ValDXer(Experiment):
         segs_path: str = None,
         traj_paths: list = None,
         top_path: str = None,
+        skip_bench: bool = False,
+        cluster_cache_dir: str = None,
     ):
         _bench_split_modes = ["R3", "Sp"]
 
@@ -2942,6 +2944,7 @@ class ValDXer(Experiment):
         method_random_seed = [method_random_seed + i for i in range(n_reps)]
 
         print("Methods (BV,RW): ", methods)
+        sweep_outputs = {}
 
         segs = Segments(segs_path=segs_path)
 
@@ -2953,11 +2956,31 @@ class ValDXer(Experiment):
 
         frac = n_clusters / len(u.trajectory)
 
-        # calculate RMSD to topology
-
-        cluster_frames, iniweights, cl_projected, cluster_centers, cluster_labels = (
-            cluster_traj_by_density(projected=projected, cluster_frac1=frac)
-        )
+        # Clustering is data-independent and may be persisted by benchmark drivers so
+        # rho/noise invocations use byte-identical frames.
+        cluster_cache = None
+        if cluster_cache_dir is not None:
+            os.makedirs(cluster_cache_dir, exist_ok=True)
+            cluster_cache = os.path.join(cluster_cache_dir, "cluster_data.npz")
+        if cluster_cache is not None and os.path.exists(cluster_cache):
+            cached = np.load(cluster_cache)
+            cluster_frames = cached["frame_indices"]
+            iniweights = cached["initial_weights"]
+            cluster_centers = cached["cluster_centers"]
+            cluster_labels = cached["cluster_labels"]
+            cl_projected = projected[cluster_frames]
+        else:
+            cluster_frames, iniweights, cl_projected, cluster_centers, cluster_labels = (
+                cluster_traj_by_density(projected=projected, cluster_frac1=frac)
+            )
+            if cluster_cache is not None:
+                np.savez_compressed(
+                    cluster_cache,
+                    frame_indices=cluster_frames,
+                    initial_weights=iniweights,
+                    cluster_centers=cluster_centers,
+                    cluster_labels=cluster_labels,
+                )
 
         frac = round(frac, 2)
 
@@ -2989,7 +3012,9 @@ class ValDXer(Experiment):
         for step_method, method_name in zip(methods, method_names):
             if not isinstance(step_method, list):
                 _methods = [step_method]
-            elif isinstance(step_method, list) and len(step_method) != 1:
+            elif isinstance(step_method, list):
+                if len(step_method) == 0:
+                    raise ValueError(f"Method {method_name!r} has no stages")
                 _methods = step_method
 
             for idx, method in enumerate(_methods):
@@ -3022,6 +3047,9 @@ class ValDXer(Experiment):
                     traj_paths=[clustered_traj_path],
                     top_path=top_path,
                 )
+                sweep_outputs[(method_name, idx)] = {
+                    "analysis": data, "names": names, "save_paths": save_paths
+                }
                 # raise ValueError("Stop here")
                 for jdx, split in enumerate(_split_modes):
                     weights_df = data["weights"]
@@ -3061,6 +3089,9 @@ class ValDXer(Experiment):
 
                     _weights = avg_weights
                     _BV = avg_bcbh_params
+
+                    if skip_bench:
+                        continue
 
                     for kdx, rep in enumerate(range(n_reps)):
                         bench_weights_vals = weights_vals[kdx]
@@ -3102,6 +3133,7 @@ class ValDXer(Experiment):
                             traj_paths=[clustered_traj_path],
                             top_path=top_path,
                         )
+        return sweep_outputs
 
     def find_BV_parameters(
         self,

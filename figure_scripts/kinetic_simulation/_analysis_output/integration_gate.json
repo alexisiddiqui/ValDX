@@ -1,0 +1,24 @@
+{
+  "beta_C": 0.36579790625646574,
+  "beta_H": 1.9462266639362178,
+  "beta_C_std": 0.010303845940215195,
+  "beta_H_std": 0.1582652961454975,
+  "beta_C_true": 0.35,
+  "beta_H_true": 2.0,
+  "within_five_percent": true,
+  "forward_prediction_columns": [
+    "time",
+    "Type",
+    "R",
+    "calc_name",
+    "mse",
+    "name",
+    "system",
+    "analysis",
+    "split_type",
+    "protein",
+    "name_name",
+    "dataset",
+    "class"
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "aggregation": "mean_fraction",
+  "beta_C": 0.35,
+  "beta_H": 2.0,
+  "calc_hdx_options": {
+    "contact_method": "cutoff",
+    "method": "Radou",
+    "output_prefix": "TeaA_kin_",
+    "save_detailed": true,
+    "times": [
+      0.167,
+      1.0,
+      10.0,
+      60.0,
+      120.0
+    ],
+    "topology": "/home/alexi/Documents/ValDX/figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/data/trajectories/TeaA_ref_closed_state.pdb",
+    "trajectories": [
+      "/home/alexi/Documents/ValDX/figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/data/trajectories/TeaA_closed_reimaged.xtc",
+      "/home/alexi/Documents/ValDX/figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/data/trajectories/TeaA_open_reimaged.xtc"
+    ]
+  },
+  "concatenation_order": [
+    "/home/alexi/Documents/ValDX/figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/data/trajectories/TeaA_closed_reimaged.xtc",
+    "/home/alexi/Documents/ValDX/figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/data/trajectories/TeaA_open_reimaged.xtc"
+  ],
+  "d2o_fraction_scaling": false,
+  "frame_counts": [
+    16552,
+    731
+  ],
+  "frame_weights": [
+    0.6,
+    0.4
+  ],
+  "generator_options": {
+    "ex2": false,
+    "expfile": "figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/data/artificial_HDX_data/segs_teaa_noPro.dat",
+    "folders": [
+      "figure_scripts/kinetic_simulation/_output/calchdx_latest"
+    ],
+    "numframes": [
+      16552,
+      731
+    ],
+    "output_root": "/home/alexi/Documents/ValDX/figure_scripts/kinetic_simulation/_datasets",
+    "ratefile": "figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/code/calc_hdx/data/TeaA_mixed_Intrinsic_rates.dat",
+    "rho": 1000.0,
+    "scratch": false,
+    "times": [
+      0.167,
+      1.0,
+      10.0,
+      60.0,
+      120.0
+    ],
+    "weights": [
+      0.6,
+      0.4
+    ]
+  },
+  "input_sha256": {
+    "/home/alexi/Documents/ValDX/figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/data/trajectories/TeaA_closed_reimaged.xtc": "58366d5abaf57a9f644f40d93af0e76e7c2882f7caf729c5391caabaaa9efc77",
+    "/home/alexi/Documents/ValDX/figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/data/trajectories/TeaA_open_reimaged.xtc": "85c5995eb3723344eb57974cd027bb888fea162d221720fb98010920d81d2045",
+    "/home/alexi/Documents/ValDX/figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/data/trajectories/TeaA_ref_closed_state.pdb": "290e58452dc5709847a7885f9270974cd408a66a00a0461610ec940755386b62",
+    "figure_scripts/jaxent_autovalidation/_Bradshaw/Reproducibility_pack_v2/code/calc_hdx/data/TeaA_mixed_Intrinsic_rates.dat": "05e0cddc7e6ab3fe997d6d1d64c9bff24e4607b14bf95b47df4d92186f45e505"
+  },
+  "noise_provenance": "per-noisy-dataset sidecar",
+  "residues_per_segment": 1,
+  "rho": 1000.0,
+  "times": [
+    0.167,
+    1.0,
+    10.0,
+    60.0,
+    120.0
+  ],
+  "tmp_source_directories": [
+    "/home/alexi/Documents/ValDX/figure_scripts/kinetic_simulation/_output/calchdx_20260803T190254Z"
+  ],
+  "truth_npz": "/home/alexi/Documents/ValDX/figure_scripts/kinetic_simulation/_datasets/rho_1000/truth_rho1000.npz"
+}

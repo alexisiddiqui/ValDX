@@ -13,6 +13,8 @@ import glob
 import pickle
 import subprocess
 import shutil
+import hashlib
+import json
 import MDAnalysis as mda
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
@@ -813,6 +815,36 @@ class Experiment(ABC):
 
         else:
             raise ValueError(f"Mode {mode} not implemented yet.")
+
+        split_provenance_dir = getattr(self.settings, "split_provenance_dir", None)
+        if split_provenance_dir:
+            os.makedirs(split_provenance_dir, exist_ok=True)
+            with open(expt_path, "rb") as stream:
+                segment_sha256 = hashlib.sha256(stream.read()).hexdigest()
+
+            def _json_ids(values):
+                return [x.item() if isinstance(x, np.generic) else x for x in values]
+
+            record = {
+                "split_type": mode,
+                "split_replicate": rep - 1,
+                "seed": random_seed,
+                "segment_file": os.path.abspath(expt_path),
+                "segment_file_sha256": segment_sha256,
+                "input_ordering": _json_ids(self.segs["peptide"].tolist()),
+                "train_peptide_ids": _json_ids(train_segs["peptide"].tolist()),
+                "validation_peptide_ids": _json_ids(val_segs["peptide"].tolist()),
+            }
+            provenance_path = os.path.join(split_provenance_dir, f"{mode}_s{rep-1}.json")
+            if os.path.exists(provenance_path):
+                with open(provenance_path) as stream:
+                    expected = json.load(stream)
+                if record != expected:
+                    raise AssertionError(f"realised split differs from {provenance_path}")
+            else:
+                with open(provenance_path, "w") as stream:
+                    json.dump(record, stream, indent=2, sort_keys=True)
+                    stream.write("\n")
 
         # calc_name_ext = "_".join([calc_name, str(rep)])
         # calc_name = "_".join([calc_name, calc_name_ext])

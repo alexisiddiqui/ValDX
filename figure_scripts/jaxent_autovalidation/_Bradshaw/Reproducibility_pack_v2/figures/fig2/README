@@ -1,0 +1,9 @@
+# Fig 2 = 2 panels:
+# a) Butterfly plot or heatmap (Differences_closed-open*.pdf)
+# b) Structural overlay of HDX differences colored by bfactor (ref_closed_closed-open_*_10min.png)
+# Run as follows:
+./process_data_fig2.py
+./process_pdb_fig2.py
+./plot_heatmap_fig2_filled.py
+# Then create individual figures with the individual pymol scripts
+pymol plot_HDX+structure_fig2*.pml

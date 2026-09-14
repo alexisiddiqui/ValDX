@@ -1,0 +1,9 @@
+{
+  "rho": 0.1,
+  "noise_replicate": 1,
+  "noise_seed": 20250802,
+  "sigma": 0.02,
+  "noise_mode": "gaussian_clipped",
+  "clipped_point_fraction": 0.07234042553191489,
+  "truth_file": "_datasets_peptide/rho_0.1/truth_rho0.1.npz"
+}

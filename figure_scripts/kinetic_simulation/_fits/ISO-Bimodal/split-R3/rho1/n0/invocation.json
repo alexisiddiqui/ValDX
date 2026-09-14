@@ -1,0 +1,21 @@
+{
+  "rho": 1.0,
+  "ensemble": "ISO-Bimodal",
+  "noise_replicate": 0,
+  "split_type": "R3",
+  "split_replicates": 3,
+  "study_seed": 240513,
+  "gamma_range": [
+    1,
+    10
+  ],
+  "RW_exponent": [
+    -1
+  ],
+  "methods": {
+    "RW-Only": "(False, True)",
+    "BV-RW": "[(True, False), (False, True)]",
+    "RW-BV": "[(False, True), (True, False)]"
+  },
+  "wall_seconds": 14254.281582723
+}

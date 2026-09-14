@@ -1,0 +1,30 @@
+{
+  "target": {
+    "Open": 0.4,
+    "Closed": 0.6
+  },
+  "rho": [
+    1000.0,
+    1.0,
+    0.01
+  ],
+  "noise_replicates": [
+    0
+  ],
+  "split_replicates": [
+    0,
+    1,
+    2
+  ],
+  "interpretation": "descriptive calibration; split variation is not independent for staged arms",
+  "work_decomposition": {
+    "temperature_K": 300.0,
+    "kl_units": "nats",
+    "energy_units": "kJ/mol",
+    "definition": "Figure-3 LogPf PMF comparison of final-stage test versus prior",
+    "delta_H_opt": "mean absolute residue-wise change in H_opt",
+    "delta_H_abs": "RT times absolute change in ensemble-average LogPf",
+    "kl_definition": "KL divergence of fitted frame weights from uniform prior",
+    "physical_potential_energy_decomposition": false
+  }
+}

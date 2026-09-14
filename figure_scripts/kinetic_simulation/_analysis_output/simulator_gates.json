@@ -1,0 +1,34 @@
+{
+  "analytic_expm_max_abs_error": 4.796607627755023e-07,
+  "backend_nominal_target": 1e-12,
+  "backend_tolerance_note": "SciPy expm loses precision for TeaA k_int up to ~1.6e5 min^-1",
+  "minimum_unexchanged_state_probability": 0.0,
+  "n_actual_residues": 294,
+  "n_crosscheck_timepoints": 106,
+  "passed": true,
+  "pathological_corner_errors": {
+    "extreme_fast_rate": 1.1102230246251565e-15,
+    "extreme_slow_rate": 1.1102230246251565e-16,
+    "pf_near_one": 2.553900091406547e-09,
+    "very_large_pf": 4.092726157978177e-12
+  },
+  "probability_conservation_max_abs_error": 0.0,
+  "rho1000_max_abs_ex2_error": 0.0003676648130097604,
+  "rho_values": [
+    1000.0,
+    100.0,
+    10.0,
+    1.0,
+    0.1,
+    0.01
+  ],
+  "teaA_scipy_reference_tolerance": 1e-06,
+  "times": [
+    0.167,
+    1.0,
+    10.0,
+    60.0,
+    120.0
+  ],
+  "tmp_source_directory": "/home/alexi/Documents/ValDX/figure_scripts/kinetic_simulation/_output/calchdx_20260803T190254Z"
+}

@@ -1,0 +1,37 @@
+{
+  "target": {
+    "Open": 0.4,
+    "Closed": 0.6
+  },
+  "rho": [
+    1000.0,
+    1.0,
+    0.01
+  ],
+  "recovery_definition": "Open state Recovery (%) = 100 * fitted open population / 0.4; not clipped",
+  "selection": "normalised-sum",
+  "selection_definition": "min-max normalised training MSE + min-max normalised HDXer work; lower gamma breaks ties",
+  "selected_fit_directory": "/home/alexi/Documents/ValDX/figure_scripts/kinetic_simulation/_analysis_output/calibration_peptide_gamma_0/selected_fits",
+  "noise_replicates": [
+    0
+  ],
+  "split_replicates": [
+    0,
+    1,
+    2
+  ],
+  "interpretation": "descriptive calibration; split variation is not independent for staged arms",
+  "fits_root": "/home/alexi/Documents/ValDX/figure_scripts/kinetic_simulation/_fits_peptide_calibration_gamma_0",
+  "dataset_root": "/home/alexi/Documents/ValDX/figure_scripts/kinetic_simulation/_datasets_peptide",
+  "hdxer_work": "Final-stage reported work.dat value at the saved selected training gamma; kJ/mol",
+  "work_decomposition": {
+    "temperature_K": 300.0,
+    "kl_units": "nats",
+    "energy_units": "kJ/mol",
+    "definition": "Figure-3 LogPf PMF comparison of final-stage test versus prior",
+    "delta_H_opt": "mean absolute residue-wise change in H_opt",
+    "delta_H_abs": "RT times absolute change in ensemble-average LogPf",
+    "kl_definition": "KL divergence of fitted frame weights from uniform prior",
+    "physical_potential_energy_decomposition": false
+  }
+}

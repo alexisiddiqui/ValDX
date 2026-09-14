@@ -1,0 +1,23 @@
+{
+  "rho": 1000.0,
+  "ensemble": "ISO-Bimodal",
+  "noise_replicate": 0,
+  "split_type": "R3",
+  "split_replicates": 3,
+  "study_seed": 240513,
+  "gamma_range": [
+    1,
+    10
+  ],
+  "RW_exponent": [
+    -1
+  ],
+  "methods": {
+    "RW-Only": "(False, True)",
+    "BV-RW": "[(True, False), (False, True)]",
+    "RW-BV": "[(False, True), (True, False)]"
+  },
+  "wall_seconds": 457.317170291004,
+  "hdx_path": "/home/alexi/Documents/ValDX/figure_scripts/kinetic_simulation/_datasets_peptide/rho_1000/kinetic_rho1000_n0_expt_resfracs.dat",
+  "segs_path": "/home/alexi/Documents/ValDX/figure_scripts/kinetic_simulation/_peptides/segs_teaa_pepsin.dat"
+}

@@ -1,0 +1,9 @@
+{
+  "rho": 0.1,
+  "noise_replicate": 2,
+  "noise_seed": 20250803,
+  "sigma": 0.02,
+  "noise_mode": "gaussian_clipped",
+  "clipped_point_fraction": 0.25918367346938775,
+  "truth_file": "/home/alexi/Documents/ValDX/figure_scripts/kinetic_simulation/_datasets/rho_0.1/truth_rho0.1.npz"
+}

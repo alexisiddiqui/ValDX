@@ -1,0 +1,73 @@
+{
+  "topology": "/home/alexi/Documents/ValDX/figure_scripts/jaxent_autovalidation/_TeaA/trajectories/TeaA_ref_open_state.pdb",
+  "sequence_length": 310,
+  "seed": 20260813,
+  "digests_drawn": 10,
+  "propensity_scale": 0.9632476220595757,
+  "length_bounds": [
+    5,
+    15
+  ],
+  "target_mean_length": 10.0,
+  "target_coverage": 2.5,
+  "n_peptides": 94,
+  "peptide_length_mean": 7.829787234042553,
+  "peptide_length_min": 4,
+  "peptide_length_max": 14,
+  "coverage_mean": 2.6774193548387095,
+  "residues_uncovered": 41,
+  "model": {
+    "form": "p_cut(i) = clip(scale * W_P1[P1] * W_P1'[P1'] * proline_mask, 0, 1)",
+    "W_P1": {
+      "F": 1.0,
+      "L": 1.0,
+      "W": 0.9,
+      "Y": 0.8,
+      "M": 0.6,
+      "A": 0.4,
+      "V": 0.35,
+      "I": 0.35,
+      "E": 0.3,
+      "Q": 0.25,
+      "C": 0.2,
+      "T": 0.15,
+      "S": 0.12,
+      "N": 0.12,
+      "G": 0.1,
+      "H": 0.12,
+      "D": 0.08,
+      "K": 0.06,
+      "R": 0.05,
+      "P": 0.0
+    },
+    "W_P1_prime": {
+      "F": 0.9,
+      "L": 0.9,
+      "W": 0.8,
+      "Y": 0.7,
+      "M": 0.5,
+      "A": 0.4,
+      "V": 0.35,
+      "I": 0.35,
+      "E": 0.3,
+      "Q": 0.25,
+      "C": 0.2,
+      "T": 0.18,
+      "S": 0.15,
+      "N": 0.15,
+      "G": 0.15,
+      "H": 0.15,
+      "D": 0.1,
+      "K": 0.08,
+      "R": 0.08,
+      "P": 0.0
+    },
+    "proline_rule": "zero if P1 or P1' is Pro; x0.15 per Pro at P2 or P2'",
+    "pooling": "independent Bernoulli digests, deduplicated, pooled to target coverage",
+    "caveats": [
+      "propensity caricature, not a fitted cleavage predictor",
+      "no structure, accessibility, charge-state or MS-detectability model",
+      "sequence-only: independent of the kinetic regime"
+    ]
+  }
+}

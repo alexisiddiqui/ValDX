@@ -1,10 +1,20 @@
 # Universal functions
 import os
+import subprocess
+from concurrent.futures import ProcessPoolExecutor
+from typing import Dict, List, Tuple
+
+import MDAnalysis as mda
 import numpy as np
 import pandas as pd
-import subprocess
-from HDXer.reweighting import MaxEnt
+from HDXer.reweighting_functions import read_contacts_hbonds
+from MDAnalysis.analysis import rms
+from MDAnalysis.analysis.align import AlignTraj
+from scipy.spatial.distance import pdist
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 
+from .reweighting import MaxEnt
 
 
 def conda_to_env_dict(env_name):
@@ -19,25 +29,37 @@ def conda_to_env_dict(env_name):
     If the environment is not found, returns None.
     """
     # Run the command 'conda env list' and get the output
-    result = subprocess.run(['conda', 'env', 'list'], stdout=subprocess.PIPE)
-    
+
+    try:
+        result = subprocess.run(["conda", "env", "list"], stdout=subprocess.PIPE)
+    except:
+        print("Conda not found, trying to find conda in path")
+        test_command = """
+        source ~/.bashrc ;
+        conda activate HDXER_ENV ;
+        conda env list
+        """
+        result = subprocess.run(test_command, shell=True, stdout=subprocess.PIPE)
+
     # Decode result to string and split lines
     envs = result.stdout.decode().splitlines()
-    
+    print("envs", envs)
     # Initialize an empty path
     path = None
 
     # Iterate through the environments
     for env in envs:
         # Skip lines that don't contain a directory path
-        if not env.startswith('#') and env.strip():
+        if not env.startswith("#") and env.strip():
             # Split the line into its components
             parts = env.split()
             # The environment name should be the first component, and the path should be the last
             name = parts[0].strip()
+            print("name", name)
             env_path = parts[-1].strip()
             # Check if the environment name matches the one we're looking for
             if name == env_name:
+                print(f"Environment '{env_name}' found.")
                 path = env_path
                 break
 
@@ -48,11 +70,12 @@ def conda_to_env_dict(env_name):
     else:
         print(f"Path to '{env_name}' environment: {path}")
 
-                # Get a copy of the current environment variables
+        # Get a copy of the current environment variables
         env_vars = os.environ.copy()
         # Update the PATH to include the bin directory of the conda environment
-        env_vars['PATH'] = env_path + os.pathsep + env_vars['PATH']
-        
+        env_vars["PATH"] = env_path + os.pathsep + env_vars["PATH"]
+        os.environ["CONDA_PREFIX"] = env_path
+        print("PATH", env_vars["PATH"])
         return env_vars
 
 
@@ -60,14 +83,14 @@ def conda_to_env_dict(env_name):
 
 # def read_to_df(file):
 #     """Read and create a pandas DataFrame for the given argument.
-    
+
 #     Args:
 #         file: There are four possible options:
 #             'segs' - peptide segments
 #             'expt' - experimental HDX deuterated fractions
 #             'pred' - calculated HDX deuterated fractions
 #             'reweighted' - reweighted HDX deuterated fractions
-    
+
 #     Returns:
 #         df: A pandas DataFrame containing data for the given argument.
 #     """
@@ -77,37 +100,38 @@ def conda_to_env_dict(env_name):
 #                          sep='\s+', header=None, names=['ResStr', 'ResEnd'])
 #     elif file == 'expt':
 #         # Read and create a pandas DataFrame using an experimental deuterated fractions file
-#         df = pd.read_csv(os.path.expandvars('$HDXER_PATH/tutorials/BPTI/BPTI_expt_data/BPTI_expt_dfracs.dat'), 
+#         df = pd.read_csv(os.path.expandvars('$HDXER_PATH/tutorials/BPTI/BPTI_expt_data/BPTI_expt_dfracs.dat'),
 #                          sep='\s+', skiprows=[0], header=None, usecols=[2, 3, 4, 5], names=times)
 #     elif file == 'pred':
 #         # Read and create a pandas DataFrame using a computed deuterated fractions file
-#         df = pd.read_csv(os.path.expandvars('$HDXER_PATH/tutorials/BPTI/BPTI_calc_hdx/BPTI_SUMMARY_segment_average_fractions.dat'), 
+#         df = pd.read_csv(os.path.expandvars('$HDXER_PATH/tutorials/BPTI/BPTI_calc_hdx/BPTI_SUMMARY_segment_average_fractions.dat'),
 #                          sep='\s+', skiprows=[0], header=None, usecols=[2, 3, 4, 5], names=times)
 #     elif file == 'reweighted':
-#         df = pd.read_csv(os.path.expandvars('$HDXER_PATH/tutorials/BPTI/BPTI_reweighting/reweighting_gamma_2x10^0_final_segment_fractions.dat'), 
+#         df = pd.read_csv(os.path.expandvars('$HDXER_PATH/tutorials/BPTI/BPTI_reweighting/reweighting_gamma_2x10^0_final_segment_fractions.dat'),
 #                          sep='\s+', skiprows=[0], header=None, names=times)
 #     else:
 #         print("Incorrect argument given. Please choose one of the following: 'segs' 'expt' 'pred' 'reweighted'")
 #     return df
 
 
-def segs_to_df(path: str, names=['ResStr', 'ResEnd']):
+def segs_to_df(path: str, names=["ResStr", "ResEnd"]):
     """Read and create a pandas DataFrame using a residue segments file.
-    
+
     Args:
         path: The path to the residue segments file.
-    
+
     Returns:
         df: A pandas DataFrame containing data for the given argument.
         names: A list of column names for the DataFrame. (ResStr, ResEnd)
     """
-    df = pd.read_csv(path, sep='\s+', header=None, names=names)
+    df = pd.read_csv(path, sep="\s+", header=None, names=names)
     df["peptide"] = df.index
     return df
 
+
 def segs_to_file(path: str, df: pd.DataFrame):
     """Write a residue segments file from a pandas DataFrame.
-    
+
     Args:
         path: The path to the residue segments file.
         df: A pandas DataFrame containing data for the given argument.
@@ -118,11 +142,14 @@ def segs_to_file(path: str, df: pd.DataFrame):
     # remove peptide column if present make sure we dont overwrite the df in memory.
     if "peptide" in df.columns:
         df = df.drop(columns=["peptide"])
+
     if "calc_name" in df.columns:
         df = df.drop(columns=["calc_name"])
+
     if "path" in df.columns:
         df = df.drop(columns=["path"])
-    df.to_csv(path, sep='\t', header=False, index=False)
+    df.to_csv(path, sep="\t", header=False, index=False)
+
 
 def HDX_to_file(path: str, df: pd.DataFrame):
     """
@@ -141,104 +168,196 @@ def HDX_to_file(path: str, df: pd.DataFrame):
     if "path" in df.columns:
         df = df.drop(columns=["path"])
 
-    header = "\t".join(["#",*[str(col) for col in df.columns]," times/min"])+"\n"
+    header = "\t".join(["#", *[str(col) for col in df.columns], " times/min"]) + "\n"
     print(header)
     with open(path, "w") as f:
         f.write(header)
-    df.to_csv(path, sep='\t', header=False, index=False, mode="a")
+    df.to_csv(path, sep="\t", header=False, index=False, mode="a")
 
 
 def avgfrac_to_df(path: str, names: list):
     """Read and create a pandas DataFrame using a computed deuterated fractions file.
-    
+
     Args:
         path: The path to the computed deuterated fractions file.
         names: A list of column names for the DataFrame. (times)
-    
+
     Returns:
         df: A pandas DataFrame containing data for the given argument.
     """
-    cols = [col+2 for col in range(len(names))]
-    df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None, usecols=cols, names=names)
-    # this is not true... but 
+    cols = [col + 2 for col in range(len(names))]
+
+    df = pd.read_csv(path, sep="\s+", skiprows=[0], header=None, usecols=cols, names=names)
+    # this is not true... but
     df["peptide"] = df.index
 
     return df
 
-def reweight_to_df(path: str, names: list):
+
+def reweight_to_df(path: str, names: list) -> pd.DataFrame:
     """Read and create a pandas DataFrame using a reweighted deuterated fractions file.
-    
+
     Args:
         path: The path to the reweighted deuterated fractions file.
         names: A list of column names for the DataFrame. (times)
 
-    
+
     Returns:
         df: A pandas DataFrame containing data for the given argument.
     """
-    df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None, names=names)
+    df = pd.read_csv(path, sep="\s+", skiprows=[0], header=None, names=names)
     df["peptide"] = df.index
     print(df.shape)
     print(df.head())
     return df
 
 
-def dfracs_to_df(path: str, names: list):
-
-    df = pd.read_csv(path, sep='\s+', skiprows=[0], header=None)
-    #add peptide numbers
-    #find number of columns
+def dfracs_to_df(path: str, names: list) -> pd.DataFrame:
+    print("Path", path)
+    df = pd.read_csv(path, sep="\s+", skiprows=[0], header=None)
+    # add peptide numbers
+    # find number of columns
     ncol = df.shape[1]
     df["peptide"] = df.index
 
-    if ncol == len(names)+2:
+    if ncol == len(names) + 2:
         print(f"AVG: ncol = {ncol}, len(names) = {len(names)}")
         return avgfrac_to_df(path, names)
     elif ncol == len(names):
         print(f"RW: ncol = {ncol}, len(names) = {len(names)}")
         return reweight_to_df(path, names)
 
-def run_MaxEnt(args: tuple[dict, int]):
+
+# def run_MaxEnt(args: tuple[dict, int]):
+#     """
+#     Run MaxEnt reweighting on HDX data.
+#     Takes arg as a dictionary - designed to be used for multiprocessing
+#     returns nothing as files are written to disk
+#     """
+#     args, r = args
+
+#     out_prefix = os.path.join(args["out_prefix"]+f"{r}x10^{args['exponent']}")
+#     print(out_prefix)
+#     reweight_object = MaxEnt(do_reweight=args["do_reweight"],
+#                                 do_params=args["do_params"],
+#                                 stepfactor=args["stepfactor"])
+
+#     reweight_object.run(gamma=args["basegamma"]*r,
+#                         data_folders=args["predictHDX_dir"],
+#                         kint_file=args["kint_file"],
+#                         exp_file=args["exp_file"],
+#                         times=args["times"],
+#                         restart_interval=args["restart_interval"],
+#                         out_prefix=out_prefix)
+
+#     cprofile_log = out_prefix + f"_gamma_{r}x10^{args['exponent']}_cprofile.prof"
+
+
+def run_MaxEnt(args: Tuple[Dict, int]):
     """
     Run MaxEnt reweighting on HDX data.
     Takes arg as a dictionary - designed to be used for multiprocessing
     returns nothing as files are written to disk
     """
+    # pr = cProfile.Profile()
+    # pr.enable()
+
+    # The original content of run_MaxEnt
     args, r = args
-
-    out_prefix = os.path.join(args["out_prefix"]+f"{r}x10^{args['exponent']}")
+    out_prefix = os.path.join(args["out_prefix"] + f"{r}x10^{args['exponent']}")
     print(out_prefix)
-    reweight_object = MaxEnt(do_reweight=args["do_reweight"],
-                                do_params=args["do_params"],
-                                stepfactor=args["stepfactor"])
-    
-    reweight_object.run(gamma=args["basegamma"]*r,
-                        data_folders=args["predictHDX_dir"], 
-                        kint_file=args["kint_file"],
-                        exp_file=args["exp_file"],
-                        times=args["times"], 
-                        restart_interval=args["restart_interval"], 
-                        out_prefix=out_prefix)
-    
+    weights = args["iniweights"]
 
-def restore_trainval_peptide_nos(calc_name: str, 
-                                 expt_name: str,
-                                 train_dfs: list[pd.DataFrame],
-                                 val_dfs: list[pd.DataFrame],
-                                 n_reps: int,
-                                 times: list,
-                                 train_segs: pd.DataFrame,
-                                 val_segs: pd.DataFrame,
-                                 expt_segs: pd.DataFrame,
-                                 ) -> pd.DataFrame:
+    reweight_object = MaxEnt(
+        do_reweight=args["do_reweight"],
+        do_params=args["do_params"],
+        stepfactor=args["stepfactor"],
+        random_initial=args["random_initial"],
+    )
+
+    (currweights, bv_bc, bv_bh) = reweight_object.run(
+        gamma=args["basegamma"] * r,
+        data_folders=args["predictHDX_dir"],
+        kint_file=args["kint_file"],
+        exp_file=args["exp_file"],
+        times=args["times"],
+        iniweights=args["iniweights"],
+        restart_interval=args["restart_interval"],
+        out_prefix=out_prefix,
+    )
+
+    # pr.disable()
+    # Save results to a file
+    # cprofile_log = out_prefix + f"_gamma_{r}x10^{args['exponent']}_cprofile.prof"
+    # pr.dump_stats(cprofile_log)
+
+    # Print results to the console
+    # s = io.StringIO()
+    # sortby = pstats.SortKey.CUMULATIVE
+    # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    # ps.print_stats()
+    # print(s.getvalue())
+    print(f"Completed reweighting for {out_prefix}")
+    print("Sum of Output Weights")
+    print(np.sum(currweights))
+
+    return (currweights, bv_bc, bv_bh)
+
+
+def run_MaxEnt_single(args: dict):
+    r = args["r"]
+    out_prefix = os.path.join(args["out_prefix"] + f"{r}x10^{args['exponent']}")
+
+    reweight_object = MaxEnt(
+        do_reweight=args["do_reweight"],
+        do_params=args["do_params"],
+        stepfactor=args["stepfactor"],
+        random_initial=args["random_initial"],
+        bv_bc=args["bv_bc"],
+        bv_bh=args["bv_bh"],
+    )
+
+    (currweights, bv_bc, bv_bh) = reweight_object.run(
+        gamma=args["gamma"],
+        data_folders=args["predictHDX_dir"],
+        kint_file=args["kint_file"],
+        exp_file=args["exp_file"],
+        times=args["times"],
+        iniweights=args["iniweights"],
+        restart_interval=args["restart_interval"],
+        out_prefix=out_prefix,
+    )
+
+    print(f"Completed reweighting for {out_prefix}")
+    print("Sum of Output Weights")
+    print(np.sum(currweights))
+    print("BV Parameters")
+    print("bv_bc", bv_bc)
+    print("bv_bh", bv_bh)
+
+    return (currweights, bv_bc, bv_bh)
+
+
+def restore_trainval_peptide_nos(
+    calc_name: str,
+    expt_name: str,
+    train_dfs: List[pd.DataFrame],
+    val_dfs: List[pd.DataFrame],
+    test_dfs: List[pd.DataFrame],
+    n_reps: int,
+    times: List,
+    train_segs: pd.DataFrame,
+    val_segs: pd.DataFrame,
+    expt_segs: pd.DataFrame,
+) -> pd.DataFrame:
     """
     Restores the peptide numbers for the train and validation dataframes for a given calculation and experiment name.
     The function takes in the calculation name, experiment name, train and validation dataframes, number of replicates,
-    times, train, validation and experiment segments dataframes. It then iterates through the replicates and adds the 
-    correct peptide numbers to the train and validation dataframes. It then merges the replicates together and merges 
-    the train and validation dataframes together. Finally, it checks that each replicate has the same number of peptides 
+    times, train, validation and experiment segments dataframes. It then iterates through the replicates and adds the
+    correct peptide numbers to the train and validation dataframes. It then merges the replicates together and merges
+    the train and validation dataframes together. Finally, it checks that each replicate has the same number of peptides
     between the train and validation data and returns the merged dataframe.
-    
+
     Parameters:
     -----------
     calc_name : str
@@ -259,68 +378,86 @@ def restore_trainval_peptide_nos(calc_name: str,
         A dataframe containing the validation segments.
     expt_segs : pd.DataFrame
         A dataframe containing the experiment segments.
-        
+
     Returns:
     --------
     merge_df : pd.DataFrame
         A merged dataframe containing the train and validation data.
     """
     # create the replicate names
-    train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
-    val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
+    train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1, n_reps + 1)]
+    val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1, n_reps + 1)]
+    test_rep_names = ["_".join(["prior", calc_name, str(rep)]) for rep in range(1, n_reps + 1)]
 
     print("train_rep_names", train_rep_names)
     print("val_rep_names", val_rep_names)
+    print("test_rep_names", test_rep_names)
     # iterate through the reps and add the correct peptide numbers to the train and val dfs
     for r in range(n_reps):
         train_rep, val_rep = train_rep_names[r], val_rep_names[r]
-                    # 
-        train_rep_peptides = train_segs.loc[train_segs["calc_name"] == train_rep, "peptide"].copy().to_list()
-        val_rep_peptides = val_segs.loc[val_segs["calc_name"] == val_rep, "peptide"].copy().to_list()
-
+        test_rep = test_rep_names[r]
+        #
+        train_rep_peptides = (
+            train_segs.loc[train_segs["calc_name"] == train_rep, "peptide"].copy().to_list()
+        )
+        val_rep_peptides = (
+            val_segs.loc[val_segs["calc_name"] == val_rep, "peptide"].copy().to_list()
+        )
+        test_rep_peptides = (
+            expt_segs.loc[expt_segs["calc_name"] == expt_name, "peptide"].copy().to_list()
+        )
         print("train_rep_peptides", train_rep_peptides)
         print("val_rep_peptides", val_rep_peptides)
-
+        print("test_rep_peptides", test_rep_peptides)
 
         train_dfs[r]["peptide"] = train_rep_peptides
         val_dfs[r]["peptide"] = val_rep_peptides
+        test_dfs[r]["peptide"] = test_rep_peptides
 
     # merge the reps together
     train_merge_df = pd.concat(train_dfs, ignore_index=True)
     val_merge_df = pd.concat(val_dfs, ignore_index=True)
+    test_dfs = pd.concat(test_dfs, ignore_index=True)
 
     # merge the train and val dfs together
     merge_df = pd.concat([train_merge_df, val_merge_df], ignore_index=True)
+    merge_df = pd.concat([merge_df, test_dfs], ignore_index=True)
 
     print("manual merge df")
     print(merge_df)
 
-    # make sure that each rep has the same number of peptides between the train and val data
+    # make sure that each rep has the same number of peptides between the train and val data (is this needed?)
     for r in range(n_reps):
         train_rep_name, val_rep_name = train_rep_names[r], val_rep_names[r]
 
-        train_rep_peptides = train_segs.loc[train_segs["calc_name"] == train_rep_name, "peptide"].values
+        train_rep_peptides = train_segs.loc[
+            train_segs["calc_name"] == train_rep_name, "peptide"
+        ].values
         val_rep_peptides = val_segs.loc[val_segs["calc_name"] == val_rep_name, "peptide"].values
 
         rep_peptides = [*train_rep_peptides, *val_rep_peptides]
         rep_peptides = sorted(rep_peptides)
-        print("train segs", train_segs.loc[train_segs["calc_name"] == train_rep_name, "peptide"].values)
+        print(
+            "train segs",
+            train_segs.loc[train_segs["calc_name"] == train_rep_name, "peptide"].values,
+        )
         print("val segs", val_segs.loc[val_segs["calc_name"] == val_rep_name, "peptide"].values)
 
-        if not np.array_equal(rep_peptides, expt_segs["peptide"].values):
-            print("rep_peptides", rep_peptides)
-            print("expt_segs", expt_segs["peptide"].values)
-            raise ValueError("Peptides not equal between tran/val and expt")
+        # if not np.array_equal(rep_peptides, expt_segs["peptide"].values):
+        #     print("rep_peptides", rep_peptides)
+        #     print("expt_segs", expt_segs["peptide"].values)
+        #     raise UserWarning("Peptides not equal between tran/val and expt")
 
     return merge_df
 
 
-def add_nan_values(merge_df: pd.DataFrame,
-                   calc_name: str,
-                   n_reps: int,
-                   times: list,
-                   expt_segs: pd.DataFrame,
-                   ) -> pd.DataFrame:
+def add_nan_values(
+    merge_df: pd.DataFrame,
+    calc_name: str,
+    n_reps: int,
+    times: list,
+    expt_segs: pd.DataFrame,
+) -> pd.DataFrame:
     """
     Adds nan values to the train and validation dataframes for a given calculation and experiment name.
 
@@ -335,9 +472,8 @@ def add_nan_values(merge_df: pd.DataFrame,
     - pd.DataFrame: The dataframe with added nan values.
     """
 
-    train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
-    val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1,n_reps+1)]
-    
+    train_rep_names = ["_".join(["train", calc_name, str(rep)]) for rep in range(1, n_reps + 1)]
+    val_rep_names = ["_".join(["val", calc_name, str(rep)]) for rep in range(1, n_reps + 1)]
 
     empty_df = pd.DataFrame(columns=[*times, "peptide", "calc_name"])
     empty_df["peptide"] = expt_segs["peptide"].values
@@ -350,13 +486,13 @@ def add_nan_values(merge_df: pd.DataFrame,
 
         train_df = merge_df[merge_df["calc_name"] == train_rep].copy()
         val_df = merge_df[merge_df["calc_name"] == val_rep].copy()
-        # set all values to nan
-        # for all values in columns in *times
+        # set all values to nan
+        # for all values in columns in *times
         for t in times:
-            val_df[t] = [np.nan]*len(val_df)
+            val_df[t] = [np.nan] * len(val_df)
 
         # switch the calc_name
-        val_df["calc_name"] = [train_rep]*len(val_df)
+        val_df["calc_name"] = [train_rep] * len(val_df)
 
         train_df = pd.concat([train_df, val_df], ignore_index=True)
         nan_df = pd.concat([nan_df, train_df], ignore_index=True)
@@ -366,13 +502,956 @@ def add_nan_values(merge_df: pd.DataFrame,
         # add nan values to val dfs
         train_df = merge_df[merge_df["calc_name"] == train_rep].copy()
         val_df = merge_df[merge_df["calc_name"] == val_rep].copy()
-        # set all values to nan
+        # set all values to nan
         for t in times:
-            train_df[t] = [np.nan]*len(train_df)
+            train_df[t] = [np.nan] * len(train_df)
         # switch the calc_name
-        train_df["calc_name"] = [val_rep]*len(train_df)
+        train_df["calc_name"] = [val_rep] * len(train_df)
 
         val_df = pd.concat([train_df, val_df], ignore_index=True)
         nan_df = pd.concat([nan_df, val_df], ignore_index=True)
 
     return nan_df
+
+
+def calc_LogP_by_res(structure: mda.Universe, B_C=0.35, B_H=2.0, cut_C=6.5, cut_H=2.4):
+    # cut_C, cut_H = 6.5, 2.4  # Angstroms
+
+    n_C, n_H = [], []
+    structure = structure.select_atoms("protein")
+    for res in structure.residues:
+        resid = res.resid
+        # print("Resi: ",  resid)
+
+        amide_N = res.atoms.select_atoms(f"name N and resid {resid}")
+        amide_H = res.atoms.select_atoms(
+            f"name H or name H1 or name H2 or name H3 and resid {resid}"
+        )
+        # print(amide_N.positions)
+        amide_N_pos_string = " ".join([str(i) for i in amide_N.positions[0]])
+
+        resi_excl = " or ".join([f"resid {resid + i}" for i in range(-2, 3)])
+
+        heavy_atom_selection = (
+            f"point {amide_N_pos_string} {cut_C} and not name H* and not ({resi_excl})"
+        )
+        heavy_atoms = structure.select_atoms(heavy_atom_selection, periodic=False)
+        # print("heavy_atoms", heavy_atoms)
+        n_C.append(len(heavy_atoms))
+
+        amide_H_positions = amide_H.positions
+        total = 0
+        for hydrogen in amide_H_positions:
+            hydrogen_pos_string = " ".join([str(i) for i in hydrogen])
+            acceptor_atom_selection = f"point {hydrogen_pos_string} {cut_H} and type O and not (name N and resid {resid}) and not ({resi_excl})"
+            acceptor_atoms = structure.select_atoms(acceptor_atom_selection, periodic=False)
+
+            total += len(acceptor_atoms)
+
+        # Handle case where no hydrogens are found
+        if len(amide_H_positions) > 0:
+            n_H.append(total)
+        else:
+            n_H.append(0)  # No hydrogens found
+
+    n_C = np.array(n_C)
+    n_H = np.array(n_H)
+
+    # print("Heavy atom contacts: ", n_C)
+    # print("Hydrogen bond contacts: ", n_H)
+
+    Log_Pf_C = B_C * n_C
+    Log_Pf_H = B_H * n_H
+    LogPf_by_res = Log_Pf_C + Log_Pf_H
+
+    return LogPf_by_res
+
+
+def calc_LogP_frame_by_res(
+    structure: mda.Universe, frame: int, B_C=0.35, B_H=2.0, cut_C=6.5, cut_H=2.4
+):
+    # cut_C, cut_H = 6.5, 2.4  # Angstroms
+
+    n_C, n_H = [], []
+    structure = structure.select_atoms("protein")
+    structure.universe.trajectory[frame]
+
+    for res in structure.residues:
+        resid = res.resid
+        # print("Resi: ",  resid)
+
+        amide_N = res.atoms.select_atoms(f"name N and resid {resid}")
+        amide_H = res.atoms.select_atoms(
+            f"name H or name H1 or name H2 or name H3 and resid {resid}"
+        )
+        # print(amide_N.positions)
+        amide_N_pos_string = " ".join([str(i) for i in amide_N.positions[0]])
+
+        resi_excl = " or ".join([f"resid {resid + i}" for i in range(-2, 3)])
+
+        heavy_atom_selection = (
+            f"point {amide_N_pos_string} {cut_C} and not name H* and not ({resi_excl})"
+        )
+        heavy_atoms = structure.select_atoms(heavy_atom_selection, periodic=False)
+        # print("heavy_atoms", heavy_atoms)
+        n_C.append(len(heavy_atoms))
+
+        amide_H_positions = amide_H.positions
+        total = 0
+        for hydrogen in amide_H_positions:
+            hydrogen_pos_string = " ".join([str(i) for i in hydrogen])
+            acceptor_atom_selection = f"point {hydrogen_pos_string} {cut_H} and type O and not (name N and resid {resid}) and not ({resi_excl})"
+            acceptor_atoms = structure.select_atoms(acceptor_atom_selection, periodic=False)
+
+            total += len(acceptor_atoms)
+
+        # Handle case where no hydrogens are found
+        if len(amide_H_positions) > 0:
+            n_H.append(total)
+        else:
+            n_H.append(0)  # No hydrogens found
+
+    n_C = np.array(n_C)
+    n_H = np.array(n_H)
+
+    # print("Heavy atom contacts: ", n_C)
+    # print("Hydrogen bond contacts: ", n_H)
+
+    Log_Pf_C = B_C * n_C
+    Log_Pf_H = B_H * n_H
+    LogPf_by_res = Log_Pf_C + Log_Pf_H
+
+    return LogPf_by_res
+
+
+def calc_traj_LogP_byres(
+    universe: mda.Universe, B_C, B_H, stride=1, residues: np.array = None, weights: list = [1]
+):
+    # convert residues to indices
+    # print("residues", residues)
+    seg_indices = np.subtract(residues, 1)
+    seg_indices = seg_indices.astype(int)
+    # print("seg_indices", seg_indices)
+    HDX_free_energy = 0
+    traj_len = len(universe.trajectory)
+    print(traj_len)
+
+    if len(weights) != traj_len:
+        print("weights must be the same length as the trajectory")
+        print(weights)
+        weights = [1 / traj_len] * traj_len
+    print("weights sum: ", np.sum(weights))
+
+    # if any weights are nan then set then  weights = [1/traj_len]*traj_len
+    if np.isnan(weights).any():
+        print("weights contain nan values, setting weights = [1/traj_len]*traj_len")
+        print(weights)
+        weights = [1 / traj_len] * traj_len
+
+    if traj_len > 1:
+        LogPf_by_res_mean = np.zeros(len(seg_indices))
+        # multiprocess calc_LogP_frame_by_res
+        with ProcessPoolExecutor() as executor:
+            args = [(universe, frame, B_C, B_H) for frame in range(0, traj_len, stride)]
+            LogPf_by_frame = list(executor.map(calc_LogP_frame_by_res, *zip(*args)))
+            LogPf_by_frame = np.array(LogPf_by_frame)
+            # apply weights
+            weights = np.array(weights)
+            LogPf_by_frame = np.multiply(LogPf_by_frame, weights.reshape(-1, 1))
+            # sum over frames
+            LogPf_by_res_mean = np.sum(LogPf_by_frame, axis=0)
+            # slice by seg_indices
+            LogPf_by_res_mean = LogPf_by_res_mean[seg_indices]
+            return LogPf_by_res_mean
+
+        # return (LogPf_by_res_mean)
+    elif traj_len == 1:
+        LogPf_by_res = calc_LogP_by_res(universe, B_C, B_H)
+        LogPf_by_res = LogPf_by_res[seg_indices]
+        LogPf_by_res_mean = LogPf_by_res
+        return LogPf_by_res_mean
+
+
+def kints_to_dict(rates_path):
+    rates = pd.read_csv(rates_path, sep="\s+", header=None, skiprows=1)
+    rates_dict = rates.set_index(0).to_dict()[1]
+    return rates_dict
+
+
+def merge_kint_dicts_into_df(kint_dicts: List[dict]):
+    # key = Resid
+    # value = kint
+    # convert dicts to dfs
+    kint_dfs = []
+
+    for kint_dict in kint_dicts:
+        kint_df = pd.DataFrame.from_dict(kint_dict, orient="index")
+        kint_df = kint_df.reset_index()
+        kint_df.columns = ["Resid", "kint"]
+        kint_dfs.append(kint_df)
+
+    # aggregate by resid and mean Kint
+    kint_df = pd.concat(kint_dfs, ignore_index=True)
+    kint_df = kint_df.groupby("Resid").mean()
+    kint_df = kint_df.reset_index()
+    kint_df.columns = ["Resid", "kint"]
+    return kint_df
+
+
+def calc_dfrac_uptake_from_LogPf(LogPf_by_res, kints: dict, times: list, residues: list):
+    print("LogPf_by_res", LogPf_by_res)
+    assert len(LogPf_by_res) == len(residues), "LogPf_by_res and kints must be the same length"
+    Pf_by_res = np.exp(LogPf_by_res)
+    print("Pf_by_res", Pf_by_res)
+
+    kints = np.array([kints[res] for res in residues])
+    print("kints", kints)  # units min^-1
+    kobs_by_res = kints / Pf_by_res
+    print("kobs_by_res", kobs_by_res)
+
+    times = np.array(times).reshape(-1, 1)
+    print("times", times)
+    exponents = -kobs_by_res * times
+    print(exponents.shape)
+    print("exponents", exponents)
+
+    dfrac_uptake_by_res = 1 - np.exp(exponents)
+    for idx, t in enumerate(times):
+        print(f"t = {t} min")
+        print(f"dfrac_uptake_by_res = {dfrac_uptake_by_res[idx]}")
+
+    return dfrac_uptake_by_res
+
+
+# def PDB_to_DSSP(top_path:str, dssp_path:str, sim_name:str):
+#     """
+#     Run DSSP on a PDB file to generate a DSSP file. Reads the output and returns a list of secondary structure elements.
+#     Secondary structure elements are reduced to a single character: H (alpha helix), S (beta sheet), or L (loop).
+#     Args:
+#     - pdb_path (str): The path to the PDB file.
+#     - dssp_path (str): The path to the DSSP file.
+#     Returns:
+#     - list of secondary structure elements by residue.
+
+#     """
+#     # Run DSSP on the PDB file
+
+#     if sim_name is None:
+#         sim_name = "DSSP HEADER"
+
+#     pdb_test = mda.Universe(top_path)
+
+#     # write out as a pdb and add header
+#     pdb_test.atoms.write('do_mkdssp.pdb')
+#     with open('test.pdb', 'r') as original: data = original.read()
+#     with open('test.pdb', 'w') as modified: modified.write('HEADER    '+sim_name+'\n'+data)
+
+#     # Run DSSP on the PDB file
+
+
+def PDB_to_DSSP(top_path: str, dssp_path: str = None, sim_name: str = None):
+    """
+    Run DSSP on a PDB file to generate a DSSP file. Reads the output and returns a list of secondary structure elements.
+    Secondary structure elements are reduced to a single character: H (alpha helix), S (beta sheet), or L (loop).
+    Args:
+    - top_path (str): The path to the topology file to create the PDB file from.
+    - dssp_path (str): The path to save the DSSP file.
+    - sim_name (str): Simulation name to be included in the HEADER of the PDB file.
+    Returns:
+    - List of tuples, each containing the residue number and its secondary structure element.
+    """
+    temp_pdb = "do_mkdssp.pdb"
+
+    if sim_name is None:
+        sim_name = "DSSP HEADER"
+    if dssp_path is None:
+        dssp_path = "dssp_file.dssp"
+    print(top_path)
+    pdb_test = mda.Universe(top_path)
+
+    # write out as a pdb and add header
+    pdb_test.atoms.write(temp_pdb)
+
+    with open(temp_pdb, "r") as original:
+        data = original.read()
+    with open(temp_pdb, "w") as modified:
+        modified.write("HEADER    " + sim_name + "\n" + data)
+
+    # Run mkdssp to generate DSSP file
+    try:
+        subprocess.run(["mkdssp", temp_pdb, dssp_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error running DSSP: {e}")
+        return []
+
+    # Parse the DSSP file
+    secondary_structures = []
+    with open(dssp_path, "r") as dssp_file:
+        # Skip header lines
+        for line in dssp_file:
+            if line.startswith("  #  RESIDUE AA"):
+                break
+        # Read the secondary structure assignments
+        for line in dssp_file:
+            if len(line) > 13:  # Ensure line has enough data
+                residue_num = line[5:10].strip()
+                ss = line[16]
+                # Simplify the secondary structure to H, S, or L
+                if ss in "GHI":
+                    ss = "H"  # Helix
+                elif ss in "EB":
+                    ss = "S"  # Sheet
+                else:
+                    ss = "L"  # Loop or other
+                secondary_structures.append((residue_num, ss))
+
+    # Cleanup temp PDB file
+    os.remove(temp_pdb)
+    os.remove(dssp_path)
+    print(len(secondary_structures))
+    print(len(pdb_test.residues))
+    return secondary_structures
+
+
+def PCA_universe(
+    universe: mda.Universe,
+    selection: str = "name CA",
+    num_components: int = 100,
+    residues: np.array = None,
+):
+
+    if residues is not None:
+        resi_selection = " or ".join([f"resid {res}" for res in residues])
+        selection = f"{selection} and ({resi_selection})"
+    print("Selection")
+    print(selection)
+
+    # Select atoms
+    CA_atoms = universe.select_atoms(selection)
+
+    # Get number of atoms
+    n_atoms = len(CA_atoms)
+
+    # Get number of frames
+    n_frames = len(universe.trajectory)
+
+    # Initialize distance matrix
+    dist_matrix = np.zeros((n_frames, n_atoms * (n_atoms - 1) // 2))
+
+    # Calculate distance matrix for each frame
+    for i, ts in enumerate(universe.trajectory):
+        coords = CA_atoms.positions
+        dist_matrix[i] = pdist(coords)
+
+    print("Distance matrix shape")
+    print(dist_matrix.shape)
+
+    # Perform PCA on the distance matrix
+    print("Performing PCA")
+    pca = PCA(n_components=num_components)
+    pca.fit(dist_matrix)
+
+    # Project the data onto the first two principal components
+    return pca.transform(dist_matrix)
+
+
+def calculate_rmsd(universe: mda.Universe, selection: str = "name CA", residues: np.array = None):
+
+    if residues is not None:
+        resi_selection = " or ".join([f"resid {res}" for res in residues])
+        selection = f"{selection} and ({resi_selection})"
+
+    print("Selection")
+    print(selection)
+
+    ref = universe.select_atoms(selection)
+
+    rmsd = rms.RMSD(universe, ref, select=selection)
+    rmsd.run()
+
+    return rmsd.results.rmsd[:, 2]
+
+
+def calc_intra_residue_dist(
+    universe: mda.Universe, selection: str = "name CA", residues: np.array = None
+):
+    """after aligning the traj in memory
+    we calculate the sum of the distances
+    between the atoms of each residue for each frame"""
+
+    if residues is not None:
+        resi_selection = " or ".join([f"resid {res}" for res in residues])
+        selection = f"{selection} and ({resi_selection})"
+
+    print("Selection")
+    print(selection)
+
+    ref = universe.select_atoms(selection)
+
+    # Align the trajectory to the reference structure
+
+    alignment = AlignTraj(universe, ref, select=selection, in_memory=True).run()
+
+    n_frames = len(universe.trajectory)
+    n_residues = len(ref.residues)
+
+    # calculate the intrares distances of atomgroup for each frame
+
+    calc_intra_residue_dist = np.zeros((n_frames, n_residues * (n_residues - 1) // 2))
+    # coords = np.zeros((n_frames, n_residues, 3))
+    for i, ts in enumerate(universe.trajectory):
+        coords = ref.positions
+
+        calc_intra_residue_dist[i] = pdist(coords)
+
+    print(calc_intra_residue_dist.shape)
+
+    # average the distances for each frame
+    avg_intra_residue_dist = np.mean(calc_intra_residue_dist, axis=1)
+
+    return avg_intra_residue_dist
+
+
+# def cluster_traj_by_density(projected: np.array, cluster_frac1: float=0.5):
+#     """
+#     PCA Clustering of CA coordinates,
+#     Clusters frames to the cluster_frac1 fraction of the total frames
+#     Returns a universe with the clustered frames and their weights as the occupancy of the cluster
+#     also retuns the PCA object to transform new data
+#     """
+#     # Select atoms
+#     print("Transformed data")
+#     print(projected.shape)
+#     n_frames = projected.shape[0]
+#     n_final_frames = int(n_frames*cluster_frac1)
+#     # Perform KMeans clustering
+#     kmeans = KMeans(n_clusters=n_final_frames)
+#     print("Fitting KMeans")
+#     kmeans.fit(projected)
+
+#     # Get the cluster centers
+#     print("Getting cluster centers")
+#     cluster_centers = kmeans.cluster_centers_
+#     print(cluster_centers.shape)
+#     # Get the cluster labels
+#     print("Getting cluster labels")
+#     cluster_labels = kmeans.labels_
+#     print(cluster_labels.shape)
+#     # unique cluster labels
+#     unique_labels = np.unique(cluster_labels)
+#     print("Unique labels")
+#     print(unique_labels.shape)
+#     # pick frames closest to cluster centers
+#     cluster_frames = []
+#     for center in cluster_centers:
+#         # get the index of the closest frame to the cluster center
+#         closest_frame = np.argmin(np.linalg.norm(projected - center, axis=1))
+#         cluster_frames.append(closest_frame)
+#     print("Cluster frames")
+#     print(cluster_frames)
+#     print(len(cluster_frames))
+#     # Get the weights of the clusters
+#     cluster_weights = np.bincount(cluster_labels)/n_frames
+#     #normalize the weights to sum to 1
+#     cluster_weights = cluster_weights/np.sum(cluster_weights)
+#     cluster_weights = cluster_weights*len(unique_labels) # HDXER requires weights that add up to the number of frames
+#     print("Cluster weights")
+#     print(cluster_weights)
+#     print(cluster_weights.shape)
+
+#     # plot_args =  (projected, cluster_labels, cluster_centers, cluster_weights)
+
+#     return cluster_frames, cluster_weights, projected, cluster_centers, cluster_labels
+
+
+def cluster_traj_by_density(projected, cluster_frac1=1.0):
+    """
+    Cluster trajectory and assign weights based on frame density.
+    If unique clusters < desired clusters, sample additional frames from large clusters.
+
+    Parameters:
+    -----------
+    projected : np.ndarray
+        PCA projected trajectory data
+    cluster_frac1 : float
+        Desired proportion of frames to select
+
+    Returns:
+    --------
+    cluster_frames : np.array
+        Selected frame indices
+    cluster_weights : np.array
+        Weights for selected clusters
+    projected : np.array
+        Original projected data
+    cluster_centers : np.array
+        Centers of selected clusters
+    cluster_labels : np.array
+        Cluster assignments for all frames
+    """
+    from sklearn.cluster import KMeans
+
+    n_frames = len(projected)
+    n_desired = int(n_frames * cluster_frac1)
+
+    # Initial clustering
+    kmeans = KMeans(n_clusters=n_frames, random_state=42)
+    cluster_labels = kmeans.fit_predict(projected)
+    cluster_centers = kmeans.cluster_centers_
+
+    # Get unique clusters
+    unique_labels = np.unique(cluster_labels)
+    n_unique = len(unique_labels)
+    print(f"Number of unique clusters found: {n_unique}")
+
+    # Initialize arrays
+    cluster_frames = []
+    cluster_weights = []
+    selected_centers = []
+
+    if n_unique > n_desired:
+        # Case 1: More unique clusters than desired - sample down
+        selected_labels = np.sort(np.random.choice(unique_labels, n_desired, replace=False))
+        for label in selected_labels:
+            cluster_mask = cluster_labels == label
+            cluster_points = projected[cluster_mask]
+            center = cluster_centers[label]
+
+            # Get representative frame
+            distances = np.linalg.norm(cluster_points - center, axis=1)
+            representative_idx = np.where(cluster_mask)[0][np.argmin(distances)]
+
+            cluster_frames.append(representative_idx)
+            selected_centers.append(center)
+            cluster_weights.append(np.sum(cluster_mask) / n_frames)
+
+    else:
+        # Case 2: Fewer unique clusters than desired - sample additional frames
+        print(f"Found {n_unique} clusters, sampling up to {n_desired} frames")
+
+        # First get one frame from each unique cluster
+        cluster_sizes = {}
+        for label in unique_labels:
+            cluster_mask = cluster_labels == label
+            cluster_points = projected[cluster_mask]
+            center = cluster_centers[label]
+
+            # Get representative frame
+            distances = np.linalg.norm(cluster_points - center, axis=1)
+            representative_idx = np.where(cluster_mask)[0][np.argmin(distances)]
+
+            cluster_frames.append(representative_idx)
+            selected_centers.append(center)
+            cluster_weights.append(np.sum(cluster_mask) / n_frames)
+
+            # Store cluster size
+            cluster_sizes[label] = np.sum(cluster_mask)
+
+        # Sample additional frames from larger clusters
+        frames_needed = n_desired - n_unique
+        if frames_needed > 0:
+            # Sort clusters by size
+            sorted_clusters = sorted(cluster_sizes.items(), key=lambda x: x[1], reverse=True)
+
+            # Sample additional frames proportional to cluster size
+            for label, size in sorted_clusters:
+                if frames_needed <= 0:
+                    break
+
+                cluster_mask = cluster_labels == label
+                cluster_points = projected[cluster_mask]
+                center = cluster_centers[label]
+
+                # Calculate frames to sample from this cluster
+                frames_from_cluster = min(frames_needed, int(size * frames_needed / n_frames) + 1)
+
+                if frames_from_cluster > 0:
+                    # Get distances to center
+                    distances = np.linalg.norm(cluster_points - center, axis=1)
+                    frame_indices = np.where(cluster_mask)[0]
+
+                    # Remove already selected frame
+                    mask = ~np.isin(frame_indices, cluster_frames)
+                    frame_indices = frame_indices[mask]
+                    distances = distances[mask]
+
+                    if len(frame_indices) > 0:
+                        # Sort by distance and take needed frames
+                        sorted_indices = frame_indices[np.argsort(distances)]
+                        additional_frames = sorted_indices[:frames_from_cluster]
+
+                        for idx in additional_frames:
+                            cluster_frames.append(idx)
+                            selected_centers.append(center)
+                            cluster_weights.append(size / n_frames / frames_from_cluster)
+
+                        frames_needed -= len(additional_frames)
+
+    cluster_frames = np.array(cluster_frames)
+    selected_centers = np.array(selected_centers)
+    cluster_weights = np.array(cluster_weights)
+
+    # Normalize weights
+    cluster_weights = cluster_weights / np.sum(cluster_weights)
+
+    print(f"Selected frames: {len(cluster_frames)}")
+    print(f"Selected centers: {len(selected_centers)}")
+    print(f"Cluster weights: {len(cluster_weights)}")
+
+    assert len(cluster_weights) == len(selected_centers), "Weights and centers must match"
+    assert len(cluster_frames) == len(selected_centers), "Frames and centers must match"
+
+    return cluster_frames, cluster_weights, projected, selected_centers, cluster_labels
+
+
+def recluster_traj_by_weight(
+    projected: np.array, cluster_weights: np.array, cluster_size2: int = 10
+):
+
+    # # Select atoms
+    # CA_atoms = clustered_universe.select_atoms(selection)
+
+    # # Get coordinates
+    # coords = np.array([CA_atoms.positions.flatten() for ts in clustered_universe.trajectory])
+    # print("Coords shape")
+    # print(coords.shape)
+    # # Perform PCA
+    # print("Performing PCA")
+    # pca = pca_operator
+    # # Project the data onto the first two principal components
+    # projected = pca.transform(coords)
+    print("Transformed data")
+    print(projected.shape)
+
+    # Perform KMeans clustering by weight
+    n_frames = projected.shape[0]
+    n_final_frames = int(cluster_size2)
+
+    kmeans = KMeans(n_clusters=n_final_frames)
+    kmeans.fit(projected, sample_weight=cluster_weights)
+
+    # Get the cluster centers
+    cluster_centers = kmeans.cluster_centers_
+    print("Cluster Centers")
+    print(cluster_centers)
+    # Get the cluster labels
+    print("Getting cluster labels")
+    cluster_labels = kmeans.labels_
+    print(cluster_labels.shape)
+    print("Unique labels")
+    unique_labels = np.unique(cluster_labels)
+    # pick frames closest to cluster centers
+    cluster_frames = []
+    for center in cluster_centers:
+        # get the index of the closest frame to the cluster center
+        closest_frame = np.argmin(np.linalg.norm(projected - center, axis=1))
+        cluster_frames.append(closest_frame)
+
+    # sum up the weights for each cluster from the original cluster weights
+    final_cluster_weights = np.array(
+        [np.sum(cluster_weights[cluster_labels == i]) for i in unique_labels]
+    )
+
+    # normalize the weights to sum to 1
+    final_cluster_weights = (final_cluster_weights / np.sum(final_cluster_weights)) * (
+        n_final_frames / len(unique_labels)
+    )
+
+    # multiply by the number of frames
+    # HDXER requires weights that add up to the number of frames
+    final_cluster_weights = (
+        final_cluster_weights * n_final_frames * (n_final_frames / final_cluster_weights.shape[0])
+    )
+    print("Final Cluster Weights")
+    print(final_cluster_weights)
+    print(np.sum(final_cluster_weights))
+    print(n_final_frames)
+
+    sum_weights = np.round(np.sum(final_cluster_weights)).astype(int)
+
+    assert sum_weights == n_final_frames, (
+        f"Final sum of cluster weights {sum_weights} does not equal n_final_frames {n_final_frames}"
+    )
+
+    print("Final Cluster Weights")
+    print(final_cluster_weights)
+    print(final_cluster_weights.shape)
+
+    # plot_args = (projected, cluster_labels, cluster_centers, cluster_weights)
+
+    return cluster_frames, final_cluster_weights, cluster_centers, cluster_labels
+
+
+def flatten_weights_to_frames(avg_weights, cluster_size2, threshold=False):
+
+    if threshold:
+        threshold_frac = cluster_size2 // len(avg_weights)
+        threshold_val = np.max(avg_weights) * threshold_frac
+
+    else:
+        threshold_val = 0
+
+    normalised_weights = avg_weights * avg_weights.size
+    # print(normalised_weights)
+    print(np.round(normalised_weights, 1))
+    print(list(range(len(normalised_weights))))
+    print(len(normalised_weights))
+
+    recluster_frames = np.argsort(normalised_weights)[::-1]
+    print(recluster_frames)
+    normalised_weights = np.round(normalised_weights).astype(int)
+
+    # remove frames with weights less than the threshold
+    recluster_frames = recluster_frames[normalised_weights[recluster_frames] > threshold_val]
+
+    # expand frames so that each frame is repeated by the number of times it is selected
+    recluster_frames = np.repeat(recluster_frames, normalised_weights[recluster_frames])
+
+    print("Recluster Frames")
+    print(recluster_frames)
+    print(len(recluster_frames))
+
+    # sample the frames to the cluster size
+    recluster_frames = np.random.choice(recluster_frames, cluster_size2, replace=True)
+
+    final_cluster2_weights = np.ones(len(recluster_frames))
+    print("Modal Cluster")
+    print(recluster_frames, len(recluster_frames))
+    print(final_cluster2_weights)
+    assert len(recluster_frames) == cluster_size2, (
+        f"Reclustered frames: {len(recluster_frames)} != {cluster_size2}"
+    )
+
+    return recluster_frames, final_cluster2_weights
+
+
+def write_pdb_by_frame(traj: mda.Universe, frames, out_dir, pdb_name):
+    pdb_path = os.path.join(out_dir, pdb_name)
+    os.makedirs(out_dir, exist_ok=True)
+
+    print(f"Writing RW representative PDB to {pdb_path}")
+    with mda.Writer(pdb_path, traj.trajectory.n_frames, multiframe=True) as W:
+        for ts in traj.trajectory[frames]:
+            W.write(traj)
+
+
+def read_MaxEnt_features(path: str):
+
+    print("Reading MaxEnt features")
+    print(path)
+
+    contacts, hbonds, _ = read_contacts_hbonds(
+        folderlist=[path],
+        contacts_prefix="Contacts_chain_0_res_",
+        hbonds_prefix="Hbonds_chain_0_res_",
+    )
+    features = (contacts, hbonds)
+
+    print("features", features)
+    print("contacts", contacts)
+    print("contacts", contacts.shape)
+    print("hbonds", hbonds)
+    print("hbonds", hbonds.shape)
+
+    # raise NotImplementedError("Need to implement this function")
+    return features
+
+
+def run_calc_hdx(args: dict):
+
+    trajs = args["trajs"]
+    top = args["top"]
+    hdx_method = args["hdx_method"]
+    log = args["log"]
+    out_prefix = args["out_prefix"]
+    segs = args["segs"]
+    mopt = args["mopt"]
+    times = args["times"]
+    stride = args["stride"]
+    rep_name = args["rep_name"]
+    out_dir = args["out_dir"]
+    calc_hdx = args["calc_hdx"]
+    HDXer_env = args["HDXer_env"]
+
+    times_as_str_list = [str(time) for time in times]
+    times_as_str = " ".join(times_as_str_list)
+
+    ### how do we add times
+
+    # calc_hdx_command.extend(["-t", traj] for traj in trajs)
+    # print(" ".join(calc_hdx_command))
+    env_path = conda_to_env_dict(HDXer_env)
+    try:
+        python = "conda run -n HDXER_ENV python"
+        calc_hdx_command = [
+            python,
+            calc_hdx,
+            "-t",
+            *trajs,
+            "-p",
+            top,
+            "-m",
+            hdx_method,
+            "-log",
+            log,
+            "-out",
+            out_prefix,
+            "-seg",
+            segs,
+            "-mopt",
+            mopt,
+            "--times",
+            times_as_str,
+            "-str",
+            stride,
+        ]
+        print(calc_hdx_command)
+        subprocess.run(
+            " ".join(calc_hdx_command), env=env_path, shell=True, check=True, cwd=out_dir
+        )
+    except:
+        python = "source ~/.bashrc ; conda activate HDXER_ENV ; python"
+        calc_hdx_command = [
+            python,
+            calc_hdx,
+            "-t",
+            *trajs,
+            "-p",
+            top,
+            "-m",
+            hdx_method,
+            "-log",
+            log,
+            "-out",
+            out_prefix,
+            "-seg",
+            segs,
+            "-mopt",
+            mopt,
+            "--times",
+            times_as_str,
+            "-str",
+            stride,
+        ]
+        print(calc_hdx_command)
+        subprocess.run(
+            " ".join(calc_hdx_command), env=env_path, shell=True, check=True, cwd=out_dir
+        )
+
+    df = dfracs_to_df(out_prefix + "Segment_average_fractions.dat", names=times)
+
+    df["calc_name"] = [rep_name for i in range(len(df))]
+
+    return df
+
+
+def read_LogPfs(out_prefix):
+    logPf_path = out_prefix + "SUMMARY_logProtection_factors.dat"
+
+    logPf = pd.read_csv(logPf_path, sep="\s+", index_col=0)
+
+    logPf = logPf[logPf["ResID"] > 0]
+
+    logPf["Residues"] = logPf.index
+    logPf["LogPf"] = logPf["ResID"]
+
+    logPf = logPf[["Residues", "LogPf"]]
+
+    return logPf
+
+
+def calc_ave_lnpi(contacts, hbonds, bc, bh, weights):
+    """calculate average ln(protection factors) using given  contacts & H-bonds,
+    and given beta values. The resulting array of protection factor for each residue is broadcast
+    of shape [n_residues]
+
+    Usage: calc_trial_ave_lnpi(ave_contacts, ave_hbonds, bc, bh, weights)
+
+    Returns: trial_ave_lnpi"""
+
+    # multiply the contacts and hbonds by the weights
+    ave_contacts = np.sum(np.multiply(contacts, weights), axis=1)
+    ave_hbonds = np.sum(np.multiply(hbonds, weights), axis=1)
+
+    trial_ave_lnpi = (bc * ave_contacts) + (bh * ave_hbonds)
+
+    return trial_ave_lnpi
+
+
+def calc_likelihood_from_LogPfs(
+    prior_LogPfs: np.ndarray, test_LogPfs: np.ndarray, R: float = 8.31, T: float = 300
+) -> float:
+    """
+    Calculate likelihood between two sets of LogPfs using PMF-based free energy calculations.
+    This uses the conformational enthalpy and entropy derived from the protection factors
+    to compute a Gibbs free energy based likelihood.
+
+    Parameters:
+    -----------
+    prior_LogPfs : np.ndarray
+        Reference/prior set of residue LogPf values
+    test_LogPfs : np.ndarray
+        Test set of residue LogPf values to compare against prior
+    R : float
+        Gas constant in J/(mol·K), default 8.31
+    T : float
+        Temperature in Kelvin, default 300
+
+    Returns:
+    --------
+    float
+        Likelihood score based on Boltzmann distribution of free energy differences
+
+    Notes:
+    ------
+    The calculation follows these steps:
+    1. Calculate average LogPf values for each residue position
+    2. Calculate conformational enthalpy from LogPf differences
+    3. Calculate conformational entropy using probabilities from LogPfs
+    4. Compute Gibbs free energy difference
+    5. Convert to likelihood using Boltzmann distribution
+    """
+    # Verify inputs are same length
+    if len(prior_LogPfs) != len(test_LogPfs):
+        raise ValueError(
+            f"LogPf arrays must be same length: {len(prior_LogPfs)} != {len(test_LogPfs)}"
+        )
+
+    # Calculate log delta PFi (differences from average)
+    prior_avg = np.mean(prior_LogPfs)
+    test_avg = np.mean(test_LogPfs)
+    print(f"prior_avg: {prior_avg:.2f}, test_avg: {test_avg:.2f}")
+
+    prior_log_delta = np.abs(prior_LogPfs - prior_avg)
+    test_log_delta = np.abs(test_LogPfs - test_avg)
+    # print(f"prior_log_delta: {prior_log_delta.round(2)}, test_log_delta: {test_log_delta.round(2)}")
+
+    # Calculate conformational enthalpy
+    prior_enthalpy = R * T * prior_log_delta
+    test_enthalpy = R * T * test_log_delta
+    print(f"prior_enthalpy: {prior_enthalpy.round(2)}, test_enthalpy: {test_enthalpy.round(2)}")
+
+    # Calculate probability distributions
+    prior_Pi = np.exp(-prior_log_delta)
+    test_Pi = np.exp(-test_log_delta)
+    print(f"prior_Pi: {prior_Pi.round(2)}, test_Pi: {test_Pi.round(2)}")
+
+    # Calculate conformational entropy
+    prior_entropy = -R * np.sum(prior_Pi * np.log(prior_Pi))
+    test_entropy = -R * np.sum(test_Pi * np.log(test_Pi))
+    print(f"prior_entropy: {prior_entropy:.2f}, test_entropy: {test_entropy:.2f}")
+
+    # Calculate delta G between distributions
+    delta_H = np.abs((test_enthalpy) - (prior_enthalpy))
+    delta_S = np.abs(test_entropy - prior_entropy)
+    delta_G = delta_H - T * delta_S
+    mean_delta_G = np.mean(delta_G)
+    print(
+        f"delta_H: {delta_H.round(2)}, delta_S: {delta_S:.2f}, delta_G: {delta_G.round(2)}, mean_delta_G: {mean_delta_G:.2f}"
+    )
+
+    # Convert to likelihood using Boltzmann distribution
+    likelihood = np.exp(-mean_delta_G / (R * T))
+    print(f"likelihood: {likelihood:.2f}")
+
+    return likelihood

@@ -1,0 +1,10 @@
+[
+  {
+    "rho": 0.01,
+    "ensemble": "ISO-Bimodal",
+    "noise_replicate": 0,
+    "split_type": "R3",
+    "preset": "calibration",
+    "wall_seconds": 41257.211104559006
+  }
+]

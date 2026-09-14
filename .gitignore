@@ -5,7 +5,6 @@ __pycache__/
 
 # C extensions
 *.so
-
 # Distribution / packaging
 .Python
 build/
@@ -159,6 +158,33 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-raw_data/HDXer_tutorial
+#.dat files are dumped to the local directo
+
+initial_weights_*.dat
+# ignore zip files in the root directory
+*.zip
+
+# dont ignore BPTI_raw_data.zip
+!BPTI_raw_data.zip
+
+raw_data/
 data/
 logs/
+results/
+plots/
+
+results*/*
+plots*/*
+.aider*
+
+*.tar.gz
+
+# large restart pickles from HDXer runs - too big for GitHub
+**/*_restart.pkl
+
+# generated/regeneratable data under figure_scripts - trajectories, analysis outputs, generated figures
+figure_scripts/**/*.xtc
+figure_scripts/**/_output*/**/*.pkl
+figure_scripts/**/_output*/**/*.dat
+figure_scripts/**/*.eps
+figure_scripts/**/*.pdf
